@@ -1,22 +1,26 @@
 """
 Src/Exp5_EE_Model/Resnet_Train_and_Evaluate/resnet50_evaluate.py
 """
+
+import warnings
+from pathlib import Path
+
 import torch
 import torch.nn.functional as F
-import warnings
-from Scripts.Exp5_EE_Model.Models.Resnet50 import MultiEEResNet50, Bottleneck
-from Src.Utils.utils_function import get_device, get_test_data_loaders
+from Models.ModelNet.Resnet50 import Bottleneck, MultiEEResNet50
+from Src.Algo.Utils.utils_function import get_device, get_test_data_loaders
+
 from Src.paras import DATA_ROOT, WEIGHTS_DIR
 
 
 def main():
     # 1) device
     device = get_device()
-    if device.type == 'cpu':
+    if device.type == "cpu":
         warnings.filterwarnings("ignore", message=".*pin_memory.*")
 
     # 2) data
-    test_loader = get_test_data_loaders(root=DATA_ROOT, batch_size=128)
+    test_loader = get_test_data_loaders(root=str(DATA_ROOT), batch_size=128)
     blocks_num = [3, 4, 6, 3]  # ResNet‑50
     num_classes = 10  # CIFAR‑10
     include_top = True
@@ -26,9 +30,9 @@ def main():
         block=Bottleneck,
         blocks_num=blocks_num,
         num_classes=num_classes,
-        include_top=include_top
+        include_top=include_top,
     ).to(device)
-    model_path = f'{WEIGHTS_DIR}/ResNet50_multi_EE_0508_0137.pth'
+    model_path = Path(WEIGHTS_DIR) / "ResNet50_multi_EE_model.pth"
 
     # 4) Load weights
     try:
@@ -112,22 +116,31 @@ def main():
         return
 
     # Exit probability
-    print(f'Full exit rate:\t{full_counter / n_samples * 100:.2f}%')
-    print(f'Early exit1 rate:\t{ee1_counter / n_samples * 100:.2f}%')
-    print(f'Early exit2 rate:\t{ee2_counter / n_samples * 100:.2f}%\n')
+    print(f"Full exit rate:\t{full_counter / n_samples * 100:.2f}%")
+    print(f"Early exit1 rate:\t{ee1_counter / n_samples * 100:.2f}%")
+    print(f"Early exit2 rate:\t{ee2_counter / n_samples * 100:.2f}%\n")
 
     # Correct
-    print(f'Overall Test Accuracy:\t{correct / n_samples * 100:.2f}%')
+    print(f"Overall Test Accuracy:\t{correct / n_samples * 100:.2f}%")
     # 防止除以 0 的错误
-    if full_counter > 0: print(f'Full exit Accuracy:\t{full_correct / full_counter * 100:.2f}%')
-    if ee1_counter > 0: print(f'Early exit1 Accuracy:\t{ee1_correct / ee1_counter * 100:.2f}%')
-    if ee2_counter > 0: print(f'Early exit2 Accuracy:\t{ee2_correct / ee2_counter * 100:.2f}%\n')
+    if full_counter > 0:
+        print(f"Full exit Accuracy:\t{full_correct / full_counter * 100:.2f}%")
+    if ee1_counter > 0:
+        print(f"Early exit1 Accuracy:\t{ee1_correct / ee1_counter * 100:.2f}%")
+    if ee2_counter > 0:
+        print(f"Early exit2 Accuracy:\t{ee2_correct / ee2_counter * 100:.2f}%\n")
 
     # Direct Correct
-    print(f'Full exit Direct Accuracy (no threshold):\t{full_correct_no_thr / n_samples * 100:.2f}%')
-    print(f'Early exit1 Direct Accuracy (no threshold):\t{ee1_correct_no_thr / n_samples * 100:.2f}%')
-    print(f'Early exit2 Direct Accuracy (no threshold):\t{ee2_correct_no_thr / n_samples * 100:.2f}%\n')
+    print(
+        f"Full exit Direct Accuracy (no threshold):\t{full_correct_no_thr / n_samples * 100:.2f}%"
+    )
+    print(
+        f"Early exit1 Direct Accuracy (no threshold):\t{ee1_correct_no_thr / n_samples * 100:.2f}%"
+    )
+    print(
+        f"Early exit2 Direct Accuracy (no threshold):\t{ee2_correct_no_thr / n_samples * 100:.2f}%\n"
+    )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

@@ -1,30 +1,32 @@
 """
 Src/Utils/log_function.py
 """
-import time
-import json
-import torch
-import pandas as pd
-import numpy as np
-from datetime import datetime
-from typing import Dict, Union, List
-from pathlib import Path
 
-from Scripts.Exp2_Dynamic.plot_decision import plot_X, plot_Y
-from Scripts.Exp3_DSCI_Convergency.plot_convergency import plot_convergence
-from Src.Utils.utils_function import NumpyEncoder, open_file
+import json
+import time
+from datetime import datetime
+from pathlib import Path
+from typing import Dict, List, Union
+
+import numpy as np
+import pandas as pd
+import torch
+
+from Scripts.Exp3_Dynamic.plot_decision import plot_X, plot_Y
+from Scripts.Exp4_DSCI_Convergency.plot_convergency import plot_convergence
+from Src.Algo.Utils.utils_function import NumpyEncoder, open_file
 from Src.paras import Paras
 
 
 def save_experiment_results(
-        save_dir: Path,
-        algo_name: str,
-        paras,
-        best_val: float,
-        best_sol: tuple,
-        history: list,
-        hyper_params: dict = None,
-        extra_logs: list = None
+    save_dir: Path,
+    algo_name: str,
+    paras,
+    best_val: float,
+    best_sol: tuple,
+    history: list,
+    hyper_params: dict = None,
+    extra_logs: list = None,
 ):
     # ======== 1) 创建文件夹 ========
     timestamp = time.strftime("%Y%m%d_%H%M%S")
@@ -39,10 +41,12 @@ def save_experiment_results(
         "Time": timestamp,
         "Best_Objective_Value": best_val,
         "Hyper_Parameters": hyper_params,
-        "System_Parameters": paras_dict
+        "System_Parameters": paras_dict,
     }
     if extra_logs is not None:
-        config_data["Extra_Logs_Keys"] = sorted(list(extra_logs[0].keys())) if len(extra_logs) > 0 else []
+        config_data["Extra_Logs_Keys"] = (
+            sorted(list(extra_logs[0].keys())) if len(extra_logs) > 0 else []
+        )
     json_path = exp_dir / "config.json"
     with open(json_path, "w", encoding="utf-8") as f:
         json.dump(config_data, f, indent=4, cls=NumpyEncoder)
@@ -58,7 +62,9 @@ def save_experiment_results(
     if extra_logs is not None and len(extra_logs) > 0:
         keys = extra_logs[0].keys()
         for k in keys:
-            extra_npz[f"metrics_{k}"] = np.array([row.get(k) for row in extra_logs], dtype=object)
+            extra_npz[f"metrics_{k}"] = np.array(
+                [row.get(k) for row in extra_logs], dtype=object
+            )
     np.savez(
         npz_path,
         # 核心解
@@ -69,7 +75,7 @@ def save_experiment_results(
         # 标量和历史
         best_val=best_val,
         history=np.array(history),
-        **extra_npz
+        **extra_npz,
     )
 
     # ======== 4) 绘制并保存曲线 ========
@@ -78,7 +84,7 @@ def save_experiment_results(
     plot_Y(Y_opt, paras.E, save_dir=exp_dir)
 
 
-def load_and_analyze_results(exp_dir: Path, analysis = True):
+def load_and_analyze_results(exp_dir: Path, analysis=True):
     """
     加载并复现实验结果
     """
@@ -101,10 +107,10 @@ def load_and_analyze_results(exp_dir: Path, analysis = True):
     sys_params = config.get("System_Parameters", {})
     paras = Paras.from_dict(sys_params)
     best_val = config.get("Best_Objective_Value", "N/A")
-    X_opt = data['X']
-    Y_opt = data['Y']
-    F_e, F_c = data['F_e'], data['F_c']
-    history = data['history']
+    X_opt = data["X"]
+    Y_opt = data["Y"]
+    F_e, F_c = data["F_e"], data["F_c"]
+    history = data["history"]
 
     if analysis:
         # ======== 3) 打印结果 ========
@@ -119,7 +125,7 @@ def load_and_analyze_results(exp_dir: Path, analysis = True):
 
         # 3.2 系统参数
         print("\n关键系统参数 (System Parameters):")
-        target_sys_keys = ['F_u', 'f_e_max', 'f_c_max', 'alpha', 'beta']
+        target_sys_keys = ["F_u", "f_e_max", "f_c_max", "alpha", "beta"]
         for key in target_sys_keys:
             val = sys_params.get(key, "Not Found")
             # 如果是数组，打印其形状或均值，避免刷屏
@@ -142,7 +148,9 @@ def load_and_analyze_results(exp_dir: Path, analysis = True):
             open_file(conv_svgs[0])
         else:
             print("未发现收敛图，正在重新绘制...")
-            plot_convergence(history, alg_name=f"{algo_name}_Convergence", save_dir=exp_dir)
+            plot_convergence(
+                history, alg_name=f"{algo_name}_Convergence", save_dir=exp_dir
+            )
         if decs_svgs:
             print(f"发现决策图，正在打开: {decs_svgs[0].name}")
             open_file(decs_svgs[0])
@@ -155,17 +163,19 @@ def load_and_analyze_results(exp_dir: Path, analysis = True):
     return X_opt, Y_opt, F_e, F_c, history, paras
 
 
-def save_model_weights(model: torch.nn.Module, model_name: str, weights_dir: Path) -> Path:
+def save_model_weights(
+    model: torch.nn.Module, model_name: str, weights_dir: Path
+) -> Path:
     weights_dir.mkdir(parents=True, exist_ok=True)
-    model_path = weights_dir / f"{model_name}_{datetime.now().strftime('%m%d_%H%M')}.pth"
+    model_path = (
+        weights_dir / f"{model_name}_{datetime.now().strftime('%m%d_%H%M')}.pth"
+    )
     torch.save(model.state_dict(), model_path)
     return model_path
 
 
 def save_train_log(
-        log_data: Dict[str, Union[List[float], List[int]]],
-        model_name: str,
-        log_dir: Path
+    log_data: Dict[str, Union[List[float], List[int]]], model_name: str, log_dir: Path
 ) -> Path:
     log_dir.mkdir(parents=True, exist_ok=True)
     filename = f"training_log_{model_name}_{datetime.now().strftime('%m%d_%H%M')}.csv"
@@ -174,11 +184,7 @@ def save_train_log(
     return csv_path
 
 
-def save_thr_data(
-        thr_data: pd.DataFrame,
-        data_name: str,
-        save_dir: Path
-) -> Path:
+def save_thr_data(thr_data: pd.DataFrame, data_name: str, save_dir: Path) -> Path:
     save_dir.mkdir(parents=True, exist_ok=True)
     filename = f"{data_name}_{datetime.now().strftime('%m%d_%H%M')}.csv"
     csv_path = save_dir / filename
@@ -187,5 +193,7 @@ def save_thr_data(
 
 
 if __name__ == "__main__":
-    target_path = Path("D:\Coding\Python\DSCI\Result\Optimize\PPO\PPO_20260127_115650")
+    from Src.paras import RESULT_DIR
+
+    target_path = RESULT_DIR / "Optimize" / "PPO" / "PPO_20260127_115650"
     load_and_analyze_results(target_path)

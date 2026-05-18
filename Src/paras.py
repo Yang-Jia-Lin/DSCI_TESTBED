@@ -1,24 +1,23 @@
+"""Src/paras.py
+
+全局路径与实验常量
 """
-Src/paras.py
-"""
-import platform
+
 from dataclasses import dataclass, field
 from pathlib import Path
+
 import numpy as np
 import pandas as pd
 
-if platform.system() == "Windows":
-    BASE_DRIVE = Path("D:/Coding/Python/DSCI")
-else:
-    BASE_DRIVE = Path("/workspace/user/Coding/jialin/DSCI")
+BASE_DRIVE = Path(__file__).resolve().parents[1]
 
 # 2. 基于根目录定义子路径 (pathlib 会自动处理 / 和 \)
 DATA_DIR = BASE_DRIVE / "Data"
-RESULT_DIR = BASE_DRIVE / "Result"
+RESULT_DIR = BASE_DRIVE / "Results"
 
 # --- Train Data Path ---
 DATA_ROOT = DATA_DIR / "CIFAR10"
-WEIGHTS_DIR = DATA_DIR / "Model_Checkpoints"
+WEIGHTS_DIR = BASE_DRIVE / "Models" / "Weights"
 
 # --- Simulate Path ---
 MODEL_NAME = "Resnet50"
@@ -27,11 +26,12 @@ ACC_CSV_PATH = DATA_DIR / f"{MODEL_NAME}_accs.csv"
 LAYER_CSV_PATH = DATA_DIR / f"{MODEL_NAME}_layer_stats.csv"
 
 # --- Result Path ---
-RESULT_SOTA_PATH = RESULT_DIR / "Exp1_SOTA"
-RESULT_DYNAMIC_PATH = RESULT_DIR / "Exp2_Dynamic"
-RESULT_CONVERGENCE_PATH = RESULT_DIR / "Exp3_Convergence"
-RESULT_ABLATION_PATH = RESULT_DIR / "Exp4_Ablation"
-RESULT_EE_MODEL_PATH = RESULT_DIR / "Exp5_EE_Model"
+RESULT_TESTBED_PATH = RESULT_DIR / "Exp1_Testbed"
+RESULT_SOTA_PATH = RESULT_DIR / "Exp2_Baseline"
+RESULT_DYNAMIC_PATH = RESULT_DIR / "Exp3_Dynamic"
+RESULT_CONVERGENCE_PATH = RESULT_DIR / "Exp4_Convergence"
+RESULT_ABLATION_PATH = RESULT_DIR / "Exp5_Ablation"
+RESULT_EE_MODEL_PATH = RESULT_DIR / "Exp6_EE_Model"
 
 # --- Optimize Path ---
 RESULT_GA_PATH = RESULT_DIR / "Optimize/GA"
@@ -64,13 +64,14 @@ BASE_STATION_POWER = 1.0  # 基站的发射功率 W
 NOISE_POWER = 8e-11  # 高斯噪声 W
 
 COLORS = {
-    'grey': '#999999',
-    'brown': '#8D574B',
-    'green': '#2ca02c',
-    'purple': '#9467bd',
-    'red': '#d62728',
-    'blue': '#1f77b4'
+    "grey": "#999999",
+    "brown": "#8D574B",
+    "green": "#2ca02c",
+    "purple": "#9467bd",
+    "red": "#d62728",
+    "blue": "#1f77b4",
 }
+
 
 @dataclass
 class Paras:
@@ -88,10 +89,16 @@ class Paras:
 
     # 可变类型
     E: list = field(default_factory=lambda: list(EARLY_EXIT_LAYERS))  # 早退层的集合
-    D: list = field(default_factory=lambda: list(DATA_SIZE_LAYERS))  # 各层的输出数据大小
+    D: list = field(
+        default_factory=lambda: list(DATA_SIZE_LAYERS)
+    )  # 各层的输出数据大小
     C: list = field(default_factory=lambda: list(COMPUTE_SIZE_LAYERS))  # 各层的计算大小
-    F_u: np.ndarray = field(default_factory=lambda: np.array(USER_FREQs))  # 每个用户的处理频率
-    H_u: np.ndarray = field(default_factory=lambda: np.array(CHANNEL_GAINS_USERS))  # 每个用户的信道增益
+    F_u: np.ndarray = field(
+        default_factory=lambda: np.array(USER_FREQs)
+    )  # 每个用户的处理频率
+    H_u: np.ndarray = field(
+        default_factory=lambda: np.array(CHANNEL_GAINS_USERS)
+    )  # 每个用户的信道增益
     rates: np.ndarray | None = field(init=False, default=None)
     accs: np.ndarray | None = field(init=False, default=None)
 
@@ -101,12 +108,14 @@ class Paras:
         # 检查用户数和配置数组长度是否匹配
         if len(self.F_u) != self.n:
             print(f"Warning: F_u length ({len(self.F_u)}) does not match n ({self.n}).")
-        from Src.Utils.parsing_data import parsing_rate_and_acc
+        from Src.Algo.Utils.parsing_data import parsing_rate_and_acc
+
         self.rates, self.accs = parsing_rate_and_acc(self)
 
     @classmethod
     def from_dict(cls, data: dict):
         import inspect
+
         valid_keys = inspect.signature(cls).parameters.keys()
         filtered_params = {k: v for k, v in data.items() if k in valid_keys}
         return cls(**filtered_params)

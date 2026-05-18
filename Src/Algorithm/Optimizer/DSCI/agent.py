@@ -12,11 +12,11 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
-from Src.Objective.objective import objective, get_lat_and_acc
+from Src.Algo.Optimizer.DSCI.buffer import RolloutBuffer
+from Src.Algo.Optimizer.DSCI.networks import ActorCritic
+from Src.Algo.Utils.parsing_data import split_points_matrix
 from Src.Objective.compute_P import compute_layer_exit_probs
-from Src.Optimizer.DSCI.networks import ActorCritic
-from Src.Optimizer.DSCI.buffer import RolloutBuffer
-from Src.Utils.parsing_data import split_points_matrix
+from Src.Objective.objective import get_lat_and_acc, objective
 
 
 # ---------- 状态构造（紧凑 Markov） ----------
@@ -45,7 +45,7 @@ def _build_state(
 
     s = torch.tensor(
         [i_norm, remaining_norm, prev_obj_squashed, fe_i_norm, fc_i_norm],
-        dtype=torch.float32
+        dtype=torch.float32,
     ).unsqueeze(0)
     return s
 
@@ -86,7 +86,7 @@ def compute_iota_kappa(X, compute_sizes, exit_prob):
     for i in range(n):
         p1, p2 = split_pts[i]
         for j in range(p1 + 1, p2 + 1):
-            iota[i]  += exit_prob[i, j] * c[p1 + 1 : j + 1].sum()
+            iota[i] += exit_prob[i, j] * c[p1 + 1 : j + 1].sum()
         for j in range(p2 + 1, m):
             kappa[i] += exit_prob[i, j] * c[p2 + 1 : j + 1].sum()
     return iota, kappa
@@ -105,12 +105,12 @@ class PPOAgent:
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.paras = paras
         self.hparams = hyperparams
-        self.initial_entropy_coef = hyperparams.get("entropy_coef", 0.01) # 熵系数衰减
-        self.entropy_decay = hyperparams.get("entropy_decay", 0.99) # 熵系数衰减
+        self.initial_entropy_coef = hyperparams.get("entropy_coef", 0.01)  # 熵系数衰减
+        self.entropy_decay = hyperparams.get("entropy_decay", 0.99)  # 熵系数衰减
 
         # ---------- 维度 ----------
-        self.state_dim = 5 # 状态：5 维
-        self.action_dim_Y = len(self.paras.E) # 动作 Y：早退层（|E|）
+        self.state_dim = 5  # 状态：5 维
+        self.action_dim_Y = len(self.paras.E)  # 动作 Y：早退层（|E|）
 
         # ---------- 网络 ----------
         self.policy = ActorCritic(
@@ -121,12 +121,15 @@ class PPOAgent:
 
         # ---------- 优化 ----------
         self.buffer = RolloutBuffer()
-        self.optimizer = torch.optim.Adam(self.policy.parameters(), lr=hyperparams["lr"])
+        self.optimizer = torch.optim.Adam(
+            self.policy.parameters(), lr=hyperparams["lr"]
+        )
 
         # ---------- 记录 ----------
-        self.best_policy_state_dict = None # 保存历史最优策略（用于最终 best checkpoint），不做频繁 rollback
+        self.best_policy_state_dict = (
+            None  # 保存历史最优策略（用于最终 best checkpoint），不做频繁 rollback
+        )
         self.logs = []  # 每个 epoch 一个 dict
-
 
     @torch.no_grad()
     def sample_action(self, state: torch.Tensor):
@@ -142,18 +145,20 @@ class PPOAgent:
         logits_X, alpha_Y, beta_Y, value = self.policy(state)
 
         # X: categorical
-        dist_X = torch.distributions.Categorical(logits=logits_X) # 分类分布
+        dist_X = torch.distributions.Categorical(logits=logits_X)  # 分类分布
         x_idx = dist_X.sample()  # 从分类分布中按照概率进行随机选择，得到一个索引
         logp_X = dist_X.log_prob(x_idx)  # 随机抽取到这个索引的对数概率
-        ent_X = dist_X.entropy()         # shape [1]
+        ent_X = dist_X.entropy()  # shape [1]
 
         # Y: Beta（|E|=0）
         if self.action_dim_Y > 0:
-            dist_Y = torch.distributions.Beta(alpha_Y, beta_Y) # Beta分布
+            dist_Y = torch.distributions.Beta(alpha_Y, beta_Y)  # Beta分布
             y = dist_Y.sample()  # 从Beta分布中按照概率进行随机选择，得到|E|个值
-            logp_Y = dist_Y.log_prob(y).sum(-1)  # 得到这些值的对数概率和（取对数前应该是乘积）
-            ent_Y = dist_Y.entropy().sum(-1)     # shape [1]
-        else: # 没有早退层
+            logp_Y = dist_Y.log_prob(y).sum(
+                -1
+            )  # 得到这些值的对数概率和（取对数前应该是乘积）
+            ent_Y = dist_Y.entropy().sum(-1)  # shape [1]
+        else:  # 没有早退层
             y = state.new_zeros((1, 0))
             logp_Y = state.new_zeros((1,))
             ent_Y = state.new_zeros((1,))
@@ -164,8 +169,9 @@ class PPOAgent:
         ent_Y = ent_Y.detach().squeeze(0)  # scalar
         return x_idx.view(-1)[0], y.squeeze(0), logprob, value, ent_X, ent_Y
 
-
-    def _apply_action_to_XY(self, X: np.ndarray, Y: np.ndarray, user_i: int, x_idx: int, y_vec: np.ndarray):
+    def _apply_action_to_XY(
+        self, X: np.ndarray, Y: np.ndarray, user_i: int, x_idx: int, y_vec: np.ndarray
+    ):
         """
         将 (x_idx, y_vec) 写入第 user_i 行的 X,Y（其余用户保持原样）
         - x_idx -> (k1,k2) 通过 policy.x_pairs 映射
@@ -189,11 +195,12 @@ class PPOAgent:
                     Y[user_i, layer_idx] = float(y_vec[j])
         return X, Y
 
-
     def update_policy(self, epoch: int):
-        entropy_coef = self.initial_entropy_coef * (self.entropy_decay ** epoch)
+        entropy_coef = self.initial_entropy_coef * (self.entropy_decay**epoch)
 
-        advantages, returns = self.buffer.compute_advantages(self.hparams["gamma"], self.hparams["lam"])
+        advantages, returns = self.buffer.compute_advantages(
+            self.hparams["gamma"], self.hparams["lam"]
+        )
         if advantages.numel() == 0:
             return
 
@@ -212,33 +219,35 @@ class PPOAgent:
             return
 
         data = self.buffer.as_tensors(device=self.device)
-        states = data["states"]                    # [T, state_dim]
-        actions_X = data["actions_X"]              # [T]
-        actions_Y = data["actions_Y"]              # [T, |E|]
-        old_logprobs = data["logprobs"].detach()   # [T]
-        returns = returns.to(self.device)          # [T]
-        advantages = advantages.to(self.device)    # [T]
+        states = data["states"]  # [T, state_dim]
+        actions_X = data["actions_X"]  # [T]
+        actions_Y = data["actions_Y"]  # [T, |E|]
+        old_logprobs = data["logprobs"].detach()  # [T]
+        returns = returns.to(self.device)  # [T]
+        advantages = advantages.to(self.device)  # [T]
 
         for _ in range(self.hparams["k_epochs"]):
-            logits_X, alpha_Y, beta_Y, values_new = self.policy(states)  # logits_X [T,num_pairs]
+            logits_X, alpha_Y, beta_Y, values_new = self.policy(
+                states
+            )  # logits_X [T,num_pairs]
             values_new = values_new.view(-1)  # [T]
 
             # X 分布
             dist_X = torch.distributions.Categorical(logits=logits_X)
-            logp_X = dist_X.log_prob(actions_X)       # [T]
-            ent_X = dist_X.entropy()                  # [T]
+            logp_X = dist_X.log_prob(actions_X)  # [T]
+            ent_X = dist_X.entropy()  # [T]
 
             # Y 分布（Beta）
             if self.action_dim_Y > 0:
                 dist_Y = torch.distributions.Beta(alpha_Y, beta_Y)
-                logp_Y = dist_Y.log_prob(actions_Y).sum(-1)   # [T]
-                ent_Y = dist_Y.entropy().sum(-1)              # [T]
+                logp_Y = dist_Y.log_prob(actions_Y).sum(-1)  # [T]
+                ent_Y = dist_Y.entropy().sum(-1)  # [T]
             else:
                 logp_Y = torch.zeros_like(logp_X)
                 ent_Y = torch.zeros_like(ent_X)
 
             new_logprob = logp_X + logp_Y  # [T]
-            entropy = ent_X + ent_Y        # [T]
+            entropy = ent_X + ent_Y  # [T]
 
             # DSCI ratio
             ratio = torch.exp(new_logprob - old_logprobs)  # [T]
@@ -246,7 +255,12 @@ class PPOAgent:
             ratio = torch.clamp(ratio, 0.0, 10.0)
 
             surr1 = ratio * advantages
-            surr2 = torch.clamp(ratio, 1 - self.hparams["eps_clip"], 1 + self.hparams["eps_clip"]) * advantages
+            surr2 = (
+                torch.clamp(
+                    ratio, 1 - self.hparams["eps_clip"], 1 + self.hparams["eps_clip"]
+                )
+                * advantages
+            )
             policy_loss = -torch.min(surr1, surr2).mean()
 
             value_loss = F.mse_loss(values_new, returns)
@@ -268,8 +282,12 @@ class PPOAgent:
         rel_tolerance = 1e-4  # 相对容忍度（例如：0.01% 的改进）
 
         # 初始化资源
-        F_e = np.ones((self.paras.n, 1), dtype=np.float32) * (self.paras.f_e_max / self.paras.n)
-        F_c = np.ones((self.paras.n, 1), dtype=np.float32) * (self.paras.f_c_max / self.paras.n)
+        F_e = np.ones((self.paras.n, 1), dtype=np.float32) * (
+            self.paras.f_e_max / self.paras.n
+        )
+        F_c = np.ones((self.paras.n, 1), dtype=np.float32) * (
+            self.paras.f_c_max / self.paras.n
+        )
 
         target_steps = int(self.hparams["target_steps"])
 
@@ -303,19 +321,32 @@ class PPOAgent:
                         f_c_max=self.paras.f_c_max,
                     ).to(self.device)
 
-                    x_idx, y_vec_t, logprob, value, ent_X, ent_Y = self.sample_action(state)
-                    entropy_X_list.append(float(ent_X.item()) if isinstance(ent_X, torch.Tensor) else float(ent_X))
-                    entropy_Y_list.append(float(ent_Y.item()) if isinstance(ent_Y, torch.Tensor) else float(ent_Y))
+                    x_idx, y_vec_t, logprob, value, ent_X, ent_Y = self.sample_action(
+                        state
+                    )
+                    entropy_X_list.append(
+                        float(ent_X.item())
+                        if isinstance(ent_X, torch.Tensor)
+                        else float(ent_X)
+                    )
+                    entropy_Y_list.append(
+                        float(ent_Y.item())
+                        if isinstance(ent_Y, torch.Tensor)
+                        else float(ent_Y)
+                    )
 
                     # 应用动作到第 i 个用户
                     X_new = X.copy()
                     Y_new = Y.copy()
                     y_vec_np = y_vec_t.detach().cpu().numpy().astype(np.float32)
                     X_new, Y_new = self._apply_action_to_XY(
-                        X_new, Y_new,
+                        X_new,
+                        Y_new,
                         user_i=i,
-                        x_idx=int(x_idx.item()) if isinstance(x_idx, torch.Tensor) else int(x_idx),
-                        y_vec=y_vec_np
+                        x_idx=int(x_idx.item())
+                        if isinstance(x_idx, torch.Tensor)
+                        else int(x_idx),
+                        y_vec=y_vec_np,
                     )
 
                     # 增量奖励：r_t = U(s_{t+1}) - U(s_t)
@@ -326,12 +357,16 @@ class PPOAgent:
                     # 存 buffer
                     self.buffer.add(
                         state.squeeze(0).detach().cpu(),
-                        int(x_idx.item()) if isinstance(x_idx, torch.Tensor) else int(x_idx),
+                        int(x_idx.item())
+                        if isinstance(x_idx, torch.Tensor)
+                        else int(x_idx),
                         torch.tensor(y_vec_np, dtype=torch.float32),
                         logprob.detach().cpu(),
-                        float(value.item()) if isinstance(value, torch.Tensor) else float(value),
+                        float(value.item())
+                        if isinstance(value, torch.Tensor)
+                        else float(value),
                         reward,
-                        done
+                        done,
                     )
 
                     # 状态推进
@@ -356,13 +391,17 @@ class PPOAgent:
                 print("[Warning] best_epoch_X/Y is None, skip outer update.")
             else:
                 # 1. 用 best_epoch_Y 计算每个用户在每层的组合退出概率 P_ij
-                exit_prob = compute_layer_exit_probs(best_epoch_Y, self.paras)  # shape (n,m)
+                exit_prob = compute_layer_exit_probs(
+                    best_epoch_Y, self.paras
+                )  # shape (n,m)
                 assert exit_prob.shape == (self.paras.n, self.paras.m)
                 # 2. 计算 iota / kappa
                 compute_sizes = self.paras.C
                 iota, kappa = compute_iota_kappa(best_epoch_X, compute_sizes, exit_prob)
                 # 3. 闭式解分配资源（返回的是 1D (n,)）
-                new_f_e, new_f_c = allocate_resources(iota, kappa, self.paras.f_e_max, self.paras.f_c_max)
+                new_f_e, new_f_c = allocate_resources(
+                    iota, kappa, self.paras.f_e_max, self.paras.f_c_max
+                )
                 # 4. 转成 objective 需要的形状
                 new_F_e = new_f_e.reshape(self.paras.n, 1).astype(np.float32)
                 new_F_c = new_f_c.reshape(self.paras.n, 1).astype(np.float32)
@@ -372,36 +411,63 @@ class PPOAgent:
                 F_c = ((1 - eta) * F_c + eta * new_F_c).astype(np.float32)
 
             # 统计 mean_obj / entropy
-            mean_epoch_obj = float(np.mean(episode_final_objs)) if len(episode_final_objs) > 0 else float("nan")
-            mean_entropy_X = float(np.mean(entropy_X_list)) if len(entropy_X_list) > 0 else float("nan")
-            mean_entropy_Y = float(np.mean(entropy_Y_list)) if len(entropy_Y_list) > 0 else float("nan")
+            mean_epoch_obj = (
+                float(np.mean(episode_final_objs))
+                if len(episode_final_objs) > 0
+                else float("nan")
+            )
+            mean_entropy_X = (
+                float(np.mean(entropy_X_list))
+                if len(entropy_X_list) > 0
+                else float("nan")
+            )
+            mean_entropy_Y = (
+                float(np.mean(entropy_Y_list))
+                if len(entropy_Y_list) > 0
+                else float("nan")
+            )
 
             # 统计 history 和 best checkpoint
-            inner_best_obj = float(best_epoch_obj) # 旧资源口径
+            inner_best_obj = float(best_epoch_obj)  # 旧资源口径
             if best_epoch_X is None or best_epoch_Y is None:
-                outer_obj = float("-inf") # 外层更新后，用新资源重新评估（DSCI 口径）
+                outer_obj = float("-inf")  # 外层更新后，用新资源重新评估（DSCI 口径）
                 latency, acc = float("nan"), float("nan")
             else:
-                outer_obj = float(objective(best_epoch_X, best_epoch_Y, F_e, F_c, self.paras))
-                latency, acc = get_lat_and_acc(best_epoch_X, best_epoch_Y, F_e, F_c, self.paras)
+                outer_obj = float(
+                    objective(best_epoch_X, best_epoch_Y, F_e, F_c, self.paras)
+                )
+                latency, acc = get_lat_and_acc(
+                    best_epoch_X, best_epoch_Y, F_e, F_c, self.paras
+                )
 
             history.append(outer_obj)
             if outer_obj > best_val:
                 best_val = outer_obj
-                best_sol = (best_epoch_X.copy(), best_epoch_Y.copy(), F_e.copy(), F_c.copy())
-                self.best_policy_state_dict = {k: v.clone() for k, v in self.policy.state_dict().items()}
-            self.logs.append({
-                "epoch": int(epoch),
-                "inner_best_obj": inner_best_obj,
-                "outer_obj": outer_obj,
-                "inner_mean_obj": float(mean_epoch_obj),  # 这个仍然是旧资源下 episode mean
-                "latency": float(latency),
-                "acc": float(acc),
-                "entropy_X": float(mean_entropy_X),
-                "entropy_Y": float(mean_entropy_Y),
-                "steps_collected": int(steps),
-                "num_episodes": int(len(episode_final_objs)),
-            })
+                best_sol = (
+                    best_epoch_X.copy(),
+                    best_epoch_Y.copy(),
+                    F_e.copy(),
+                    F_c.copy(),
+                )
+                self.best_policy_state_dict = {
+                    k: v.clone() for k, v in self.policy.state_dict().items()
+                }
+            self.logs.append(
+                {
+                    "epoch": int(epoch),
+                    "inner_best_obj": inner_best_obj,
+                    "outer_obj": outer_obj,
+                    "inner_mean_obj": float(
+                        mean_epoch_obj
+                    ),  # 这个仍然是旧资源下 episode mean
+                    "latency": float(latency),
+                    "acc": float(acc),
+                    "entropy_X": float(mean_entropy_X),
+                    "entropy_Y": float(mean_entropy_Y),
+                    "steps_collected": int(steps),
+                    "num_episodes": int(len(episode_final_objs)),
+                }
+            )
             print(
                 f"Epoch {epoch}: "
                 f"inner_best_obj={inner_best_obj:.6f}, outer_obj={outer_obj:.6f}, "
@@ -414,13 +480,13 @@ class PPOAgent:
 
             if epoch > min_epochs:
                 current_window = history[-patience:]
-                previous_window = history[-2 * patience: -patience]
+                previous_window = history[-2 * patience : -patience]
                 curr_mean = np.mean(current_window)
                 prev_mean = np.mean(previous_window)
                 rel_change = abs(curr_mean - prev_mean) / (abs(prev_mean) + 1e-10)
                 cv = np.std(current_window) / (abs(curr_mean) + 1e-10)
                 if rel_change < rel_tolerance and cv < (rel_tolerance * 5):
-                    print(f"[Early Stop] Converged!")
+                    print("[Early Stop] Converged!")
                     print(f"Epoch: {epoch}, Rel Change: {rel_change:.6f}, CV: {cv:.6f}")
                     break
 

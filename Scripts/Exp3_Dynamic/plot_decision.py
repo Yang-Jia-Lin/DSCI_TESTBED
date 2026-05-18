@@ -1,13 +1,15 @@
 """
 Src/Exp2_Dynamic/plot_decision.py
 """
-import numpy as np
-import matplotlib.pyplot as plt
+
 from datetime import datetime
 from pathlib import Path
 
-from Src.paras import Paras, COLORS
-from Src.Utils.plot_utils import set_ieee_style, save_fig_for_ieee
+import matplotlib.pyplot as plt
+import numpy as np
+from Src.Utils.plot_utils import save_fig_for_ieee, set_ieee_style
+
+from Src.paras import COLORS, Paras
 
 
 def plot_X(X_opt, EE_layers, save_dir: Path):
@@ -16,9 +18,9 @@ def plot_X(X_opt, EE_layers, save_dir: Path):
     """
     n, m = X_opt.shape
 
-    set_ieee_style(mode='single')
+    set_ieee_style(mode="single")
     fig, ax = plt.subplots()
-    ax.matshow(X_opt, cmap='Blues', aspect='auto')
+    ax.matshow(X_opt, cmap="Blues", aspect="auto")
     ax.set_xlabel("DNN Layers")
     ax.set_ylabel("Users")
     # ax.set_title("Partitioning Decision ($\mathbf{X}$)")
@@ -29,7 +31,7 @@ def plot_X(X_opt, EE_layers, save_dir: Path):
     for l in EE_layers:
         # 早退分割线
         ax.axvline(x=l, color=COLORS["red"], linestyle="--", linewidth=0.8, alpha=0.6)
-    ax.xaxis.set_ticks_position('bottom')
+    ax.xaxis.set_ticks_position("bottom")
     plt.tight_layout(pad=0.15)
 
     # 保存
@@ -45,7 +47,7 @@ def plot_Y(Y_opt, EE_layers, save_dir: Path):
     n = Y_opt.shape[0]
     Y_E = Y_opt[:, EE_layers]
 
-    set_ieee_style(mode='single')
+    set_ieee_style(mode="single")
     fig, ax = plt.subplots()
     im = ax.imshow(Y_E, aspect="auto", cmap="viridis", interpolation="nearest")
     ax.set_xlabel("Early Exit Layers")
@@ -55,7 +57,7 @@ def plot_Y(Y_opt, EE_layers, save_dir: Path):
     ax.set_xticklabels(EE_layers)
     ax.set_yticks(np.arange(0, n, max(1, n // 5)))
     ax.set_yticklabels([i + 1 for i in range(0, n, max(1, n // 5))])
-    ax.xaxis.set_ticks_position('bottom')
+    ax.xaxis.set_ticks_position("bottom")
     ax.invert_yaxis()
     cbar = fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
     cbar.set_label("Threshold $\epsilon$")
@@ -80,5 +82,6 @@ if __name__ == "__main__":
     Y[9, 103] = 0.5
 
     from Src.paras import RESULT_TEST_PATH
-    plot_X(X, paras.E, save_dir = Path(RESULT_TEST_PATH))
-    plot_Y(Y, paras.E, save_dir = Path(RESULT_TEST_PATH))
+
+    plot_X(X, paras.E, save_dir=Path(RESULT_TEST_PATH))
+    plot_Y(Y, paras.E, save_dir=Path(RESULT_TEST_PATH))

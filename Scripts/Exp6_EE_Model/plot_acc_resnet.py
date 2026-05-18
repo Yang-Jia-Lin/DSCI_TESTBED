@@ -1,14 +1,19 @@
 """
 Src/Experiments/Exp5_EE_Model/plot_acc_resnet.py
 """
-import pandas as pd
-import matplotlib.pyplot as plt
+
 from pathlib import Path
-from Src.Utils.plot_utils import set_ieee_style, save_fig_for_ieee
-from Src.paras import RESULT_EE_MODEL_PATH, COLORS
+
+import matplotlib.pyplot as plt
+import pandas as pd
+from Src.Algo.Utils.plot_utils import save_fig_for_ieee, set_ieee_style
+
+from Src.paras import ACC_CSV_PATH, COLORS, RESULT_EE_MODEL_PATH
 
 
-def plot_accuracy_vs_threshold(data_dir: Path, save_dir: Path = Path(RESULT_EE_MODEL_PATH)):
+def plot_accuracy_vs_threshold(
+    data_dir: Path, save_dir: Path = Path(RESULT_EE_MODEL_PATH)
+):
     """
     绘制模型 Early Exit 精度随阈值变化的曲线图
     """
@@ -20,24 +25,45 @@ def plot_accuracy_vs_threshold(data_dir: Path, save_dir: Path = Path(RESULT_EE_M
     df = pd.read_csv(data_dir)
 
     # 绘图
-    set_ieee_style(mode='single')
+    set_ieee_style(mode="single")
     plt.figure()
-    plt.plot(df['threshold'], df['exit1_accuracy'], color=COLORS["blue"], marker='o', label='Early Exit 1', markevery=3)
-    plt.plot(df['threshold'], df['exit2_accuracy'], color=COLORS["green"], marker='s', label='Early Exit 2', markevery=3)
-    plt.plot(df['threshold'], df['full_accuracy'], color=COLORS["red"], marker='^', label='Overall', markevery=3)
-    plt.axhline(y=constant_value, color='black', linestyle='--', label='Main Exit')
+    plt.plot(
+        df["threshold"],
+        df["exit1_accuracy"],
+        color=COLORS["blue"],
+        marker="o",
+        label="Early Exit 1",
+        markevery=3,
+    )
+    plt.plot(
+        df["threshold"],
+        df["exit2_accuracy"],
+        color=COLORS["green"],
+        marker="s",
+        label="Early Exit 2",
+        markevery=3,
+    )
+    plt.plot(
+        df["threshold"],
+        df["full_accuracy"],
+        color=COLORS["red"],
+        marker="^",
+        label="Overall",
+        markevery=3,
+    )
+    plt.axhline(y=constant_value, color="black", linestyle="--", label="Main Exit")
     plt.text(
         x=0.05,
         y=constant_value + 1.0,
-        s=f'Main Exit: {constant_value:.2f}%',
-        color='black',
-        fontweight='bold'
+        s=f"Main Exit: {constant_value:.2f}%",
+        color="black",
+        fontweight="bold",
     )
-    plt.xlabel('Threshold')
-    plt.ylabel('Accuracy (%)')
+    plt.xlabel("Threshold")
+    plt.ylabel("Accuracy (%)")
     plt.xlim(0, 1.0)
     plt.ylim(60, 100)
-    plt.legend(loc='lower right', frameon=True)
+    plt.legend(loc="lower right", frameon=True)
     plt.tight_layout(pad=0.15)
 
     # 保存
@@ -47,6 +73,6 @@ def plot_accuracy_vs_threshold(data_dir: Path, save_dir: Path = Path(RESULT_EE_M
 
 
 if __name__ == "__main__":
-    csv_path = Path(r"D:\Coding\Python\DSCI\Data\Resnet50_accs.csv")
+    csv_path = ACC_CSV_PATH
     save_dir = Path(RESULT_EE_MODEL_PATH)
     plot_accuracy_vs_threshold(csv_path, save_dir)

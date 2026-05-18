@@ -1,27 +1,35 @@
 """
 Src/Exp2_Dynamic/run_user_dynamic.py
 """
-import json
-import numpy as np
-from pathlib import Path
-from datetime import datetime
 
+import json
+from datetime import datetime
+from pathlib import Path
+
+import numpy as np
+from Src.Algorithm.Optimizer.DSCI.run_DSCI import run_dsci_experiment
 from Src.Utils.utils_function import NumpyEncoder
-from Src.paras import Paras, RESULT_DYNAMIC_PATH
-from Src.Optimizer.DSCI.run_DSCI import run_dsci_experiment
-from Scripts.Exp2_Dynamic.plot_decision import plot_X, plot_Y
-from Scripts.Exp2_Dynamic.plot_latency_stacked import plot_latency_stacked
+
+from Scripts.Exp3_Dynamic.plot_decision import plot_X, plot_Y
+from Scripts.Exp3_Dynamic.plot_latency_stacked import plot_latency_stacked
 from Src.Objective.compute_latency import compute_5_latency
 from Src.Objective.compute_P import compute_layer_exit_probs
+from Src.paras import RESULT_DYNAMIC_PATH, Paras
 
 
-def plot_user_dynamic(X, Y, F_e, F_c, paras, custom_name=None, sweep_var=None, sweep_range=None):
+def plot_user_dynamic(
+    X, Y, F_e, F_c, paras, custom_name=None, sweep_var=None, sweep_range=None
+):
     """
     绘制并保存实验数据、图形以及实验元配置
     """
     # ========= 1) 路径处理 ========
     prefix = f"UserHetero_{sweep_var}" if sweep_var else "UserHetero"
-    folder_name = f"{prefix}_{custom_name}" if custom_name else f"{prefix}_{datetime.now().strftime('%m%d_%H%M')}"
+    folder_name = (
+        f"{prefix}_{custom_name}"
+        if custom_name
+        else f"{prefix}_{datetime.now().strftime('%m%d_%H%M')}"
+    )
     save_dir = Path(RESULT_DYNAMIC_PATH) / folder_name
     save_dir.mkdir(parents=True, exist_ok=True)
 
@@ -70,14 +78,18 @@ def dynamic_with_data(solution_dir: Path):
 
     paras = Paras.from_dict(config.get("System_Parameters", {}))
     data = np.load(npz_path, allow_pickle=True)
-    X, Y, F_e, F_c = data['X'], data['Y'], data['F_e'], data['F_c']
+    X, Y, F_e, F_c = data["X"], data["Y"], data["F_e"], data["F_c"]
 
     # ========= 3) 绘图 (透传原有的 sweep 信息) ========
     plot_user_dynamic(
-        X, Y, F_e, F_c, paras,
+        X,
+        Y,
+        F_e,
+        F_c,
+        paras,
         custom_name=solution_dir.name,
         sweep_var=config.get("sweep_var"),
-        sweep_range=config.get("sweep_range")
+        sweep_range=config.get("sweep_range"),
     )
 
 
@@ -85,16 +97,13 @@ def dynamic_without_data(n, F_u, H_u, sweep_var=None, sweep_range=None):
     # ========= 1) 运行实验 ========
     custom_paras_dict = {"n": n, "F_u": F_u, "H_u": H_u}
     best_val, best_sol, history, paras = run_dsci_experiment(
-        custom_paras_dict=custom_paras_dict,
-        save_log=True
+        custom_paras_dict=custom_paras_dict, save_log=True
     )
     X, Y, F_e, F_c = best_sol
 
     # ========= 2) 画图并保存配置 ========
     plot_user_dynamic(
-        X, Y, F_e, F_c, paras,
-        sweep_var=sweep_var,
-        sweep_range=sweep_range
+        X, Y, F_e, F_c, paras, sweep_var=sweep_var, sweep_range=sweep_range
     )
 
 
@@ -113,4 +122,6 @@ if __name__ == "__main__":
     # )
 
     # 直接运行PPO的
-    dynamic_with_data(Path(r"D:\Coding\Python\DSCI\Result\Optimize\PPO\PPO_20260129_224216"))
+    from Src.paras import RESULT_DIR
+
+    dynamic_with_data(RESULT_DIR / "Optimize" / "PPO" / "PPO_20260129_224216")
