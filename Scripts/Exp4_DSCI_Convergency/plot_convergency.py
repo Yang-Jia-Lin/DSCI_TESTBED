@@ -40,11 +40,11 @@ def plot_convergence(
 def plot_entropy(entropy_X, entropy_Y, save_dir=Path(RESULT_CONVERGENCE_PATH)):
     set_ieee_style(mode="single")
     fig, ax = plt.subplots()
-    ax.plot(entropy_X, color=COLORS["red"], label="Entropy $\mathbf{X}$", linewidth=1.5)
+    ax.plot(entropy_X, color=COLORS["red"], label=r"Entropy $\mathbf{X}$", linewidth=1.5)
     ax.plot(
         entropy_Y,
         color=COLORS["green"],
-        label="Entropy $\mathbf{Y}$",
+        label=r"Entropy $\mathbf{Y}$",
         linewidth=1.5,
         linestyle="--",
     )
@@ -86,7 +86,7 @@ def plot_lan_and_acc(latency, acc, save_dir=Path(RESULT_CONVERGENCE_PATH)):
     lines = [l1, l2]
     ax1.legend(
         lines,
-        [line.get_label() for line in lines],
+        [str(line.get_label()) for line in lines],
         loc="upper center",
         bbox_to_anchor=(0.5, 1.18),
         ncol=2,
@@ -94,7 +94,7 @@ def plot_lan_and_acc(latency, acc, save_dir=Path(RESULT_CONVERGENCE_PATH)):
     )
     ax1.legend(
         lines,
-        [line.get_label() for line in lines],
+        [str(line.get_label()) for line in lines],
         loc="lower center",
         fontsize=10,
         bbox_to_anchor=(0.5, 0.98),
@@ -114,7 +114,7 @@ def plot_lan_and_acc(latency, acc, save_dir=Path(RESULT_CONVERGENCE_PATH)):
 
 
 if __name__ == "__main__":
-    from Src.Algo.Utils.log_function import load_and_analyze_results
+    from Src.Algorithm.Utils.log_function import load_and_analyze_results
 
     from Src.paras import RESULT_DIR, RESULT_TEST_PATH
 

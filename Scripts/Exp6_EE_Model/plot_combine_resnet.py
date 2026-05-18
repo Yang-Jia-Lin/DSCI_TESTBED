@@ -2,14 +2,12 @@
 Src/Experiments/Exp5_EE_Model/plot_combine_resnet.py
 """
 
-from pathlib import Path
-
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from Src.Utils.plot_utils import save_fig_for_ieee, set_ieee_style
-
-from Src.paras import ACC_CSV_PATH, COLORS, RATE_CSV_PATH, RESULT_EE_MODEL_PATH
+import matplotlib.pyplot as plt
+from pathlib import Path
+from Src.Utils.plot_utils import set_ieee_style, save_fig_for_ieee
+from Src.paras import RESULT_EE_MODEL_PATH, COLORS
 
 
 def plot_expectation_vs_threshold(
@@ -110,7 +108,7 @@ def plot_expectation_vs_threshold(
 
 
 if __name__ == "__main__":
-    rate_csv = RATE_CSV_PATH
-    acc_csv = ACC_CSV_PATH
+    rate_csv = Path(r"D:\Coding\Python\DSCI\Data\Resnet50_rates.csv")
+    acc_csv = Path(r"D:\Coding\Python\DSCI\Data\Resnet50_accs.csv")
     save_dir = Path(RESULT_EE_MODEL_PATH)
     plot_expectation_vs_threshold(rate_csv, acc_csv, save_dir)

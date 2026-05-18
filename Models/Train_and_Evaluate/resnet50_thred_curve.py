@@ -12,8 +12,8 @@ import torch.nn.functional as F
 from tqdm import tqdm
 
 from Models.ModelNet.Resnet50 import Bottleneck, MultiEEResNet50
-from Src.Algo.Utils.log_function import save_thr_data
-from Src.Algo.Utils.utils_function import get_device, get_test_data_loaders
+from Src.Algorithm.Utils.log_function import save_thr_data
+from Src.Algorithm.Utils.utils_function import get_device, get_test_data_loaders
 from Src.paras import DATA_ROOT, WEIGHTS_DIR
 
 

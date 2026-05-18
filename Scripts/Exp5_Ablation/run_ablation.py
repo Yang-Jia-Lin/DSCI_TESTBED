@@ -7,9 +7,9 @@ from typing import Dict, Tuple
 
 import numpy as np
 import pandas as pd
-from Src.Algo.Utils.log_function import load_and_analyze_results
 
 from Scripts.Exp5_Ablation.plot_ablation import plot_bubble_chart, plot_utility_bar
+from Src.Algorithm.Utils.log_function import load_and_analyze_results
 from Src.Objective.compute_accuracy import compute_expected_accuracy
 from Src.Objective.compute_latency import compute_total_latency
 from Src.Objective.compute_P import compute_layer_exit_probs
@@ -19,7 +19,7 @@ from Src.paras import RESULT_ABLATION_PATH, RESULT_DIR
 
 def evaluate_strategy(
     X, Y, F_e, F_c, paras, name: str = "Strategy"
-) -> Dict[str, float]:
+) -> Dict[str, object]:
     P = compute_layer_exit_probs(Y, paras)
     latency_vec = compute_total_latency(X, P, F_e, F_c, paras)
     acc_vec = compute_expected_accuracy(Y, P, paras)

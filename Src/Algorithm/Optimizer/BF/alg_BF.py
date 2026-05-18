@@ -1,6 +1,7 @@
 """
 Src/Optimizer/BF/alg_BF.py
 """
+
 import numpy as np
 from typing import Tuple, Dict, Any, List
 
@@ -26,7 +27,9 @@ def _tau_grid(step: float = 0.01) -> np.ndarray:
     return np.array([round(i * step, 2) for i in range(k + 1)], dtype=np.float64)
 
 
-def _build_y_row(m: int, exit_layers: Tuple[int, int], t1: float, t2: float) -> np.ndarray:
+def _build_y_row(
+    m: int, exit_layers: Tuple[int, int], t1: float, t2: float
+) -> np.ndarray:
     y = np.ones(m, dtype=np.float64)
     e1, e2 = exit_layers
     y[e1] = t1
@@ -34,7 +37,9 @@ def _build_y_row(m: int, exit_layers: Tuple[int, int], t1: float, t2: float) -> 
     return y
 
 
-def _precompute_cut_points_for_X_candidates(X_candidates: np.ndarray, paras) -> np.ndarray:
+def _precompute_cut_points_for_X_candidates(
+    X_candidates: np.ndarray, paras
+) -> np.ndarray:
     """
     对每个 x_row 用你原始的 compute_exit_points() 精确求 cut_points。
     返回 shape=(K,2) 的 int 数组。
@@ -61,7 +66,9 @@ def _compute_P_acc_for_yrow(yrow: np.ndarray, paras) -> Tuple[np.ndarray, float]
     return np.asarray(P[0], dtype=np.float64), float(acc_vec[0])
 
 
-def _precompute_threshold_cache(paras, step: float = 0.01) -> Dict[Tuple[int, int], Dict[str, Any]]:
+def _precompute_threshold_cache(
+    paras, step: float = 0.01
+) -> Dict[Tuple[int, int], Dict[str, Any]]:
     """
     缓存 (i1,i2) -> {"P_row": (m,), "acc": float}
     这是“严格等价缓存”，不包含任何 latency 近似/分解。
@@ -82,7 +89,9 @@ def _precompute_threshold_cache(paras, step: float = 0.01) -> Dict[Tuple[int, in
     return cache
 
 
-def _init_fe_fc(paras, rng: np.random.Generator, eps: float = 1e-12) -> Tuple[np.ndarray, np.ndarray]:
+def _init_fe_fc(
+    paras, rng: np.random.Generator, eps: float = 1e-12
+) -> Tuple[np.ndarray, np.ndarray]:
     """
     初始化可行 F_e, F_c：非负、sum==budget（严格），避免全 0。
     """
@@ -96,7 +105,9 @@ def _init_fe_fc(paras, rng: np.random.Generator, eps: float = 1e-12) -> Tuple[np
     return fe.reshape(n, 1), fc.reshape(n, 1)
 
 
-def _objective_from_sums(alpha: float, beta: float, acc_sum: float, lat_sum: float) -> float:
+def _objective_from_sums(
+    alpha: float, beta: float, acc_sum: float, lat_sum: float
+) -> float:
     return float(alpha * acc_sum - beta * lat_sum)
 
 
@@ -170,7 +181,13 @@ def _optimize_F_by_pairwise_swaps(
                 if not (np.isfinite(lat_i_new) and np.isfinite(lat_j_new)):
                     continue
 
-                lat_sum_new = lat_sum - float(lat_vec[i]) - float(lat_vec[j]) + lat_i_new + lat_j_new
+                lat_sum_new = (
+                    lat_sum
+                    - float(lat_vec[i])
+                    - float(lat_vec[j])
+                    + lat_i_new
+                    + lat_j_new
+                )
                 obj_new = _objective_from_sums(alpha, beta, acc_sum, lat_sum_new)
 
                 if np.isfinite(obj_new) and obj_new > obj + tol:
@@ -205,7 +222,13 @@ def _optimize_F_by_pairwise_swaps(
                 if not (np.isfinite(lat_i_new) and np.isfinite(lat_j_new)):
                     continue
 
-                lat_sum_new = lat_sum - float(lat_vec[i]) - float(lat_vec[j]) + lat_i_new + lat_j_new
+                lat_sum_new = (
+                    lat_sum
+                    - float(lat_vec[i])
+                    - float(lat_vec[j])
+                    + lat_i_new
+                    + lat_j_new
+                )
                 obj_new = _objective_from_sums(alpha, beta, acc_sum, lat_sum_new)
 
                 if np.isfinite(obj_new) and obj_new > obj + tol:
@@ -244,7 +267,9 @@ def optimize_BF(
 
     n, m = paras.n, paras.m
     exit_layers = tuple(paras.E)
-    assert len(exit_layers) == 2, "This BF implementation assumes exactly 2 early-exit layers."
+    assert len(exit_layers) == 2, (
+        "This BF implementation assumes exactly 2 early-exit layers."
+    )
     e1, e2 = exit_layers
 
     alpha = float(paras.alpha)
@@ -270,7 +295,9 @@ def optimize_BF(
         # ---- init X (by index), Y (by tau indices), F ----
         X_idx = rng.integers(low=0, high=K, size=n)  # store candidate index per user
         tau_raw = rng.integers(low=0, high=G, size=(n, 2))
-        tau_idx: List[Tuple[int, int]] = [(int(tau_raw[i, 0]), int(tau_raw[i, 1])) for i in range(n)]
+        tau_idx: List[Tuple[int, int]] = [
+            (int(tau_raw[i, 0]), int(tau_raw[i, 1])) for i in range(n)
+        ]
 
         F_e, F_c = _init_fe_fc(paras, rng)
 
@@ -309,12 +336,12 @@ def optimize_BF(
 
         if not np.isfinite(val):
             if verbose:
-                print(f"[BF-INC] restart={r+1}/{restarts} init_obj not finite, skip.")
+                print(f"[BF-INC] restart={r + 1}/{restarts} init_obj not finite, skip.")
             continue
 
         hist = [val]
         if verbose:
-            print(f"[BF-INC] restart={r+1}/{restarts} init_obj={val:.6f}")
+            print(f"[BF-INC] restart={r + 1}/{restarts} init_obj={val:.6f}")
 
         # ---- BCD iterations ----
         for it in range(max_iter):
@@ -346,14 +373,18 @@ def optimize_BF(
                             acc_u = float(cache[(i1, i2)]["acc"])
                             P_row = cache[(i1, i2)]["P_row"]
 
-                            lat_u = compute_user_latency(u, cut0, cut1, P_row, fe_u, fc_u, paras)
+                            lat_u = compute_user_latency(
+                                u, cut0, cut1, P_row, fe_u, fc_u, paras
+                            )
                             if not np.isfinite(lat_u):
                                 continue
 
                             # incremental objective
                             acc_sum_tmp = acc_sum - old_acc + acc_u
                             lat_sum_tmp = lat_sum - old_lat + lat_u
-                            val_tmp = _objective_from_sums(alpha, beta, acc_sum_tmp, lat_sum_tmp)
+                            val_tmp = _objective_from_sums(
+                                alpha, beta, acc_sum_tmp, lat_sum_tmp
+                            )
 
                             if np.isfinite(val_tmp) and val_tmp > best_local_val + tol:
                                 best_local_val = val_tmp
@@ -412,11 +443,13 @@ def optimize_BF(
 
             hist.append(val)
             if verbose:
-                print(f"[BF-INC] restart={r+1} iter={it+1}/{max_iter} obj={val:.6f}")
+                print(
+                    f"[BF-INC] restart={r + 1} iter={it + 1}/{max_iter} obj={val:.6f}"
+                )
 
             if not improved_any:
                 if verbose:
-                    print(f"[BF-INC] restart={r+1} converged (no improvement).")
+                    print(f"[BF-INC] restart={r + 1} converged (no improvement).")
                 break
 
         # ---- build final X matrix for output ----
@@ -427,7 +460,7 @@ def optimize_BF(
         # final objective (incremental already exact; this is just a sanity check style)
         final_val = val
         if verbose:
-            print(f"[BF-INC] restart={r+1} final_obj={final_val:.6f}")
+            print(f"[BF-INC] restart={r + 1} final_obj={final_val:.6f}")
 
         if np.isfinite(final_val) and final_val > best_overall_val:
             best_overall_val = final_val

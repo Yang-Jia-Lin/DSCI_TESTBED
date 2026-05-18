@@ -7,10 +7,24 @@ from pathlib import Path
 
 import matplotlib.patheffects as path_effects
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
-from Src.Algo.Utils.plot_utils import save_fig_for_ieee, set_ieee_style
 
+from Src.Algorithm.Utils.plot_utils import save_fig_for_ieee, set_ieee_style
 from Src.paras import COLORS, RESULT_ABLATION_PATH
+
+
+def _to_float(x):
+    """Safely convert pandas/numpy scalars (including complex) to float."""
+    try:
+        return float(x)
+    except Exception:
+        try:
+            # handle numpy scalars
+            return float(np.asarray(x).item())
+        except Exception:
+            # fallback: real part
+            return float(np.real(x))
 
 
 def plot_bubble_chart(data: pd.DataFrame, save_dir=Path(RESULT_ABLATION_PATH)):
@@ -32,7 +46,9 @@ def plot_bubble_chart(data: pd.DataFrame, save_dir=Path(RESULT_ABLATION_PATH)):
         "边端 + 早退": "Edge+EE",
         "协同 + 早退": "Ours",
     }
-    data["display_name"] = data["name"].map(lambda x: name_map.get(x, x))
+    data["display_name"] = data["name"].map(
+        lambda x: name_map.get(str(x), str(x)) if pd.notna(x) else x
+    )
     # 计算气泡大小
     obj_min, obj_max = data["objective"].min(), data["objective"].max()
     if obj_max != obj_min:
@@ -43,13 +59,13 @@ def plot_bubble_chart(data: pd.DataFrame, save_dir=Path(RESULT_ABLATION_PATH)):
     else:
         data["bubble_size"] = 1000
     df_sorted = data.sort_values("latency_ms").reset_index(drop=True)
-    for i, row in df_sorted.iterrows():
-        label = row["display_name"].replace("+", "\n+")
+    for i, row in enumerate(df_sorted.itertuples(index=False)):
+        label = str(row.display_name).replace("+", "\n+")
         ax.scatter(
-            row["latency_ms"],
-            row["accuracy"],
-            s=row["bubble_size"],
-            color=SEMANTIC_COLORS[row["display_name"]],
+            _to_float(row.latency_ms),
+            row.accuracy,
+            s=row.bubble_size,
+            color=SEMANTIC_COLORS[row.display_name],
             alpha=0.9,
             edgecolors="w",
             zorder=10 + i,
@@ -59,7 +75,7 @@ def plot_bubble_chart(data: pd.DataFrame, save_dir=Path(RESULT_ABLATION_PATH)):
         # v_align = 'bottom' if i % 2 == 0 else 'top'
         txt = ax.annotate(
             label,
-            xy=(row["latency_ms"], row["accuracy"]),
+            xy=(row.latency_ms, row.accuracy),
             xytext=(0, 0),
             textcoords="offset points",
             ha="center",
@@ -101,7 +117,9 @@ def plot_utility_bar(data: pd.DataFrame, save_dir=Path(RESULT_ABLATION_PATH)):
         "边端 + 早退": "Edge+EE",
         "协同 + 早退": "Ours",
     }
-    data["display_name"] = data["name"].map(lambda x: name_map.get(x, x))
+    data["display_name"] = data["name"].map(
+        lambda x: name_map.get(str(x), str(x)) if pd.notna(x) else x
+    )
     colors = [SEMANTIC_COLORS[name] for name in data["display_name"]]
     bars = ax2.bar(
         data["display_name"], data["objective"], color=colors[: len(data)], width=0.7

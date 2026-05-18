@@ -12,11 +12,11 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
-from Src.Algo.Optimizer.DSCI.buffer import RolloutBuffer
-from Src.Algo.Optimizer.DSCI.networks import ActorCritic
-from Src.Algo.Utils.parsing_data import split_points_matrix
+from Src.Objective.objective import objective, get_lat_and_acc
 from Src.Objective.compute_P import compute_layer_exit_probs
-from Src.Objective.objective import get_lat_and_acc, objective
+from Src.Algorithm.Optimizer.DSCI.networks import ActorCritic
+from Src.Algorithm.Optimizer.DSCI.buffer import RolloutBuffer
+from Src.Utils.parsing_data import split_points_matrix
 
 
 # ---------- 状态构造（紧凑 Markov） ----------
@@ -486,7 +486,7 @@ class PPOAgent:
                 rel_change = abs(curr_mean - prev_mean) / (abs(prev_mean) + 1e-10)
                 cv = np.std(current_window) / (abs(curr_mean) + 1e-10)
                 if rel_change < rel_tolerance and cv < (rel_tolerance * 5):
-                    print("[Early Stop] Converged!")
+                    print(f"[Early Stop] Converged!")
                     print(f"Epoch: {epoch}, Rel Change: {rel_change:.6f}, CV: {cv:.6f}")
                     break
 

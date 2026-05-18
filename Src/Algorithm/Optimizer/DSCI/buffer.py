@@ -2,6 +2,7 @@
 rollout 缓冲区
 Src/Optimizer/DSCI/buffer.py
 """
+
 import torch
 
 
@@ -18,16 +19,16 @@ class RolloutBuffer:
 
     def clear(self):
         # 每个元素是单步数据
-        self.states = []      # state tensor, shape [state_dim]
-        self.actions_X = []   # x_idx, int/LongTensor scalar
-        self.actions_Y = []   # y tensor, shape [action_dim_Y]
-        self.logprobs = []    # total logprob scalar
-        self.values = []      # value scalar (or shape [1])
-        self.rewards = []     # reward scalar
-        self.dones = []       # done scalar (0.0/1.0)
+        self.states = []  # state tensor, shape [state_dim]
+        self.actions_X = []  # x_idx, int/LongTensor scalar
+        self.actions_Y = []  # y tensor, shape [action_dim_Y]
+        self.logprobs = []  # total logprob scalar
+        self.values = []  # value scalar (or shape [1])
+        self.rewards = []  # reward scalar
+        self.dones = []  # done scalar (0.0/1.0)
 
     def __len__(self):
-        return len(self.rewards)
+        return len(self.rewards)  # type: ignore
 
     def add(self, state, action_X, action_Y, logprob, value, reward, done):
         """
@@ -67,19 +68,35 @@ class RolloutBuffer:
         self.actions_Y.append(ay)
 
         # logprob/value/reward/done：存成标量 tensor 更统一
-        lp = logprob.detach() if isinstance(logprob, torch.Tensor) else torch.tensor(logprob, dtype=torch.float32)
+        lp = (
+            logprob.detach()
+            if isinstance(logprob, torch.Tensor)
+            else torch.tensor(logprob, dtype=torch.float32)
+        )
         lp = lp.view(-1)[0]
         self.logprobs.append(lp)
 
-        v = value.detach() if isinstance(value, torch.Tensor) else torch.tensor(value, dtype=torch.float32)
+        v = (
+            value.detach()
+            if isinstance(value, torch.Tensor)
+            else torch.tensor(value, dtype=torch.float32)
+        )
         v = v.view(-1)[0]
         self.values.append(v)
 
-        r = reward.detach() if isinstance(reward, torch.Tensor) else torch.tensor(reward, dtype=torch.float32)
+        r = (
+            reward.detach()
+            if isinstance(reward, torch.Tensor)
+            else torch.tensor(reward, dtype=torch.float32)
+        )
         r = r.view(-1)[0]
         self.rewards.append(r)
 
-        d = done.detach() if isinstance(done, torch.Tensor) else torch.tensor(done, dtype=torch.float32)
+        d = (
+            done.detach()
+            if isinstance(done, torch.Tensor)
+            else torch.tensor(done, dtype=torch.float32)
+        )
         d = d.view(-1)[0]
         # 确保是 0/1 float
         self.dones.append(torch.clamp(d, 0.0, 1.0))
@@ -95,9 +112,9 @@ class RolloutBuffer:
         if len(self.rewards) == 0:
             return torch.empty(0), torch.empty(0)
 
-        rewards = torch.stack(self.rewards).float()   # [T]
-        values = torch.stack(self.values).float()     # [T]
-        dones = torch.stack(self.dones).float()       # [T]
+        rewards = torch.stack(self.rewards).float()  # [T]
+        values = torch.stack(self.values).float()  # [T]
+        dones = torch.stack(self.dones).float()  # [T]
 
         T = rewards.shape[0]
         advantages = torch.zeros(T, dtype=torch.float32)
@@ -137,7 +154,9 @@ class RolloutBuffer:
                 "rewards": torch.empty(0),
                 "dones": torch.empty(0),
             }
-            return {k: (v.to(device) if device is not None else v) for k, v in out.items()}
+            return {
+                k: (v.to(device) if device is not None else v) for k, v in out.items()
+            }
 
         states = torch.stack(self.states).float()
         actions_X = torch.stack(self.actions_X).long()

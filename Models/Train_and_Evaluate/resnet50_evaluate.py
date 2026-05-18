@@ -8,7 +8,7 @@ from pathlib import Path
 import torch
 import torch.nn.functional as F
 from Models.ModelNet.Resnet50 import Bottleneck, MultiEEResNet50
-from Src.Algo.Utils.utils_function import get_device, get_test_data_loaders
+from Src.Algorithm.Utils.utils_function import get_device, get_test_data_loaders
 
 from Src.paras import DATA_ROOT, WEIGHTS_DIR
 

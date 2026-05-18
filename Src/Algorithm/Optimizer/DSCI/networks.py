@@ -2,6 +2,7 @@
 ActorCritic 网络
 Src/Optimizer/DSCI/networks.py
 """
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -44,9 +45,13 @@ class ActorCritic(nn.Module):
         # -------- X: categorical over valid (k1,k2) pairs --------
         # 预先列出所有合法 (k1,k2) 组合，k1 < k2
         # pair_index -> (k1, k2)
-        pairs = [(k1, k2) for k1 in range(num_layers) for k2 in range(k1 + 1, num_layers)]
+        pairs = [
+            (k1, k2) for k1 in range(num_layers) for k2 in range(k1 + 1, num_layers)
+        ]
         pair_tensor = torch.tensor(pairs, dtype=torch.long)  # [num_pairs, 2]
-        self.register_buffer("x_pairs", pair_tensor)  # 不参与训练，但会随 device 一起移动
+        self.register_buffer(
+            "x_pairs", pair_tensor
+        )  # 不参与训练，但会随 device 一起移动
         self.num_pairs = pair_tensor.shape[0]
 
         # actor_X 输出 logits，维度 = num_pairs
@@ -96,7 +101,7 @@ class ActorCritic(nn.Module):
             beta_raw = self.actor_Y_beta(features)
             alpha_Y = F.softplus(alpha_raw) + self.beta_eps
             beta_Y = F.softplus(beta_raw) + self.beta_eps
-        else: # 没有早退层
+        else:  # 没有早退层
             alpha_Y = state.new_zeros((state.shape[0], 0))
             beta_Y = state.new_zeros((state.shape[0], 0))
 

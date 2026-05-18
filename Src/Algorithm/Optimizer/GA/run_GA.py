@@ -3,10 +3,10 @@ Src/Optimizer/GA/run_GA.py
 """
 
 from pathlib import Path
+from Src.paras import Paras, RESULT_GA_PATH
+from Src.Algorithm.Optimizer.GA.alg_GA import optimize_GA
+from Src.Utils.log_function import save_experiment_results
 
-from Src.Algo.Optimizer.GA.alg_GA import optimize_GA
-from Src.Algo.Utils.log_function import save_experiment_results
-from Src.paras import RESULT_GA_PATH, Paras
 
 paras = Paras()
 GA_hyperparams = {"population_size": 50, "generations": 150, "mutation_rate": 0.1}

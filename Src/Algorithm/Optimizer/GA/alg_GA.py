@@ -1,15 +1,15 @@
 """
 Src/Optimizer/GA/alg_GA.py
 """
+
 import random
 import numpy as np
 from Src.Objective.objective import objective
 
 
-def optimize_GA(paras,
-             population_size: int = 50,
-             generations: int = 150,
-             mutation_rate: float = 0.1):
+def optimize_GA(
+    paras, population_size: int = 50, generations: int = 150, mutation_rate: float = 0.1
+):
     """
     使用遗传算法优化混合连续/离散优化问题.
 
@@ -39,7 +39,7 @@ def optimize_GA(paras,
 
     # ---------- 2. 约束修复工具 ----------
     def repair_X(mat):
-        """ 修复X使每行最多只有2个1 """
+        """修复X使每行最多只有2个1"""
         for r in mat:
             while sum(r) > 2:
                 idx = random.choice([j for j, v in enumerate(r) if v == 1])
@@ -47,7 +47,7 @@ def optimize_GA(paras,
         return mat
 
     def repair_Y(y):
-        """ 修复Y的取值约束，非早退层强制为1，早退层限制在[0, 1) """
+        """修复Y的取值约束，非早退层强制为1，早退层限制在[0, 1)"""
         for j in range(n_cols):
             if early_exit_flags[j]:
                 y[j] = max(0.0, min(1.0 - 1e-6, y[j]))
@@ -56,7 +56,7 @@ def optimize_GA(paras,
         return y
 
     def repair_F(vec, f_max):
-        """ 修复F使其元素非负且总和不超过f_max """
+        """修复F使其元素非负且总和不超过f_max"""
         vec = [max(1e-6, v) for v in vec]  # 确保不为0
         tot = sum(vec)
         if tot > f_max and tot > 0:
@@ -70,14 +70,12 @@ def optimize_GA(paras,
         # X
         X = [[0] * n_cols for _ in range(n_rows)]
         for i in range(n_rows):
-            for j in random.sample(range(n_cols),
-                                   k=random.choice([0, 1, 2])):
+            for j in random.sample(range(n_cols), k=random.choice([0, 1, 2])):
                 X[i][j] = 1
         X = repair_X(X)
 
         # Y（只存一行）
-        Y = [random.random() if early_exit_flags[j] else 1.0
-             for j in range(n_cols)]
+        Y = [random.random() if early_exit_flags[j] else 1.0 for j in range(n_cols)]
         Y = repair_Y(Y)
 
         # F_e, F_c 随机分配
@@ -125,8 +123,8 @@ def optimize_GA(paras,
                     child_flat1.append(b)
                     child_flat2.append(a)
             for i in range(n_rows):
-                X1.append(child_flat1[i * n_cols:(i + 1) * n_cols])
-                X2.append(child_flat2[i * n_cols:(i + 1) * n_cols])
+                X1.append(child_flat1[i * n_cols : (i + 1) * n_cols])
+                X2.append(child_flat2[i * n_cols : (i + 1) * n_cols])
             X1, X2 = repair_X(X1), repair_X(X2)
 
             # Y: 均匀交叉（仅早退层可变）
@@ -201,4 +199,3 @@ def optimize_GA(paras,
     Fc_arr = np.array(best_ind[3]).reshape(n_rows, 1)
 
     return best_val, (X_mat, Y_mat, Fe_arr, Fc_arr), history
-

@@ -8,8 +8,8 @@ from pathlib import Path
 import torch
 import torch.nn as nn
 from Models.ModelNet.Resnet50 import Bottleneck, MultiEEResNet50, freeze_layers
-from Src.Algo.Utils.log_function import save_model_weights, save_train_log
-from Src.Algo.Utils.utils_function import get_data_loaders, get_device
+from Src.Algorithm.Utils.log_function import save_model_weights, save_train_log
+from Src.Algorithm.Utils.utils_function import get_data_loaders, get_device
 
 from Src.paras import DATA_ROOT, RESULT_EE_MODEL_PATH, WEIGHTS_DIR
 
@@ -113,7 +113,7 @@ if __name__ == "__main__":
 
     # 3) data ------------------------------------------------------------------
     train_loader, valid_loader, test_loader = get_data_loaders(
-        root=DATA_ROOT,
+        root=str(DATA_ROOT),
         batch_size=batch_size,
         valid_size=valid_size,
         random_seed=random_seed,

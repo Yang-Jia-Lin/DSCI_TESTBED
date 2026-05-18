@@ -108,7 +108,7 @@ class Paras:
         # 检查用户数和配置数组长度是否匹配
         if len(self.F_u) != self.n:
             print(f"Warning: F_u length ({len(self.F_u)}) does not match n ({self.n}).")
-        from Src.Algo.Utils.parsing_data import parsing_rate_and_acc
+        from Src.Algorithm.Utils.parsing_data import parsing_rate_and_acc
 
         self.rates, self.accs = parsing_rate_and_acc(self)
 

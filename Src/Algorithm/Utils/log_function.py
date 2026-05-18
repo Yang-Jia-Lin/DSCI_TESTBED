@@ -2,19 +2,18 @@
 Src/Utils/log_function.py
 """
 
-import json
 import time
-from datetime import datetime
-from pathlib import Path
-from typing import Dict, List, Union
-
-import numpy as np
-import pandas as pd
+import json
 import torch
+import pandas as pd
+import numpy as np
+from datetime import datetime
+from typing import Dict, Union, List
+from pathlib import Path
 
 from Scripts.Exp3_Dynamic.plot_decision import plot_X, plot_Y
 from Scripts.Exp4_DSCI_Convergency.plot_convergency import plot_convergence
-from Src.Algorithm.Utils.utils_function import NumpyEncoder, open_file
+from Src.Utils.utils_function import NumpyEncoder, open_file
 from Src.paras import Paras
 
 
@@ -25,8 +24,8 @@ def save_experiment_results(
     best_val: float,
     best_sol: tuple,
     history: list,
-    hyper_params: dict = None,
-    extra_logs: list = None,
+    hyper_params: dict,
+    extra_logs: list,
 ):
     # ======== 1) 创建文件夹 ========
     timestamp = time.strftime("%Y%m%d_%H%M%S")
@@ -193,7 +192,5 @@ def save_thr_data(thr_data: pd.DataFrame, data_name: str, save_dir: Path) -> Pat
 
 
 if __name__ == "__main__":
-    from Src.paras import RESULT_DIR
-
-    target_path = RESULT_DIR / "Optimize" / "PPO" / "PPO_20260127_115650"
+    target_path = Path(r"D:\Coding\Python\DSCI\Result\Optimize\PPO\PPO_20260127_115650")
     load_and_analyze_results(target_path)
