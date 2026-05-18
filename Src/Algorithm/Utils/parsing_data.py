@@ -4,13 +4,30 @@ Src/Utils/parsing_data.py
 
 import numpy as np
 import pandas as pd
-from Src.Configs.paras import Paras, ACC_CSV_PATH, RATE_CSV_PATH
+from pathlib import Path
 from typing import Tuple
 
+from Src.Configs.model_config import RESNET50
+from Src.Configs.paras import Paras
 
-def parsing_rate_and_acc(paras):
-    df_acc = pd.read_csv(ACC_CSV_PATH)
-    df_rate = pd.read_csv(RATE_CSV_PATH)
+
+def _resolve_rate_acc_paths(
+    paras: Paras,
+    rate_path: str | Path | None = None,
+    acc_path: str | Path | None = None,
+) -> tuple[Path, Path]:
+    cfg = getattr(paras, "model_cfg", None) or RESNET50
+    return Path(rate_path or cfg.rate_csv), Path(acc_path or cfg.acc_csv)
+
+
+def parsing_rate_and_acc(
+    paras: Paras,
+    rate_path: str | Path | None = None,
+    acc_path: str | Path | None = None,
+):
+    rate_csv, acc_csv = _resolve_rate_acc_paths(paras, rate_path, acc_path)
+    df_acc = pd.read_csv(acc_csv)
+    df_rate = pd.read_csv(rate_csv)
 
     m = paras.m
     exit_layer: list[int] = paras.E

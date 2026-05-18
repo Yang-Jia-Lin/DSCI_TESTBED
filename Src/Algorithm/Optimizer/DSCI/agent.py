@@ -8,6 +8,7 @@ Src/Optimizer/DSCI/agent.py
 4) 数值稳定：adv norm、grad clip、严格 on-policy，移除 TopK/off-policy 等机制
 """
 
+from pathlib import Path
 from typing import cast
 
 import numpy as np
@@ -172,6 +173,159 @@ class PPOAgent:
         ent_Y = ent_Y.detach().squeeze(0)  # scalar
         return x_idx.view(-1)[0], y.squeeze(0), logprob, value, ent_X, ent_Y
 
+    @torch.no_grad()
+    def select_action(self, state: torch.Tensor):
+        """Greedy action for online inference (argmax X, Beta mean Y)."""
+        logits_X, alpha_Y, beta_Y, value = self.policy(state)
+
+        x_idx = logits_X.argmax(dim=-1).view(-1)[0]
+        if self.action_dim_Y > 0:
+            y = (alpha_Y / (alpha_Y + beta_Y)).squeeze(0)
+        else:
+            y = state.new_zeros((0,))
+        value = value.detach().view(-1)[0]
+        return x_idx, y, value
+
+    @torch.no_grad()
+    def action_logprob(
+        self, state: torch.Tensor, x_idx: torch.Tensor, y_vec: torch.Tensor
+    ) -> torch.Tensor:
+        """Log-probability of a given (x_idx, y_vec) under the current policy."""
+        logits_X, alpha_Y, beta_Y, _value = self.policy(state)
+        dist_X = torch.distributions.Categorical(logits=logits_X)
+        if not isinstance(x_idx, torch.Tensor):
+            x_idx = torch.tensor(int(x_idx), device=state.device, dtype=torch.long)
+        x_scalar = x_idx.view(-1)[0].long()
+        logp_X = dist_X.log_prob(x_scalar)
+
+        if self.action_dim_Y > 0:
+            dist_Y = torch.distributions.Beta(alpha_Y, beta_Y)
+            y_in = y_vec.unsqueeze(0) if y_vec.dim() == 1 else y_vec
+            logp_Y = dist_Y.log_prob(y_in).sum(-1).view(-1)[0]
+        else:
+            logp_Y = state.new_zeros(())
+
+        return (logp_X + logp_Y).float()
+
+    def load_policy_state_dict(self, state_dict: dict, strict: bool = True) -> "PPOAgent":
+        self.policy.load_state_dict(state_dict, strict=strict)
+        return self
+
+    def load_checkpoint(self, path: str | Path, strict: bool = True) -> "PPOAgent":
+        ckpt = torch.load(Path(path), map_location=self.device)
+        if isinstance(ckpt, dict) and "state_dict" in ckpt:
+            ckpt = ckpt["state_dict"]
+        self.load_policy_state_dict(ckpt, strict=strict)
+        return self
+
+    @staticmethod
+    def default_resources(paras) -> tuple[np.ndarray, np.ndarray]:
+        """Equal-split edge/cloud compute as in ``train()`` initialization."""
+        n = paras.n
+        F_e = np.ones((n, 1), dtype=np.float32) * (paras.f_e_max / n)
+        F_c = np.ones((n, 1), dtype=np.float32) * (paras.f_c_max / n)
+        return F_e, F_c
+
+    def allocate_resources_for_XY(
+        self,
+        X: np.ndarray,
+        Y: np.ndarray,
+        F_e: np.ndarray | None = None,
+        F_c: np.ndarray | None = None,
+        outer_ema: float = 1.0,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Theorem-1 closed-form allocation for a fixed (X, Y)."""
+        if F_e is None or F_c is None:
+            F_e, F_c = self.default_resources(self.paras)
+
+        exit_prob = compute_layer_exit_probs(Y, self.paras)
+        iota, kappa = compute_iota_kappa(X, self.paras.C, exit_prob)
+        new_f_e, new_f_c = allocate_resources(
+            iota, kappa, self.paras.f_e_max, self.paras.f_c_max
+        )
+        new_F_e = new_f_e.reshape(self.paras.n, 1).astype(np.float32)
+        new_F_c = new_f_c.reshape(self.paras.n, 1).astype(np.float32)
+
+        eta = float(np.clip(outer_ema, 0.0, 1.0))
+        F_e = ((1.0 - eta) * F_e + eta * new_F_e).astype(np.float32)
+        F_c = ((1.0 - eta) * F_c + eta * new_F_c).astype(np.float32)
+        return F_e, F_c
+
+    @torch.no_grad()
+    def act_one_episode(
+        self,
+        F_e: np.ndarray | None = None,
+        F_c: np.ndarray | None = None,
+        *,
+        deterministic: bool = True,
+        outer_ema: float = 1.0,
+        record_transitions: bool = False,
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, float]:
+        """
+        One Markov episode (n user steps): sample/greedy actions, then allocate resources.
+
+        Returns:
+            X, Y, F_e, F_c, objective value after outer resource update.
+
+        If ``record_transitions`` is True, each user step is appended to ``self.buffer``
+        with reward ``0`` (fill real rewards later via ``reward_adapter``).
+        """
+        if F_e is None or F_c is None:
+            F_e, F_c = self.default_resources(self.paras)
+
+        X, Y = _init_feasible_XY(self.paras)
+        prev_obj = objective(X, Y, F_e, F_c, self.paras)
+
+        for i in range(self.paras.n):
+            state = _build_state(
+                i=i,
+                n=self.paras.n,
+                prev_obj=prev_obj,
+                F_e=F_e,
+                F_c=F_c,
+                f_e_max=self.paras.f_e_max,
+                f_c_max=self.paras.f_c_max,
+                obj_scale=float(self.hparams.get("obj_scale", 1000.0)),
+            ).to(self.device)
+
+            if deterministic:
+                x_idx, y_vec_t, value = self.select_action(state)
+                logprob = self.action_logprob(state, x_idx, y_vec_t)
+            else:
+                x_idx, y_vec_t, logprob, value, _ent_X, _ent_Y = self.sample_action(
+                    state
+                )
+
+            if record_transitions:
+                done = float(i == self.paras.n - 1)
+                self.buffer.add(
+                    state.cpu(),
+                    x_idx,
+                    y_vec_t.detach().cpu(),
+                    logprob.detach().cpu(),
+                    value.detach().cpu(),
+                    reward=0.0,
+                    done=done,
+                )
+
+            X_new = X.copy()
+            Y_new = Y.copy()
+            y_vec_np = y_vec_t.detach().cpu().numpy().astype(np.float32)
+            x_idx_int = (
+                int(x_idx.item()) if isinstance(x_idx, torch.Tensor) else int(x_idx)
+            )
+            X_new, Y_new = self._apply_action_to_XY(
+                X_new, Y_new, user_i=i, x_idx=x_idx_int, y_vec=y_vec_np
+            )
+            X, Y = X_new, Y_new
+            prev_obj = objective(X, Y, F_e, F_c, self.paras)
+
+        F_e, F_c = self.allocate_resources_for_XY(
+            X, Y, F_e=F_e, F_c=F_c, outer_ema=outer_ema
+        )
+        final_obj = float(objective(X, Y, F_e, F_c, self.paras))
+        return X, Y, F_e, F_c, final_obj
+
     def _apply_action_to_XY(
         self, X: np.ndarray, Y: np.ndarray, user_i: int, x_idx: int, y_vec: np.ndarray
     ):
@@ -285,15 +439,9 @@ class PPOAgent:
         patience = 20  # 检测窗口大小
         rel_tolerance = 1e-4  # 相对容忍度（例如：0.01% 的改进）
 
-        # 初始化资源
-        F_e = np.ones((self.paras.n, 1), dtype=np.float32) * (
-            self.paras.f_e_max / self.paras.n
-        )
-        F_c = np.ones((self.paras.n, 1), dtype=np.float32) * (
-            self.paras.f_c_max / self.paras.n
-        )
-
+        F_e, F_c = self.default_resources(self.paras)
         target_steps = int(self.hparams["target_steps"])
+        outer_ema = float(self.hparams.get("outer_ema", 0.02))
 
         for epoch in range(self.hparams["max_epochs"]):
             self.buffer.clear()
@@ -394,25 +542,13 @@ class PPOAgent:
             if best_epoch_X is None or best_epoch_Y is None:
                 print("[Warning] best_epoch_X/Y is None, skip outer update.")
             else:
-                # 1. 用 best_epoch_Y 计算每个用户在每层的组合退出概率 P_ij
-                exit_prob = compute_layer_exit_probs(
-                    best_epoch_Y, self.paras
-                )  # shape (n,m)
-                assert exit_prob.shape == (self.paras.n, self.paras.m)
-                # 2. 计算 iota / kappa
-                compute_sizes = self.paras.C
-                iota, kappa = compute_iota_kappa(best_epoch_X, compute_sizes, exit_prob)
-                # 3. 闭式解分配资源（返回的是 1D (n,)）
-                new_f_e, new_f_c = allocate_resources(
-                    iota, kappa, self.paras.f_e_max, self.paras.f_c_max
+                F_e, F_c = self.allocate_resources_for_XY(
+                    best_epoch_X,
+                    best_epoch_Y,
+                    F_e=F_e,
+                    F_c=F_c,
+                    outer_ema=outer_ema,
                 )
-                # 4. 转成 objective 需要的形状
-                new_F_e = new_f_e.reshape(self.paras.n, 1).astype(np.float32)
-                new_F_c = new_f_c.reshape(self.paras.n, 1).astype(np.float32)
-                # 5. EMA 平滑，避免 epoch 之间资源剧烈震荡导致训练不稳
-                eta = float(self.hparams.get("outer_ema", 0.02))  # 0~1
-                F_e = ((1 - eta) * F_e + eta * new_F_e).astype(np.float32)
-                F_c = ((1 - eta) * F_c + eta * new_F_c).astype(np.float32)
 
             # 统计 mean_obj / entropy
             mean_epoch_obj = (

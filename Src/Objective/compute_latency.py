@@ -15,8 +15,51 @@ def _compute_end_to_edge_delay(d_i, h_i, B_e, G, delta):
     return d_i / R_i
 
 
+def _compute_measured_transmission_delay(feature_bytes, bandwidth_mbps):
+    """Compute transmission delay from bytes and bandwidth in Mbps.
+
+    Args:
+        feature_bytes: Data size in bytes.
+        bandwidth_mbps: Bandwidth in Mbps.
+
+    Returns:
+        Delay in seconds.
+    """
+    bandwidth_mbps = float(bandwidth_mbps)
+    if bandwidth_mbps <= 0:
+        return float("inf")
+    return float(feature_bytes) * 8.0 / (bandwidth_mbps * 1e6)
+
+
+def _compute_device_to_edge_delay(feature_bytes, user_idx, paras):
+    B_u = getattr(paras, "B_u", None)
+    if B_u is not None:
+        return _compute_measured_transmission_delay(
+            feature_bytes, np.asarray(B_u, dtype=np.float64).reshape(-1)[user_idx]
+        )
+
+    H = np.asarray(paras.H_u, dtype=np.float64).reshape(-1)
+    return _compute_end_to_edge_delay(
+        feature_bytes,
+        float(H[user_idx]),
+        float(paras.b_e),
+        float(paras.G),
+        float(paras.delta),
+    )
+
+
 def _compute_edge_to_cloud_delay(d_e2c, B_c):
     return d_e2c / (B_c * 1e6)
+
+
+def _use_measured_bandwidth(paras):
+    return getattr(paras, "B_u", None) is not None
+
+
+def _compute_edge_to_cloud_delay_for_paras(feature_bytes, paras):
+    if _use_measured_bandwidth(paras):
+        return _compute_measured_transmission_delay(feature_bytes, paras.b_c)
+    return _compute_edge_to_cloud_delay(feature_bytes, paras.b_c)
 
 
 def _compute_local_computation_delay(cut_points_i, P_i, C_i, f_u):
@@ -125,12 +168,7 @@ def compute_total_latency(X, P, F_e, F_c, paras):
     m = X.shape[1]
     C = paras.C
     D = paras.D
-    H = paras.H_u
     F_u = paras.F_u
-    b_e = paras.b_e
-    b_c = paras.b_c
-    G = paras.G
-    delta = paras.delta
 
     T = np.zeros(n, dtype=np.float64)
     cut_points = compute_exit_points(X, paras)
@@ -144,7 +182,6 @@ def compute_total_latency(X, P, F_e, F_c, paras):
         f_e = float(np.asarray(F_e).reshape(-1)[i])
         f_c = float(np.asarray(F_c).reshape(-1)[i])
         f_u = float(np.asarray(F_u).reshape(-1)[i])
-        h_i = float(np.asarray(H).reshape(-1)[i])
 
         # ---- Local computation ----
         if cut0 > 0:
@@ -155,8 +192,8 @@ def compute_total_latency(X, P, F_e, F_c, paras):
 
         # ---- U->E transmission & Edge computation ----
         if 0 <= cut0 < m and prob_reach_edge > 0:
-            T[i] += prob_reach_edge * _compute_end_to_edge_delay(
-                float(D[cut0]), h_i, b_e, G, delta
+            T[i] += prob_reach_edge * _compute_device_to_edge_delay(
+                float(D[cut0]), i, paras
             )
             T[i] += _compute_edge_computation_delay((cut0, cut1), P_i, C, f_e)
 
@@ -166,7 +203,9 @@ def compute_total_latency(X, P, F_e, F_c, paras):
         # ---- E->C transmission & Cloud computation ----
         if 0 <= cut1 < m and cut1 != -1 and prob_reach_cloud > 0:
             d_i_2 = float(D[cut1])
-            T[i] += prob_reach_cloud * _compute_edge_to_cloud_delay(d_i_2, b_c)
+            T[i] += prob_reach_cloud * _compute_edge_to_cloud_delay_for_paras(
+                d_i_2, paras
+            )
             T[i] += _compute_cloud_computation_delay((cut0, cut1), P_i, C, f_c)
 
     return T
@@ -177,12 +216,7 @@ def compute_5_latency(X, P, F_e, F_c, paras):
     m = X.shape[1]
     C = paras.C
     D = paras.D
-    H = paras.H_u
     F_u = paras.F_u
-    b_e = paras.b_e
-    b_c = paras.b_c
-    G = paras.G
-    delta = paras.delta
 
     T1 = np.zeros(n, dtype=np.float64)
     T2 = np.zeros(n, dtype=np.float64)
@@ -199,7 +233,6 @@ def compute_5_latency(X, P, F_e, F_c, paras):
         f_e = float(np.asarray(F_e).reshape(-1)[i])
         f_c = float(np.asarray(F_c).reshape(-1)[i])
         f_u = float(np.asarray(F_u).reshape(-1)[i])
-        h_i = float(np.asarray(H).reshape(-1)[i])
 
         # ---- Local computation ----
         if cut0 > 0:
@@ -210,8 +243,8 @@ def compute_5_latency(X, P, F_e, F_c, paras):
 
         # ---- U->E transmission & Edge computation ----
         if 0 <= cut0 < m and prob_reach_edge > 0:
-            T2[i] = prob_reach_edge * _compute_end_to_edge_delay(
-                float(D[cut0]), h_i, b_e, G, delta
+            T2[i] = prob_reach_edge * _compute_device_to_edge_delay(
+                float(D[cut0]), i, paras
             )
             T3[i] = _compute_edge_computation_delay((cut0, cut1), P_i, C, f_e)
 
@@ -221,7 +254,9 @@ def compute_5_latency(X, P, F_e, F_c, paras):
         # ---- E->C transmission & Cloud computation ----
         if 0 <= cut1 < m and cut1 != -1 and prob_reach_cloud > 0:
             d_i_2 = float(D[cut1])
-            T4[i] = prob_reach_cloud * _compute_edge_to_cloud_delay(d_i_2, b_c)
+            T4[i] = prob_reach_cloud * _compute_edge_to_cloud_delay_for_paras(
+                d_i_2, paras
+            )
             T5[i] = _compute_cloud_computation_delay((cut0, cut1), P_i, C, f_c)
     return T1, T2, T3, T4, T5
 
@@ -246,13 +281,7 @@ def compute_user_latency(
     """
     C = np.asarray(paras.C, dtype=np.float64)
     D = np.asarray(paras.D, dtype=np.float64)
-    H = np.asarray(paras.H_u, dtype=np.float64).reshape(-1)
     F_u = np.asarray(paras.F_u, dtype=np.float64).reshape(-1)
-
-    b_e = float(paras.b_e)
-    b_c = float(paras.b_c)
-    G = float(paras.G)
-    delta = float(paras.delta)
 
     m = len(C)
 
@@ -264,7 +293,6 @@ def compute_user_latency(
     f_e = float(F_e_u)
     f_c = float(F_c_u)
     f_u = float(F_u[u])
-    h_i = float(H[u])
 
     T = 0.0
 
@@ -277,9 +305,7 @@ def compute_user_latency(
 
     # ---- U->E transmission & Edge computation ----
     if 0 <= cut0 < m and prob_reach_edge > 0:
-        T += prob_reach_edge * _compute_end_to_edge_delay(
-            float(D[cut0]), h_i, b_e, G, delta
-        )
+        T += prob_reach_edge * _compute_device_to_edge_delay(float(D[cut0]), u, paras)
         T += _compute_edge_computation_delay((cut0, cut1), P_i, C, f_e)
 
     # 进入 cloud 的概率（退出层 >= cut1），仅当 cut1 有效且存在 cloud 段
@@ -287,7 +313,9 @@ def compute_user_latency(
 
     # ---- E->C transmission & Cloud computation ----
     if 0 <= cut1 < m and cut1 != -1 and prob_reach_cloud > 0:
-        T += prob_reach_cloud * _compute_edge_to_cloud_delay(float(D[cut1]), b_c)
+        T += prob_reach_cloud * _compute_edge_to_cloud_delay_for_paras(
+            float(D[cut1]), paras
+        )
         T += _compute_cloud_computation_delay((cut0, cut1), P_i, C, f_c)
 
     return float(T)
@@ -300,6 +328,12 @@ if __name__ == "__main__":
     print(">>> 初始化参数...")
     paras = Paras()
     n, m = paras.n, paras.m
+
+    # 显示路径类型
+    if paras.B_u is not None:
+        print("[Mode] Measured path: using B_u (per-user bandwidth in Mbps)")
+    else:
+        print("[Mode] Simulation path: using H_u, b_e (channel gain, MHz)")
 
     # 2. 准备输入数据
     X = np.zeros((n, m))
@@ -325,7 +359,8 @@ if __name__ == "__main__":
     f_e = F_e[0].item()
     f_c = F_c[0].item()
     f_u = float(paras.F_u[0])
-    h_i = float(paras.H_u[0])
+    h_i = float(paras.H_u[0]) if paras.H_u is not None else None
+    b_u_i = float(paras.B_u[0]) if paras.B_u is not None else None
     cut_tuple = (c0, c1)
 
     # A. Local
@@ -338,10 +373,16 @@ if __name__ == "__main__":
     # B. Trans U->E
     if c0 < m:
         data_u2e = float(paras.D[c0])
-        t_trans_1 = _compute_end_to_edge_delay(
-            data_u2e, h_i, paras.b_e, paras.G, paras.delta
-        )
-        print(f"2. Trans U->E (Data D[{c0}]):   \t{t_trans_1:.12f} s")
+        if b_u_i is not None:
+            t_trans_1 = _compute_measured_transmission_delay(data_u2e, b_u_i)
+            print(
+                f"2. Trans U->E (Measured B_u={b_u_i:.2f} Mbps):   \t{t_trans_1:.12f} s"
+            )
+        else:
+            t_trans_1 = _compute_end_to_edge_delay(
+                data_u2e, h_i, paras.b_e, paras.G, paras.delta
+            )
+            print(f"2. Trans U->E (Sim h_i={h_i:.2f}):   \t{t_trans_1:.12f} s")
     else:
         t_trans_1 = 0.0
         print("2. Trans U->E (None):   \t0 s")
@@ -416,16 +457,26 @@ if __name__ == "__main__":
     # B. Trans U->E (按到达 edge 概率加权，与 compute_total_latency 对齐)
     if 0 <= c0 < m and prob_reach_edge > 0:
         data_u2e = float(paras.D[c0])
-        t_trans_1_raw = _compute_end_to_edge_delay(
-            data_u2e, h_i, paras.b_e, paras.G, paras.delta
-        )
-        t_trans_1 = prob_reach_edge * t_trans_1_raw
-        print(f"\n2. Trans U->E (Data D[{c0}]):")
-        print(f"   - D[{c0}]      = {data_u2e} (raw unit)")
-        print(f"   - bandwidth b_e= {paras.b_e} (-> {paras.b_e * 1e6:.3e})")
-        print(f"   - reach prob   = {prob_reach_edge:.6f}")
-        print(f"   - raw delay    = {t_trans_1_raw:.12f} s")
-        print(f"   - expected     = {t_trans_1:.12f} s")
+        if b_u_i is not None:
+            t_trans_1_raw = _compute_measured_transmission_delay(data_u2e, b_u_i)
+            t_trans_1 = prob_reach_edge * t_trans_1_raw
+            print(f"\n2. Trans U->E (Measured, Data D[{c0}]):")
+            print(f"   - D[{c0}]      = {data_u2e} (bytes)")
+            print(f"   - B_u          = {b_u_i:.2f} Mbps")
+            print(f"   - reach prob   = {prob_reach_edge:.6f}")
+            print(f"   - raw delay    = {t_trans_1_raw:.12f} s")
+            print(f"   - expected     = {t_trans_1:.12f} s")
+        else:
+            t_trans_1_raw = _compute_end_to_edge_delay(
+                data_u2e, h_i, paras.b_e, paras.G, paras.delta
+            )
+            t_trans_1 = prob_reach_edge * t_trans_1_raw
+            print(f"\n2. Trans U->E (Sim, Data D[{c0}]):")
+            print(f"   - D[{c0}]      = {data_u2e} (raw unit)")
+            print(f"   - bandwidth b_e= {paras.b_e} (-> {paras.b_e * 1e6:.3e})")
+            print(f"   - reach prob   = {prob_reach_edge:.6f}")
+            print(f"   - raw delay    = {t_trans_1_raw:.12f} s")
+            print(f"   - expected     = {t_trans_1:.12f} s")
     else:
         t_trans_1 = 0.0
         print("\n2. Trans U->E (None):\n   - expected = 0 s")
