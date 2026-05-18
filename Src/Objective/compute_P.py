@@ -2,6 +2,7 @@
 计算退出概率
 Src/Objective/compute_P.py
 """
+
 import numpy as np
 
 
@@ -25,7 +26,7 @@ def compute_layer_exit_probs(Y, paras):
         # 1) 计算独立退出概率
         for j in range(m):
             if j in paras.E:
-                p[i, j] = _get_independent_prob(Y[i, j], j, paras.rates) # 查表
+                p[i, j] = _get_independent_prob(Y[i, j], j, paras.rates)  # 查表
 
         # 2) 计算组合退出概率
         for j in range(m):
@@ -48,11 +49,13 @@ def compute_layer_exit_probs(Y, paras):
 # Test Block
 # ==========================================
 if __name__ == "__main__":
-    from Src.paras import Paras
+    from Src.Configs.paras import Paras
+
     print(">>> 正在初始化参数并读取真实数据...")
 
     # 初始化 Paras 对象
     paras = Paras()
+    assert paras.rates is not None, "Rates data not loaded"
     print(f">>> 数据加载完成. Rates shape: {paras.rates.shape}")
 
     n = paras.n
@@ -85,19 +88,26 @@ if __name__ == "__main__":
             val_y = Y[0, j]
             # 这里的逻辑和你函数里保持一致
             idx = round(val_y * 100)
-            if idx < 0: idx = 0
-            if idx > 100: idx = 100
+            if idx < 0:
+                idx = 0
+            if idx > 100:
+                idx = 100
+            assert paras.rates is not None, "Rates data not loaded"
             p_independent[j] = paras.rates[idx, j] / 100.0
         else:
             p_independent[j] = 0.0
 
     # 5. 打印
     print("\n" + "=" * 70)
-    print(f"{'Layer':<8} | {'Y_ij (阈值)':<12} | {'p_ij (独立概率)':<15} | {'P_ij (最终概率)':<15}")
+    print(
+        f"{'Layer':<8} | {'Y_ij (阈值)':<12} | {'p_ij (独立概率)':<15} | {'P_ij (最终概率)':<15}"
+    )
     print("-" * 70)
     for j in range(m):
         is_exit = " [Exit]" if j in paras.E else ""
-        print(f"{str(j) + is_exit:<8} | {Y[0, j]:<12.2f} | {p_independent[j]:<15.4f} | {P_user[j]:<15.4f}")
+        print(
+            f"{str(j) + is_exit:<8} | {Y[0, j]:<12.2f} | {p_independent[j]:<15.4f} | {P_user[j]:<15.4f}"
+        )
     print("-" * 70)
     print(f"Sum(P_ij) = {P_user.sum():.6f}")
 

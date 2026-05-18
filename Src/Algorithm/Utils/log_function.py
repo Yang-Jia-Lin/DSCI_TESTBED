@@ -14,7 +14,7 @@ from pathlib import Path
 from Scripts.Exp3_Dynamic.plot_decision import plot_X, plot_Y
 from Scripts.Exp4_DSCI_Convergency.plot_convergency import plot_convergence
 from Src.Utils.utils_function import NumpyEncoder, open_file
-from Src.paras import Paras
+from Src.Configs.paras import Paras
 
 
 def save_experiment_results(

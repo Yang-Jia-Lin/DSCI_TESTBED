@@ -11,7 +11,7 @@ from Models.ModelNet.Resnet50 import Bottleneck, MultiEEResNet50, freeze_layers
 from Src.Algorithm.Utils.log_function import save_model_weights, save_train_log
 from Src.Algorithm.Utils.utils_function import get_data_loaders, get_device
 
-from Src.paras import DATA_ROOT, RESULT_EE_MODEL_PATH, WEIGHTS_DIR
+from Src.Configs.paras import DATA_ROOT, RESULT_EE_MODEL_PATH, WEIGHTS_DIR
 
 
 def make_optimizer(model, base_lr=0.001):

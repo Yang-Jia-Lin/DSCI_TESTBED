@@ -3,7 +3,7 @@ Src/Optimizer/BF/run_BF.py
 """
 
 from pathlib import Path
-from Src.paras import Paras, RESULT_BF_PATH
+from Src.Configs.paras import Paras, RESULT_BF_PATH
 from Src.Algorithm.Optimizer.BF.alg_BF import optimize_BF
 from Src.Utils.log_function import save_experiment_results
 

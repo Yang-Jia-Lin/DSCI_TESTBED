@@ -2,6 +2,7 @@
 目标函数
 Src/Objective/Objective.py
 """
+
 from Src.Objective.compute_P import compute_layer_exit_probs
 from Src.Objective.compute_latency import compute_total_latency
 from Src.Objective.compute_accuracy import compute_expected_accuracy
@@ -30,14 +31,13 @@ def get_lat_and_acc(X, Y, F_e, F_c, paras):
     return latency, acc
 
 
-
-
 # ==========================================
 # Test Block for Objective
 # ==========================================
 if __name__ == "__main__":
-    from Src.paras import Paras
+    from Src.Configs.paras import Paras
     import numpy as np
+
     print("\n" + "=" * 20 + " Objective Test " + "=" * 20)
 
     # -------------------------------------------------

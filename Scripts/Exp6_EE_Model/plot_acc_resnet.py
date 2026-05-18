@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from Src.Algorithm.Utils.plot_utils import save_fig_for_ieee, set_ieee_style
 
-from Src.paras import ACC_CSV_PATH, COLORS, RESULT_EE_MODEL_PATH
+from Src.Configs.paras import ACC_CSV_PATH, COLORS, RESULT_EE_MODEL_PATH
 
 
 def plot_accuracy_vs_threshold(

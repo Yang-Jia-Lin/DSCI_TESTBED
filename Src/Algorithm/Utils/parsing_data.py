@@ -4,7 +4,7 @@ Src/Utils/parsing_data.py
 
 import numpy as np
 import pandas as pd
-from Src.paras import Paras, ACC_CSV_PATH, RATE_CSV_PATH
+from Src.Configs.paras import Paras, ACC_CSV_PATH, RATE_CSV_PATH
 from typing import Tuple
 
 

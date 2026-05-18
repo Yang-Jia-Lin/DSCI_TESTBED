@@ -6,8 +6,9 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from pathlib import Path
+from typing import cast
 from Src.Utils.plot_utils import set_ieee_style, save_fig_for_ieee
-from Src.paras import RESULT_EE_MODEL_PATH, COLORS
+from Src.Configs.paras import RESULT_EE_MODEL_PATH, COLORS
 
 
 def plot_expectation_vs_threshold(
@@ -31,8 +32,8 @@ def plot_expectation_vs_threshold(
 
     # 计算 E_t (延迟期望)
     rate_matrix = np.zeros((num_thresholds, m))
-    for idx, row in df_rate.iterrows():
-        exit_rates = row[1 : num_exits + 1].values
+    for idx, row in enumerate(df_rate.itertuples(index=False)):
+        exit_rates = np.asarray(row[1 : num_exits + 1])
         for i, layer in enumerate(exit_layer):
             rate_matrix[idx, layer] = exit_rates[i]
     rate_matrix = rate_matrix * 0.01
@@ -49,8 +50,8 @@ def plot_expectation_vs_threshold(
 
     # 计算 E_acc (精度期望)
     acc_matrix = np.zeros((num_thresholds, m))
-    for idx, row in df_acc.iterrows():
-        exit_accuracies = row[1 : num_exits + 2].values
+    for idx, row in enumerate(df_acc.itertuples(index=False)):
+        exit_accuracies = np.asarray(row[1 : num_exits + 2])
         for i, layer in enumerate(exit_layer):
             acc_matrix[idx, layer] = exit_accuracies[i]
         acc_matrix[idx, m - 1] = exit_accuracies[-1]
@@ -89,7 +90,7 @@ def plot_expectation_vs_threshold(
     ax2.grid(False)  # 双轴图通常关闭右轴网格，防止画面太乱
 
     lns = lns1 + lns2
-    labs = [l.get_label() for l in lns]
+    labs = cast(list[str], [line.get_label() for line in lns])
     ax1.legend(
         lns,
         labs,

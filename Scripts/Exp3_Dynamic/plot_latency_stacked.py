@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from Src.Utils.plot_utils import save_fig_for_ieee, set_ieee_style
 
-from Src.paras import COLORS
+from Src.Configs.paras import COLORS
 
 
 def plot_latency_stacked(user_labels, T_parts, save_dir: Path):
@@ -71,6 +71,6 @@ if __name__ == "__main__":
     users = [f"U{i + 1}" for i in range(5)]
     T = [np.random.rand(5) * 0.2 for _ in range(5)]
 
-    from Src.paras import COLORS, RESULT_TEST_PATH
+    from Src.Configs.paras import COLORS, RESULT_TEST_PATH
 
     plot_latency_stacked(users, T, save_dir=Path(RESULT_TEST_PATH))

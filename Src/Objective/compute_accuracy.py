@@ -2,8 +2,9 @@
 计算全部任务的准确率
 Src/Objective/compute_accuracy.py
 """
+
 import numpy as np
-from Src.paras import Paras
+from Src.Configs.paras import Paras
 
 
 def _get_acc(Y_ij, j, exit_rates):
@@ -27,7 +28,7 @@ def compute_expected_accuracy(Y, P, paras):
             if j in paras.E:
                 acc[i, j] = _get_acc(Y[i, j], j, paras.accs)
                 # print(f"第{i}行，第{j}列，阈值为{Y[i,j]}，精度为{acc[i, j]}，退出概率为{P[i,j]}")
-        acc[i, m - 1] = paras.accs[100, m-1] / 100.0
+        acc[i, m - 1] = paras.accs[100, m - 1] / 100.0
         # acc[i, m - 1] = 0.8651
     accuracy = acc * P
     return np.sum(accuracy, axis=1)
@@ -36,6 +37,7 @@ def compute_expected_accuracy(Y, P, paras):
 if __name__ == "__main__":
     from Src.Utils.parsing_data import parsing_rate_and_acc
     from Src.Objective.compute_P import compute_layer_exit_probs
+
     paras = Paras()
     paras.rates, paras.accs = parsing_rate_and_acc(paras)
     n = paras.n

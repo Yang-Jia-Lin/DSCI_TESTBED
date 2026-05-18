@@ -3,7 +3,7 @@ Src/Optimizer/DSCI/run_DSCI.py
 """
 
 from pathlib import Path
-from Src.paras import Paras, RESULT_PPO_PATH
+from Src.Configs.paras import Paras, RESULT_PPO_PATH
 from Src.Algorithm.Optimizer.DSCI.agent import PPOAgent
 from Src.Utils.log_function import save_experiment_results
 

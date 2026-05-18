@@ -3,7 +3,7 @@ Src/Optimizer/GA/run_GA.py
 """
 
 from pathlib import Path
-from Src.paras import Paras, RESULT_GA_PATH
+from Src.Configs.paras import Paras, RESULT_GA_PATH
 from Src.Algorithm.Optimizer.GA.alg_GA import optimize_GA
 from Src.Utils.log_function import save_experiment_results
 

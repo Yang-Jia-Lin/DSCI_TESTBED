@@ -9,7 +9,7 @@ from Src.Objective.compute_P import compute_layer_exit_probs
 from Src.Objective.compute_accuracy import compute_expected_accuracy
 from Src.Objective.compute_exit_points import compute_exit_points
 from Src.Objective.compute_latency import compute_user_latency
-from Src.paras import Paras
+from Src.Configs.paras import Paras
 
 
 def _generate_all_valid_X_rows(m: int) -> np.ndarray:
