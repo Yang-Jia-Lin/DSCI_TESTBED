@@ -8,14 +8,16 @@ Src/Optimizer/DSCI/agent.py
 4) 数值稳定：adv norm、grad clip、严格 on-policy，移除 TopK/off-policy 等机制
 """
 
+from typing import cast
+
 import numpy as np
 import torch
 import torch.nn.functional as F
 
-from Src.Objective.objective import objective, get_lat_and_acc
-from Src.Objective.compute_P import compute_layer_exit_probs
-from Src.Algorithm.Optimizer.DSCI.networks import ActorCritic
 from Src.Algorithm.Optimizer.DSCI.buffer import RolloutBuffer
+from Src.Algorithm.Optimizer.DSCI.networks import ActorCritic
+from Src.Objective.compute_P import compute_layer_exit_probs
+from Src.Objective.objective import get_lat_and_acc, objective
 from Src.Utils.parsing_data import split_points_matrix
 
 
@@ -113,11 +115,12 @@ class PPOAgent:
         self.action_dim_Y = len(self.paras.E)  # 动作 Y：早退层（|E|）
 
         # ---------- 网络 ----------
-        self.policy = ActorCritic(
+        policy_net = ActorCritic(
             state_dim=self.state_dim,
             num_layers=self.paras.m,
             action_dim_Y=self.action_dim_Y,
         ).to(self.device)
+        self.policy: ActorCritic = policy_net
 
         # ---------- 优化 ----------
         self.buffer = RolloutBuffer()
@@ -182,7 +185,8 @@ class PPOAgent:
 
         # ---- 写 X：清空后置 2 个切分点 ----
         X[user_i, :] = 0.0
-        pair = self.policy.x_pairs[x_idx].detach().cpu().numpy().tolist()  # [k1,k2]
+        x_pairs = cast(torch.Tensor, self.policy.x_pairs)
+        pair = x_pairs[x_idx].detach().cpu().numpy()  # [k1,k2]
         k1, k2 = int(pair[0]), int(pair[1])
         X[user_i, k1] = 1.0
         X[user_i, k2] = 1.0
@@ -441,7 +445,11 @@ class PPOAgent:
                 )
 
             history.append(outer_obj)
-            if outer_obj > best_val:
+            if (
+                outer_obj > best_val
+                and best_epoch_X is not None
+                and best_epoch_Y is not None
+            ):
                 best_val = outer_obj
                 best_sol = (
                     best_epoch_X.copy(),
@@ -486,7 +494,7 @@ class PPOAgent:
                 rel_change = abs(curr_mean - prev_mean) / (abs(prev_mean) + 1e-10)
                 cv = np.std(current_window) / (abs(curr_mean) + 1e-10)
                 if rel_change < rel_tolerance and cv < (rel_tolerance * 5):
-                    print(f"[Early Stop] Converged!")
+                    print("[Early Stop] Converged!")
                     print(f"Epoch: {epoch}, Rel Change: {rel_change:.6f}, CV: {cv:.6f}")
                     break
 

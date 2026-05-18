@@ -39,7 +39,7 @@ def run_dsci_experiment(
     best_val, best_sol, history = agent.train()
 
     # 4. 日志保存
-    if save_log:
+    if save_log and best_sol is not None:
         save_experiment_results(
             save_dir=Path(RESULT_PPO_PATH),
             algo_name="DSCI",
@@ -50,6 +50,8 @@ def run_dsci_experiment(
             hyper_params=ppo_params,
             extra_logs=agent.logs,
         )
+    elif best_sol is None:
+        print("[Warning] DSCI optimization returned no solution.")
 
     return best_val, best_sol, history, paras
 

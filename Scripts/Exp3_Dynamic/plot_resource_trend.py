@@ -8,9 +8,9 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from Src.Utils.plot_utils import save_fig_for_ieee, set_ieee_style
 
 from Src.paras import COLORS, NUM_LAYERS
+from Src.Utils.plot_utils import save_fig_for_ieee, set_ieee_style
 
 
 def plot_resource_trend(csv_path: Path, save_dir: Path):
@@ -25,10 +25,10 @@ def plot_resource_trend(csv_path: Path, save_dir: Path):
         return
     df = pd.read_csv(csv_path)
     x_col_name = df.columns[0]  # 获取第一列的列名
-    x_values = df.iloc[:, 0].values  # 获取第一列的数据
-    cut_ee = df["avg_end_edge"].values
-    cut_ec = df["avg_edge_cloud"].values
-    utility = df["total_utility"].values
+    x_values = np.asarray(df.iloc[:, 0])  # 获取第一列的数据
+    cut_ee = np.asarray(df["avg_end_edge"])
+    cut_ec = np.asarray(df["avg_edge_cloud"])
+    utility = np.asarray(df["total_utility"])
     label_map = {
         "H_u": "Channel Gain $H_u$",
         "F_u": "User Computing Power $F_u$ (GHz)",
@@ -60,7 +60,9 @@ def plot_resource_trend(csv_path: Path, save_dir: Path):
     ax1.set_ylim(0, total_layers)
     ax1.set_xlim(x_values.min(), x_values.max())
     ax2 = ax1.twinx()
-    ax2.plot(x_values, utility, color="#000000", linestyle="--", label="Total Utility")
+    ax2.plot(
+        x_values, utility, color=COLORS["black"], linestyle="--", label="Total Utility"
+    )
     ax2.set_ylabel("Total System Utility")
     lines1, labels1 = ax1.get_legend_handles_labels()
     lines2, labels2 = ax2.get_legend_handles_labels()

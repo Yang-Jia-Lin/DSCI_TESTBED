@@ -3,32 +3,33 @@ rollout 缓冲区
 Src/Optimizer/DSCI/buffer.py
 """
 
+from typing import List
+
 import torch
 
 
 class RolloutBuffer:
     def __init__(self):
-        self.dones = None
-        self.rewards = None
-        self.values = None
-        self.logprobs = None
-        self.actions_Y = None
-        self.actions_X = None
-        self.states = None
-        self.clear()
+        self.states: List[torch.Tensor] = []
+        self.actions_X: List[torch.Tensor] = []
+        self.actions_Y: List[torch.Tensor] = []
+        self.logprobs: List[torch.Tensor] = []
+        self.values: List[torch.Tensor] = []
+        self.rewards: List[torch.Tensor] = []
+        self.dones: List[torch.Tensor] = []
 
     def clear(self):
         # 每个元素是单步数据
-        self.states = []  # state tensor, shape [state_dim]
-        self.actions_X = []  # x_idx, int/LongTensor scalar
-        self.actions_Y = []  # y tensor, shape [action_dim_Y]
-        self.logprobs = []  # total logprob scalar
-        self.values = []  # value scalar (or shape [1])
-        self.rewards = []  # reward scalar
-        self.dones = []  # done scalar (0.0/1.0)
+        self.states.clear()
+        self.actions_X.clear()
+        self.actions_Y.clear()
+        self.logprobs.clear()
+        self.values.clear()
+        self.rewards.clear()
+        self.dones.clear()
 
     def __len__(self):
-        return len(self.rewards)  # type: ignore
+        return len(self.rewards)
 
     def add(self, state, action_X, action_Y, logprob, value, reward, done):
         """

@@ -1,7 +1,4 @@
-"""Src/paras.py
-
-全局路径与实验常量
-"""
+"""Src/paras.py"""
 
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -10,8 +7,6 @@ import numpy as np
 import pandas as pd
 
 BASE_DRIVE = Path(__file__).resolve().parents[1]
-
-# 2. 基于根目录定义子路径 (pathlib 会自动处理 / 和 \)
 DATA_DIR = BASE_DRIVE / "Data"
 RESULT_DIR = BASE_DRIVE / "Results"
 
@@ -39,6 +34,17 @@ RESULT_PPO_PATH = RESULT_DIR / "Optimize/DSCI"
 RESULT_BF_PATH = RESULT_DIR / "Optimize/BF"
 RESULT_TEST_PATH = RESULT_DIR / "Test"
 
+COLORS = {
+    "grey": "#999999",
+    "brown": "#8D574B",
+    "green": "#2ca02c",
+    "purple": "#9467bd",
+    "red": "#d62728",
+    "blue": "#1f77b4",
+}
+
+
+# --- Parameters ---
 # User
 NUM_USERS = 10
 
@@ -62,15 +68,6 @@ BANDWIDTH_EDGE = 10.0
 BANDWIDTH_CLOUD = 50.0
 BASE_STATION_POWER = 1.0  # 基站的发射功率 W
 NOISE_POWER = 8e-11  # 高斯噪声 W
-
-COLORS = {
-    "grey": "#999999",
-    "brown": "#8D574B",
-    "green": "#2ca02c",
-    "purple": "#9467bd",
-    "red": "#d62728",
-    "blue": "#1f77b4",
-}
 
 
 @dataclass

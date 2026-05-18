@@ -9,6 +9,7 @@ from Src.Objective.compute_P import compute_layer_exit_probs
 from Src.Objective.compute_accuracy import compute_expected_accuracy
 from Src.Objective.compute_exit_points import compute_exit_points
 from Src.Objective.compute_latency import compute_user_latency
+from Src.paras import Paras
 
 
 def _generate_all_valid_X_rows(m: int) -> np.ndarray:
@@ -78,7 +79,7 @@ def _precompute_threshold_cache(
     assert len(exit_layers) == 2, "BF assumes exactly 2 early-exit layers."
 
     grid = _tau_grid(step)
-    cache: Dict[Tuple[int, int], Dict[str, Any]] = {("grid", "grid"): {"grid": grid}}
+    cache: Dict[Tuple[int, int], Dict[str, Any]] = {(0, 0): {"grid": grid}}
 
     for i1, t1 in enumerate(grid):
         for i2, t2 in enumerate(grid):
@@ -124,7 +125,7 @@ def _optimize_F_by_pairwise_swaps(
     iters: int = 200,
     deltas_frac: Tuple[float, ...] = (0.05, 0.02, 0.01),
     tol: float = 1e-6,
-    rng: np.random.Generator = None,
+    rng: np.random.Generator | None = None,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, float]:
     """
     严格 objective 增量的资源交换优化：
@@ -250,7 +251,7 @@ def _optimize_F_by_pairwise_swaps(
 
 
 def optimize_BF(
-    paras=None,
+    paras: Paras | None = None,
     max_iter: int = 10,
     restarts: int = 3,
     threshold_step: float = 0.01,
@@ -264,6 +265,7 @@ def optimize_BF(
     - 用户更新只重算该用户 acc_u/lat_u
     - F_e/F_c 用 pairwise swap 严格增量更新（每次只重算两个用户 latency）
     """
+    assert paras is not None, "paras cannot be None for optimize_BF"
 
     n, m = paras.n, paras.m
     exit_layers = tuple(paras.E)
@@ -284,7 +286,7 @@ def optimize_BF(
 
     # threshold cache
     cache = _precompute_threshold_cache(paras, step=threshold_step)
-    grid = cache[("grid", "grid")]["grid"]
+    grid = cache[(0, 0)]["grid"]
     G = len(grid)
 
     best_overall_val = -float("inf")

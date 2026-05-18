@@ -99,6 +99,9 @@ def dynamic_without_data(n, F_u, H_u, sweep_var=None, sweep_range=None):
     best_val, best_sol, history, paras = run_dsci_experiment(
         custom_paras_dict=custom_paras_dict, save_log=True
     )
+    if best_sol is None:
+        print("[Error] Optimization failed to find a solution.")
+        return
     X, Y, F_e, F_c = best_sol
 
     # ========= 2) 画图并保存配置 ========

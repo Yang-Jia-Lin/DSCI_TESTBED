@@ -63,9 +63,9 @@ def plot_bubble_chart(data: pd.DataFrame, save_dir=Path(RESULT_ABLATION_PATH)):
         label = str(row.display_name).replace("+", "\n+")
         ax.scatter(
             _to_float(row.latency_ms),
-            row.accuracy,
-            s=row.bubble_size,
-            color=SEMANTIC_COLORS[row.display_name],
+            _to_float(row.accuracy),
+            s=int(_to_float(row.bubble_size)),
+            color=SEMANTIC_COLORS.get(str(row.display_name), "#888888"),
             alpha=0.9,
             edgecolors="w",
             zorder=10 + i,
@@ -75,7 +75,7 @@ def plot_bubble_chart(data: pd.DataFrame, save_dir=Path(RESULT_ABLATION_PATH)):
         # v_align = 'bottom' if i % 2 == 0 else 'top'
         txt = ax.annotate(
             label,
-            xy=(row.latency_ms, row.accuracy),
+            xy=(_to_float(row.latency_ms), _to_float(row.accuracy)),
             xytext=(0, 0),
             textcoords="offset points",
             ha="center",

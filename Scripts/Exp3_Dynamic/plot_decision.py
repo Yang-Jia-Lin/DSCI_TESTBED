@@ -7,9 +7,9 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
-from Src.Utils.plot_utils import save_fig_for_ieee, set_ieee_style
 
 from Src.paras import COLORS, Paras
+from Src.Utils.plot_utils import save_fig_for_ieee, set_ieee_style
 
 
 def plot_X(X_opt, EE_layers, save_dir: Path):
@@ -24,13 +24,18 @@ def plot_X(X_opt, EE_layers, save_dir: Path):
     ax.set_xlabel("DNN Layers")
     ax.set_ylabel("Users")
     # ax.set_title("Partitioning Decision ($\mathbf{X}$)")
-    ax.set_xticks(np.arange(0, m, max(1, m // 10)))
-    ax.set_xticklabels([i + 1 for i in range(0, m, max(1, m // 10))])
-    ax.set_yticks(np.arange(0, n, max(1, n // 5)))
-    ax.set_yticklabels([i + 1 for i in range(0, n, max(1, n // 5))])
-    for l in EE_layers:
+
+    tick_positions = np.arange(0, m, max(1, m // 10))
+    ax.set_xticks(tick_positions)
+    ax.set_xticklabels([f"{int(i + 1)}" for i in tick_positions])
+    tick_positions_y = np.arange(0, n, max(1, n // 5))
+    ax.set_yticks(tick_positions_y)
+    ax.set_yticklabels([f"{int(i + 1)}" for i in tick_positions_y])
+    for line in EE_layers:
         # 早退分割线
-        ax.axvline(x=l, color=COLORS["red"], linestyle="--", linewidth=0.8, alpha=0.6)
+        ax.axvline(
+            x=line, color=COLORS["red"], linestyle="--", linewidth=0.8, alpha=0.6
+        )
     ax.xaxis.set_ticks_position("bottom")
     plt.tight_layout(pad=0.15)
 
@@ -55,12 +60,13 @@ def plot_Y(Y_opt, EE_layers, save_dir: Path):
     # ax.set_title("Threshold Decision ($\mathbf{Y}$)")
     ax.set_xticks(range(len(EE_layers)))
     ax.set_xticklabels(EE_layers)
-    ax.set_yticks(np.arange(0, n, max(1, n // 5)))
-    ax.set_yticklabels([i + 1 for i in range(0, n, max(1, n // 5))])
+    tick_positions_y = np.arange(0, n, max(1, n // 5))
+    ax.set_yticks(tick_positions_y)
+    ax.set_yticklabels([f"{int(i + 1)}" for i in tick_positions_y])
     ax.xaxis.set_ticks_position("bottom")
     ax.invert_yaxis()
     cbar = fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
-    cbar.set_label("Threshold $\epsilon$")
+    cbar.set_label(r"Threshold $\epsilon$")
     plt.tight_layout(pad=0.15)
 
     save_dir.mkdir(parents=True, exist_ok=True)

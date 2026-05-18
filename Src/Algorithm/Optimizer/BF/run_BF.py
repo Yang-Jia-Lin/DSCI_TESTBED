@@ -16,12 +16,15 @@ BF_best_val, BF_best_sol, BF_history = optimize_BF(
     restarts=BF_hyperparams["restarts"],
     threshold_step=BF_hyperparams["threshold_step"],
 )
-save_experiment_results(
-    save_dir=Path(RESULT_BF_PATH),
-    algo_name="BF",
-    paras=paras,
-    best_val=BF_best_val,
-    best_sol=BF_best_sol,
-    history=BF_history,
-    hyper_params=BF_hyperparams,
-)
+if BF_best_sol is not None:
+    save_experiment_results(
+        save_dir=Path(RESULT_BF_PATH),
+        algo_name="BF",
+        paras=paras,
+        best_val=BF_best_val,
+        best_sol=BF_best_sol,
+        history=BF_history,
+        hyper_params=BF_hyperparams,
+    )
+else:
+    print("[Error] BF optimization failed to find a solution.")
