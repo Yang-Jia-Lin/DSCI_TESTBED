@@ -1,7 +1,5 @@
 """Encode algorithm matrices (X, Y, F_e, F_c) into deploy-facing JSON."""
 
-from __future__ import annotations
-
 import numpy as np
 
 from Src.Algorithm.Utils.parsing_data import split_points_matrix
@@ -125,7 +123,9 @@ def encode(
             "device_layers": [0, s1],
             "edge_layers": [s1, s2],
             "cloud_layers": [s2, m],
-            "exit_thresholds": {str(int(layer)): float(Y[i, layer]) for layer in paras.E},
+            "exit_thresholds": {
+                str(int(layer)): float(Y[i, layer]) for layer in paras.E
+            },
             "edge_compute_alloc": fe,
             "cloud_compute_alloc": fc,
             "edge_compute_quota": fe / f_e_max if f_e_max > 0 else 0.0,

@@ -1,7 +1,5 @@
 """Testbed algorithm service: one decision round + measurement feedback."""
 
-from __future__ import annotations
-
 import threading
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -9,7 +7,6 @@ from typing import Any
 
 from Src.Algorithm.Interface.decision_codec import encode
 from Src.Algorithm.Interface.reward_adapter import (
-    RewardAdapterError,
     RoundRewardResult,
     apply_rewards_to_buffer,
     compute_round_reward,
@@ -49,7 +46,8 @@ class AlgoService:
     _agent_key: tuple | None = field(default=None, init=False, repr=False)
     _pending: PendingRound | None = field(default=None, init=False, repr=False)
     _update_epoch: int = field(default=0, init=False, repr=False)
-    _last_reward: RoundRewardResult | None = field(default=None, init=False, repr=False)
+    _last_reward: RoundRewardResult | None = field(
+        default=None, init=False, repr=False)
 
     def _ppo_params(self) -> dict:
         return _build_ppo_params(self.config.custom_ppo_hyperparams)
@@ -147,7 +145,11 @@ class AlgoService:
             self._last_reward = reward_result
 
             policy_updated = False
-            if self.config.enable_training and self._agent is not None and pending is not None:
+            if (
+                self.config.enable_training
+                and self._agent is not None
+                and pending is not None
+            ):
                 apply_rewards_to_buffer(
                     self._agent.buffer,
                     reward_result.per_user_rewards,
@@ -193,3 +195,66 @@ def make_decision(state: dict, service: AlgoService | None = None) -> dict:
 def report_measurements(payload: dict, service: AlgoService | None = None) -> dict:
     svc = service or AlgoService()
     return svc.report_measurements(payload)
+
+
+if __name__ == "__main__":
+    """Smoke test for deploy-facing JSON interface (no HTTP)"""
+    import json
+
+    state = {
+        "round_id": "round_0001",
+        "model_name": "Resnet50",
+        "users": [
+            {"user_id": 0, "BW_d2e": 18.5, "f_u": 2.0},
+            {"user_id": 1, "BW_d2e": 12.0, "f_u": 1.8},
+        ],
+        "edge": {"f_e_max": 20.0, "cpu_util": 0.6},
+        "cloud": {"BW_e2c": 120.0, "f_c_max": 50.0, "cpu_util": 0.4},
+    }
+
+    svc = AlgoService(config=AlgoServiceConfig(enable_training=False))
+    decision = svc.make_decision(state)
+    print("=== Decision JSON (excerpt) ===")
+    print(json.dumps({k: decision[k]
+          for k in decision if k != "users"}, indent=2))
+    print("user[0]:", json.dumps(decision["users"][0], indent=2)[:500], "...")
+
+    measurements = {
+        "decision_id": "round_0001",
+        "measurements": [
+            {
+                "user_id": 0,
+                "T_device": 1.0,
+                "T_trans_d2e": 0.5,
+                "T_edge": 2.0,
+                "T_trans_e2c": 0.1,
+                "T_cloud": 1.0,
+                "T_total": 4.6,
+                "exit_layer": 103,
+                "exit_location": "edge",
+                "exit_confidence": 0.9,
+                "prediction": 1,
+                "ground_truth": 1,
+                "is_correct": True,
+            },
+            {
+                "user_id": 1,
+                "T_device": 0.8,
+                "T_trans_d2e": 0,
+                "T_edge": 0,
+                "T_trans_e2c": 0,
+                "T_cloud": 0,
+                "T_total": 0.8,
+                "exit_layer": 57,
+                "exit_location": "device",
+                "exit_confidence": 0.95,
+                "prediction": 2,
+                "ground_truth": 2,
+                "is_correct": True,
+            },
+        ],
+    }
+    resp = svc.report_measurements(measurements)
+    print("\n=== Measurements response ===")
+    print(json.dumps(resp, indent=2))
+    print("\nSmoke test passed.")

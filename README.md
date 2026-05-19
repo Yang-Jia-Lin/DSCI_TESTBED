@@ -37,7 +37,6 @@ DSCI_testbed/
 ├── Models/
 │   ├── Weights/                         # 预训练权重
 │   ├── ModelNet/                        # 模型结构定义
-│   ├── Models/                          # 兼容保留的模型结构目录
 │   └── Train_and_Evaluate/              # 模型训练、评估与阈值曲线脚本
 │
 ├── Results/                             # 实验输出、图表和优化结果
@@ -52,7 +51,8 @@ DSCI_testbed/
 │
 ├── Scripts/
 │   ├── Exp0_Motivation/
-│   ├── Exp1_Testbed/                    # 真机实验脚本目录，当前待实现
+│   ├── Exp1_Testbed/                    # 真机实验脚本（示例）
+│   │   └── run_algo_server.py           # 启动算法端 HTTP Server
 │   ├── Exp2_Baseline/
 │   ├── Exp3_Dynamic/
 │   ├── Exp4_DSCI_Convergency/
@@ -61,16 +61,28 @@ DSCI_testbed/
 │
 ├── Src/
 │   ├── Objective/                       # 准确率、退出点、时延和目标函数计算
-│   ├── Algorithm/Optimizer/             # DSCI、BF、GA 优化算法主实现
-│   ├── Algo/                            # 兼容导入目录，部分模块代理到 Algorithm
-│   ├── Deploy/                          # 真机部署执行模块目录，当前待实现
+│   ├── Algorithm/                       # 算法模块
+│   │   ├── Interface/                   # 真机接口适配层（HTTP API、状态/决策/Reward 适配）
+│   │   │   ├── api_server.py
+│   │   │   ├── state_adapter.py
+│   │   │   ├── decision_codec.py
+│   │   │   ├── reward_adapter.py
+│   │   │   └── algo_service.py
+│   │   ├── Optimizer/                   # DSCI、BF、GA 优化算法主实现
+│   │   └── Utils/
+│   ├── Configs/                         # 配置与统一参数入口（paras.py 等）
+│   │   ├── paras.py
+│   │   ├── algo_config.py
+│   │   ├── model_config.py
+│   │   └── testbed_config.py
+│   ├── Deploy/                          # 真机部署执行模块预留目录（当前为空）
 │   ├── Utils/
-│   └── paras.py                         # 统一参数入口
+│   └── __init__.py
 │
 └── README.md
 ```
 
-> 注意：开发文档中的结果目录写作 `Result/`，当前代码仓库实际使用的是 `Results/`，并且 `Src/paras.py` 中的路径常量也指向 `Results/`。
+> 注意：开发文档中的结果目录写作 `Result/`，当前代码仓库实际使用的是 `Results/`，并且 `Src/Configs/paras.py` 中的路径常量也指向 `Results/`。
 
 ## 核心算法说明
 
@@ -105,7 +117,7 @@ Cloud:  [s2, m)
 
 ## 参数入口
 
-全局参数位于 `Src/paras.py`。主要参数包括：
+全局参数位于 `Src/Configs/paras.py`。主要参数包括：
 
 | 参数 | 含义 | 当前来源 |
 | --- | --- | --- |
@@ -139,7 +151,7 @@ pip install numpy pandas torch matplotlib seaborn
 python -m Src.Algorithm.Optimizer.DSCI.run_DSCI
 ```
 
-该入口会读取 `Src/paras.py` 中的默认配置，训练 PPO Agent，并将最优解、训练日志和图表保存到 `Results/Optimize/DSCI/`。
+该入口会读取 `Src/Configs/paras.py` 中的默认配置，训练 PPO Agent，并将最优解、训练日志和图表保存到 `Results/Optimize/DSCI/`。
 
 运行基线实验：
 
@@ -317,14 +329,15 @@ Src/Deploy/
 
 ## 真机接口层规划
 
-建议在 `Src/Algo/Interface/` 中新增以下适配层：
+接口适配层位于 `Src/Algorithm/Interface/`，当前已包含以下模块：
 
 ```text
-Src/Algo/Interface/
+Src/Algorithm/Interface/
 ├── api_server.py         # HTTP Server：接收状态、下发决策、接收测量结果
 ├── state_adapter.py      # state JSON -> Paras
 ├── decision_codec.py     # (X, Y, F_e, F_c) -> 部署端 JSON
-└── reward_adapter.py     # measurements JSON -> PPO reward
+├── reward_adapter.py     # measurements JSON -> PPO reward
+└── algo_service.py       # 算法服务编排（对接 Optimizer/ 与接口层）
 ```
 
 `decision_codec.py` 至少应包含以下校验：
@@ -340,7 +353,7 @@ Src/Algo/Interface/
 
 短期建议优先打通最小闭环：
 
-1. 在 `Src/Algo/Interface/` 实现状态适配、决策编码与 Flask API。
+1. 在 `Src/Algorithm/Interface/` 打通状态适配、决策编码与 HTTP API。
 2. 扩展 `compute_latency.py` 支持每用户实测 `B_u[i]`。
 3. 在 `Scripts/Exp1_Testbed/` 实现一轮 `状态 -> 决策 -> 推理 -> 回传` 的主控脚本。
 4. 在 `Src/Deploy/` 实现 Device、Edge、Cloud 的分段推理与动态早退。

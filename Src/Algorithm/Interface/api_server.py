@@ -1,9 +1,5 @@
 """Flask HTTP server for testbed deploy ↔ algorithm communication."""
 
-from __future__ import annotations
-
-from typing import Any
-
 from Src.Algorithm.Interface.algo_service import AlgoService, AlgoServiceConfig
 from Src.Algorithm.Interface.decision_codec import DecisionCodecError
 from Src.Algorithm.Interface.reward_adapter import RewardAdapterError
@@ -15,8 +11,7 @@ try:
     from flask import Flask, jsonify, request
 except ImportError as exc:  # pragma: no cover
     raise ImportError(
-        "Flask is required for the testbed API server. "
-        "Install with: pip install flask"
+        "Flask is required for the testbed API server. Install with: pip install flask"
     ) from exc
 
 
@@ -111,7 +106,8 @@ def run_server(
 ) -> None:
     """Blocking entrypoint for the testbed algorithm HTTP server."""
     app = create_app(service)
-    listen_port = int(port if port is not None else TESTBED_CFG.algo_server_port)
+    listen_port = int(
+        port if port is not None else TESTBED_CFG.algo_server_port)
     app.run(host=host, port=listen_port, debug=debug, threaded=True)
 
 
@@ -130,3 +126,9 @@ def build_service_from_env(
     if buffer_size is not None:
         cfg.buffer_size = int(buffer_size)
     return AlgoService(config=cfg)
+
+
+if __name__ == '__main__':
+    # 若有训练好的 checkpoint，请指定路径；否则使用默认初始化（可能随机）
+    service = AlgoService()   # 或 build_service_from_env(checkpoint="path/to/checkpoint.pth")
+    run_server(service=service, port=8000)

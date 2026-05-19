@@ -1,7 +1,5 @@
 """Convert deploy measurement JSON into PPO rewards."""
 
-from __future__ import annotations
-
 from dataclasses import dataclass
 from typing import Any
 
