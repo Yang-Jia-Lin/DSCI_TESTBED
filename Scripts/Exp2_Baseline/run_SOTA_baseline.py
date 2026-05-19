@@ -6,13 +6,13 @@ from pathlib import Path
 from typing import Dict, Tuple
 
 import numpy as np
-from Src.Utils.log_function import load_and_analyze_results
 
+from Src.Configs.paras import RESULT_ABLATION_PATH, RESULT_DIR
 from Src.Objective.compute_accuracy import compute_expected_accuracy
 from Src.Objective.compute_latency import compute_total_latency
 from Src.Objective.compute_P import compute_layer_exit_probs
 from Src.Objective.objective import objective
-from Src.Configs.paras import RESULT_ABLATION_PATH, RESULT_DIR
+from Src.Utils.log_function import load_and_analyze_results
 
 
 def evaluate_strategy(X, Y, F_e, F_c, paras, name: str = "Strategy") -> Dict:
@@ -83,6 +83,6 @@ def run_baseline(PPO_path: Path, save_dir: Path):
 
 
 if __name__ == "__main__":
-    data_dir = RESULT_DIR / "Optimize" / "PPO" / "PPO_20260128_005931"
+    data_dir = RESULT_DIR / "Optimize" / "DSCI" / "DSCI_20260202_040737"
     save_dir = Path(RESULT_ABLATION_PATH)
     run_baseline(data_dir, save_dir)
