@@ -3,7 +3,6 @@
 from dataclasses import dataclass, field
 from pathlib import Path
 
-
 BASE_DIR = Path(__file__).resolve().parents[2]
 
 
@@ -13,7 +12,7 @@ class ModelConfig:
     num_layers: int = 128
     early_exit_layers: list[int] = field(default_factory=lambda: [57, 103])
     data_dir: Path = BASE_DIR / "Data"
-    weights_dir: Path = BASE_DIR / "Models" / "Weights"
+    weights_dir: Path = BASE_DIR / "Data" / "Weights"
 
     @property
     def rate_csv(self) -> Path:
@@ -48,7 +47,9 @@ MODEL_REGISTRY: dict[str, ModelConfig] = {
 }
 
 
-def get_model_config(model_name: str | None, *, default: ModelConfig | None = None) -> ModelConfig:
+def get_model_config(
+    model_name: str | None, *, default: ModelConfig | None = None
+) -> ModelConfig:
     """Resolve ``ModelConfig`` from a testbed ``model_name`` string."""
     if not model_name:
         return default or RESNET50
@@ -56,4 +57,6 @@ def get_model_config(model_name: str | None, *, default: ModelConfig | None = No
         return MODEL_REGISTRY[model_name]
     except KeyError as exc:
         known = ", ".join(sorted(MODEL_REGISTRY))
-        raise KeyError(f"Unknown model_name {model_name!r}. Known models: {known}") from exc
+        raise KeyError(
+            f"Unknown model_name {model_name!r}. Known models: {known}"
+        ) from exc

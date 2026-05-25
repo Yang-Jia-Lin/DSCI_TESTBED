@@ -34,11 +34,6 @@ DSCI_testbed/
 │   ├── Resnet50_layer_stats.csv         # 每层特征尺寸与 FLOPs
 │   └── ...
 │
-├── Models/
-│   ├── Weights/                         # 预训练权重
-│   ├── ModelNet/                        # 模型结构定义
-│   └── Train_and_Evaluate/              # 模型训练、评估与阈值曲线脚本
-│
 ├── Results/                             # 实验输出、图表和优化结果
 │   ├── Exp1_Testbed/                    # 真机实验结果目录
 │   ├── Exp2_Baseline/
@@ -76,6 +71,13 @@ DSCI_testbed/
 │   │   ├── model_config.py
 │   │   └── testbed_config.py
 │   ├── Deploy/                          # 真机部署执行模块预留目录（当前为空）
+│   ├── models/                          # DNN 模型定义、训练评估与权重
+│   │   ├── ModelNet/                    # 模型结构定义（Resnet50.py 等）
+│   │   ├── Train_and_Evaluate/          # 模型训练、评估与阈值曲线脚本
+│   │   ├── Weights/                     # 预训练权重（.pth 文件）
+│   │   ├── split_model.py              # 模型切分脚本
+│   │   ├── split_multiee_resnet50.py
+│   │   └── split_resnet50_flat.py
 │   ├── Utils/
 │   └── __init__.py
 │
@@ -181,9 +183,9 @@ python -m Scripts.Exp5_Ablation.run_ablation
 运行早退模型训练与分析脚本：
 
 ```bash
-python -m Models.Train_and_Evaluate.resnet50_train
-python -m Models.Train_and_Evaluate.resnet50_evaluate
-python -m Models.Train_and_Evaluate.resnet50_thred_curve
+python -m Src.models.Train_and_Evaluate.resnet50_train
+python -m Src.models.Train_and_Evaluate.resnet50_evaluate
+python -m Src.models.Train_and_Evaluate.resnet50_thred_curve
 ```
 
 ## 真机实验接口设计

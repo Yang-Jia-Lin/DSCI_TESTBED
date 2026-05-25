@@ -1,24 +1,29 @@
 # models/split_model.py
+import os
+from pathlib import Path
+
 import torch
 import torch.nn as nn
-import os
+
+BASE_DIR = Path(__file__).resolve().parents[2]
+WEIGHTS_DIR = BASE_DIR / "Data" / "Weights"
 
 
 class DemoCNN(nn.Module):
     def __init__(self):
         super().__init__()
         self.features = nn.Sequential(
-            nn.Conv2d(3, 16, 3, padding=1),   # 0
-            nn.ReLU(),                        # 1
-            nn.MaxPool2d(2),                  # 2
+            nn.Conv2d(3, 16, 3, padding=1),  # 0
+            nn.ReLU(),  # 1
+            nn.MaxPool2d(2),  # 2
             nn.Conv2d(16, 32, 3, padding=1),  # 3
-            nn.ReLU(),                        # 4
-            nn.MaxPool2d(2),                  # 5
+            nn.ReLU(),  # 4
+            nn.MaxPool2d(2),  # 5
             nn.Conv2d(32, 64, 3, padding=1),  # 6
-            nn.ReLU(),                        # 7
-            nn.AdaptiveAvgPool2d((1, 1))      # 8
+            nn.ReLU(),  # 7
+            nn.AdaptiveAvgPool2d((1, 1)),  # 8
         )
-        self.classifier = nn.Linear(64, 10)   # 9
+        self.classifier = nn.Linear(64, 10)  # 9
 
     def forward(self, x):
         x = self.features(x)
@@ -27,7 +32,7 @@ class DemoCNN(nn.Module):
         return x
 
 
-def split_and_save(save_dir="models/weights"):
+def split_and_save(save_dir: str | Path = WEIGHTS_DIR):
     os.makedirs(save_dir, exist_ok=True)
     full = DemoCNN()
 
@@ -36,15 +41,11 @@ def split_and_save(save_dir="models/weights"):
     # Edge: 5~7 (MaxPool -> Conv -> ReLU)
     me = nn.Sequential(*list(full.features.children())[5:8])
     # Cloud: 8~9 (AdaptiveAvgPool + Flatten + Linear)
-    mc = nn.Sequential(
-        list(full.features.children())[8],
-        nn.Flatten(),
-        full.classifier
-    )
+    mc = nn.Sequential(list(full.features.children())[8], nn.Flatten(), full.classifier)
 
-    torch.save(mu, f"{save_dir}/mu.pth")      # 直接保存整个模型
-    torch.save(me, f"{save_dir}/me.pth")
-    torch.save(mc, f"{save_dir}/mc.pth")
+    torch.save(mu, Path(save_dir) / "mu.pth")  # 直接保存整个模型
+    torch.save(me, Path(save_dir) / "me.pth")
+    torch.save(mc, Path(save_dir) / "mc.pth")
     print("模型切片（完整模型）已保存")
 
 

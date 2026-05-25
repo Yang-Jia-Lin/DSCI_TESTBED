@@ -7,7 +7,7 @@ from pathlib import Path
 
 import torch
 import torch.nn as nn
-from Models.ModelNet.Resnet50 import Bottleneck, MultiEEResNet50, freeze_layers
+from Src.Models.ModelNet.Resnet50 import Bottleneck, MultiEEResNet50, freeze_layers
 from Src.Algorithm.Utils.log_function import save_model_weights, save_train_log
 from Src.Algorithm.Utils.utils_function import get_data_loaders, get_device
 

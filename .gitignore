@@ -1,5 +1,6 @@
 Data/CIFAR10/
 Data/Model_Checkpoints
+Data/Weights
 *.pth
 *.pt
 *.h5

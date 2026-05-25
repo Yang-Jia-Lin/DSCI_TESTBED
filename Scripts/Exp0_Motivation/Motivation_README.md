@@ -61,7 +61,7 @@ Scripts/Exp0_Motivation/
 %USERPROFILE%\.conda\envs\DSCI\python.exe   # Python 3.10.19
 ```
 
-依赖：`numpy`, `torch`, `pandas`, `matplotlib`, `scipy`，以及项目内 `Models/`、`Data/`、`Src/Utils/plot_utils.py`。
+依赖：`numpy`, `torch`, `pandas`, `matplotlib`, `scipy`，以及项目内 `Src/models/`、`Data/`、`Src/Utils/plot_utils.py`。
 
 ### 2.3 一键复现（在项目根目录 `DSCI_testbed/`）
 
@@ -107,8 +107,8 @@ Results/Exp0_Motivation/YYYYMMDD_HHMMSS/
 
 | 项目 | 实现取值 | 来源 |
 |------|----------|------|
-| 网络结构 | `MultiEEResNet50`（Bottleneck, blocks `[3,4,6,3]`, CIFAR-10） | `Models/ModelNet/Resnet50.py` |
-| 权重 | `Models/Weights/ResNet50_multi_EE_model.pth` | 加载失败时仅用 CSV 元数据继续 |
+| 网络结构 | `MultiEEResNet50`（Bottleneck, blocks `[3,4,6,3]`, CIFAR-10） | `Src/models/ModelNet/Resnet50.py` |
+| 权重 | `Src/models/Weights/ResNet50_multi_EE_model.pth` | 加载失败时仅用 CSV 元数据继续 |
 | 早退头层索引 | **57**, **103** | `Src/Configs/model_config.py` |
 | 末层 / 总层数 | **127** / **128** | 同上 |
 | 早退阈值 \(\tau\) | 仅层 **57、103** 两个早退头 | CSV `exit1_rate` / `exit2_rate` |

@@ -1,33 +1,36 @@
+import csv
+import json
+import time
+from pathlib import Path
+
+import numpy as np
+import requests
 import torch
 import torch.nn as nn
-import time
-import json
-import pickle
-import requests
-import numpy as np
-import csv
-from torchvision.datasets import CIFAR10
 from torchvision import transforms
-from Src.deploy.monitor.cpu_monitor import get_cpu_available_cores
-from Src.deploy.monitor.bandwidth import measure_bandwidth_iperf
-from Src.deploy.monitor.state_reporter import report_status
-from Src.deploy.device.comm import send_tensor
+from torchvision.datasets import CIFAR10
+
+from Src.Deploy.device.comm import send_tensor
+from Src.Deploy.monitor.bandwidth import measure_bandwidth_iperf
+from Src.Deploy.monitor.cpu_monitor import get_cpu_available_cores
+from Src.Deploy.monitor.state_reporter import report_status
 
 # 配置常量
+BASE_DIR = Path(__file__).resolve().parents[3]
 EDGE_IP = "127.0.0.1"
 CLOUD_IP = "127.0.0.1"
 EDGE_PORT_FEATURE = 9001
-IPERF_PORT_EDGE = 5001       # iperf3 边缘测速端口
-IPERF_PORT_CLOUD = 5002      # iperf3 云端测速端口
-EDGE_STATUS_PORT = 9002      # 边缘状态接口端口
-CLOUD_STATUS_PORT = 9003     # 云端状态接口端口
+IPERF_PORT_EDGE = 5001  # iperf3 边缘测速端口
+IPERF_PORT_CLOUD = 5002  # iperf3 云端测速端口
+EDGE_STATUS_PORT = 9002  # 边缘状态接口端口
+CLOUD_STATUS_PORT = 9003  # 云端状态接口端口
 ALGO_URL = "http://127.0.0.1:8000/api/v1/decision"
-WEIGHTS_DIR = "Models/Weights"
-MU_PATH = f"{WEIGHTS_DIR}/mu.pth"
-EXIT1_FC_PATH = f"{WEIGHTS_DIR}/exit1_fc.pth"
-EXIT2_FC_PATH = f"{WEIGHTS_DIR}/exit2_fc.pth"
+WEIGHTS_DIR = BASE_DIR / "Data" / "Weights"
+MU_PATH = WEIGHTS_DIR / "mu.pth"
+EXIT1_FC_PATH = WEIGHTS_DIR / "exit1_fc.pth"
+EXIT2_FC_PATH = WEIGHTS_DIR / "exit2_fc.pth"
 NUM_CLASSES = 10
-TEST_SAMPLES = 100               # 测试图片数量，可调
+TEST_SAMPLES = 100  # 测试图片数量，可调
 CSV_OUTPUT = "test_results.csv"
 
 # ==================== 辅助函数 ====================
@@ -59,6 +62,7 @@ def load_early_exit_fc(path, in_features, num_classes=NUM_CLASSES):
     fc.eval()
     return fc
 
+
 # ==================== 单次推理核心 ====================
 
 
@@ -80,16 +84,14 @@ def run_single_inference(input_tensor, label, decision, bw_d2e, bw_e2c, cpu_avai
 
     # 加载模型
     mu = torch.load(MU_PATH, map_location="cpu", weights_only=False).eval()
-    ec_device = load_early_exit_fc(
-        EXIT1_FC_PATH, 512, NUM_CLASSES)  # 128*4=512
-    ec_cloud = load_early_exit_fc(
-        EXIT2_FC_PATH, 1024, NUM_CLASSES)  # 256*4=1024
+    ec_device = load_early_exit_fc(EXIT1_FC_PATH, 512, NUM_CLASSES)  # 128*4=512
+    ec_cloud = load_early_exit_fc(EXIT2_FC_PATH, 1024, NUM_CLASSES)  # 256*4=1024
 
     t_total_start = time.perf_counter()
 
     # 设备段推理 (0~93)
     with torch.no_grad():
-        x2 = mu(input_tensor)      # shape [1, 512, 14, 14]
+        x2 = mu(input_tensor)  # shape [1, 512, 14, 14]
     T_device = (time.perf_counter() - t_total_start) * 1000  # ms
 
     # 设备早退判断
@@ -104,8 +106,10 @@ def run_single_inference(input_tensor, label, decision, bw_d2e, bw_e2c, cpu_avai
             "decision_id": decision["decision_id"],
             "user_id": user["user_id"],
             "T_device": T_device,
-            "T_edge": 0.0, "T_cloud": 0.0,
-            "T_trans_d2e": 0.0, "T_trans_e2c": 0.0,
+            "T_edge": 0.0,
+            "T_cloud": 0.0,
+            "T_trans_d2e": 0.0,
+            "T_trans_e2c": 0.0,
             "T_total": T_device,
             "exit_layer": 57,
             "exit_location": "device",
@@ -117,7 +121,7 @@ def run_single_inference(input_tensor, label, decision, bw_d2e, bw_e2c, cpu_avai
             "BW_e2c": bw_e2c,
             "cpu_util_device": 0.05,
             "cpu_util_edge": 0.0,
-            "cpu_util_cloud": 0.0
+            "cpu_util_cloud": 0.0,
         }
         return convert_to_jsonable(result)
 
@@ -129,7 +133,7 @@ def run_single_inference(input_tensor, label, decision, bw_d2e, bw_e2c, cpu_avai
         "exit_thresholds": user["exit_thresholds"],
         "Y_row": user.get("Y_row", []),
         "edge_compute_quota": user.get("edge_compute_quota", 1.0),
-        "cloud_compute_quota": user.get("cloud_compute_quota", 1.0)
+        "cloud_compute_quota": user.get("cloud_compute_quota", 1.0),
     }
     payload = {"tensor": x2, "meta": meta}
     try:
@@ -141,8 +145,10 @@ def run_single_inference(input_tensor, label, decision, bw_d2e, bw_e2c, cpu_avai
             "decision_id": decision["decision_id"],
             "user_id": user["user_id"],
             "T_device": T_device,
-            "T_edge": 0, "T_cloud": 0,
-            "T_trans_d2e": 0, "T_trans_e2c": 0,
+            "T_edge": 0,
+            "T_cloud": 0,
+            "T_trans_d2e": 0,
+            "T_trans_e2c": 0,
             "T_total": T_device,
             "exit_layer": -1,
             "exit_location": "error",
@@ -154,7 +160,7 @@ def run_single_inference(input_tensor, label, decision, bw_d2e, bw_e2c, cpu_avai
             "BW_e2c": bw_e2c,
             "cpu_util_device": 0.05,
             "cpu_util_edge": 0.0,
-            "cpu_util_cloud": 0.0
+            "cpu_util_cloud": 0.0,
         }
 
     t_recv = time.perf_counter()
@@ -183,9 +189,10 @@ def run_single_inference(input_tensor, label, decision, bw_d2e, bw_e2c, cpu_avai
         "BW_e2c": bw_e2c,
         "cpu_util_device": 0.05,
         "cpu_util_edge": 0.0,
-        "cpu_util_cloud": 0.0
+        "cpu_util_cloud": 0.0,
     }
     return convert_to_jsonable(result)
+
 
 # ==================== 主函数 ====================
 
@@ -198,10 +205,10 @@ def main():
     cpu_avail = get_cpu_available_cores()
     bw_d2e = measure_bandwidth_iperf(EDGE_IP, IPERF_PORT_EDGE)
     try:
-        edge_status = requests.get(
-            f"http://{EDGE_IP}:{EDGE_STATUS_PORT}/status").json()
+        edge_status = requests.get(f"http://{EDGE_IP}:{EDGE_STATUS_PORT}/status").json()
         cloud_status = requests.get(
-            f"http://{CLOUD_IP}:{CLOUD_STATUS_PORT}/status").json()
+            f"http://{CLOUD_IP}:{CLOUD_STATUS_PORT}/status"
+        ).json()
     except:
         edge_status = {"f_e_max": 4.0, "BW_e2c": 500}
         cloud_status = {"f_c_max": 8.0}
@@ -210,7 +217,7 @@ def main():
         "model_name": "Resnet50",
         "edge": {"f_e_max": edge_status["f_e_max"]},
         "cloud": {"f_c_max": cloud_status["f_c_max"], "BW_e2c": edge_status["BW_e2c"]},
-        "users": [{"f_u": cpu_avail, "BW_d2e": bw_d2e}]
+        "users": [{"f_u": cpu_avail, "BW_d2e": bw_d2e}],
     }
     print("采集状态:", algo_state)
 
@@ -222,15 +229,19 @@ def main():
     print("收到决策:", json.dumps(decision, indent=2, ensure_ascii=False))
 
     # 3. 准备数据集
-    print(f"加载 CIFAR-10 测试集...")
-    transform = transforms.Compose([
-        transforms.Resize((224, 224)),          # 调整图像大小，如果原本图像为224x224可注释掉
-        transforms.ToTensor(),
-        transforms.Normalize((0.4914, 0.4822, 0.4465),
-                             (0.2023, 0.1994, 0.2010))
-    ])
-    testset = CIFAR10(root='Data/CIFAR10', train=False,
-                      download=False, transform=transform)
+    print("加载 CIFAR-10 测试集...")
+    transform = transforms.Compose(
+        [
+            transforms.Resize(
+                (224, 224)
+            ),  # 调整图像大小，如果原本图像为224x224可注释掉
+            transforms.ToTensor(),
+            transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+        ]
+    )
+    testset = CIFAR10(
+        root="Data/CIFAR10", train=False, download=False, transform=transform
+    )
     num_samples = min(TEST_SAMPLES, len(testset))
     print(f"将测试 {num_samples} 张图片")
 
@@ -239,23 +250,29 @@ def main():
     for i in range(num_samples):
         image, label = testset[i]
         input_tensor = image.unsqueeze(0)  # [1, 3, 224, 224]
-        print(f"\n[{i+1}/{num_samples}] 处理图片 {i}, 真实标签 {label}")
+        print(f"\n[{i + 1}/{num_samples}] 处理图片 {i}, 真实标签 {label}")
 
         try:
-            res = run_single_inference(input_tensor, label, decision,
-                                       bw_d2e, edge_status["BW_e2c"], cpu_avail)
+            res = run_single_inference(
+                input_tensor, label, decision, bw_d2e, edge_status["BW_e2c"], cpu_avail
+            )
             results.append(res)
-            print(f"  退出层: {res['exit_layer']}, 位置: {res['exit_location']}, "
-                  f"置信度: {res['exit_confidence']:.4f}, 预测: {res['prediction']}, "
-                  f"正确: {res['is_correct']}, 总时延: {res['T_total']:.2f} ms")
+            print(
+                f"  退出层: {res['exit_layer']}, 位置: {res['exit_location']}, "
+                f"置信度: {res['exit_confidence']:.4f}, 预测: {res['prediction']}, "
+                f"正确: {res['is_correct']}, 总时延: {res['T_total']:.2f} ms"
+            )
         except Exception as e:
             print(f"  推理失败: {e}")
             # 记录失败条目
             fail_result = {
                 "decision_id": decision.get("decision_id", "unknown"),
                 "user_id": 0,
-                "T_device": 0, "T_edge": 0, "T_cloud": 0,
-                "T_trans_d2e": 0, "T_trans_e2c": 0,
+                "T_device": 0,
+                "T_edge": 0,
+                "T_cloud": 0,
+                "T_trans_d2e": 0,
+                "T_trans_e2c": 0,
                 "T_total": 0,
                 "exit_layer": -1,
                 "exit_location": "error",
@@ -267,7 +284,7 @@ def main():
                 "BW_e2c": edge_status["BW_e2c"],
                 "cpu_util_device": 0.05,
                 "cpu_util_edge": 0.0,
-                "cpu_util_cloud": 0.0
+                "cpu_util_cloud": 0.0,
             }
             results.append(fail_result)
 
@@ -275,7 +292,7 @@ def main():
     print(f"\n所有图片测试完成，正在保存结果到 {CSV_OUTPUT} ...")
     if results:
         keys = results[0].keys()
-        with open(CSV_OUTPUT, 'w', newline='', encoding='utf-8') as f:
+        with open(CSV_OUTPUT, "w", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(f, fieldnames=keys)
             writer.writeheader()
             writer.writerows(results)
