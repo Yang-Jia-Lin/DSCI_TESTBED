@@ -21,7 +21,7 @@ def run_feature_server():
     model = load_full_model()
 
     while True:
-        payload, conn = receive_tensor("0.0.0.0", 9004)
+        payload, conn = receive_tensor("0.0.0.0", 32266)
         if payload is None:
             if conn:
                 conn.close()
@@ -58,7 +58,7 @@ def run_feature_server():
 if __name__ == "__main__":
     threading.Thread(
         target=lambda: status_app.run(
-            host="0.0.0.0", port=9003, debug=False, use_reloader=False
+            host="0.0.0.0", port=32265, debug=False, use_reloader=False
         ),
         daemon=True,
     ).start()

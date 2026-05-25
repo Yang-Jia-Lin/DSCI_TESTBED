@@ -9,13 +9,22 @@ from Src.Deploy.Edge.resource_ctrl import get_max_cpu
 from Src.Deploy.monitor.bandwidth import measure_bandwidth_iperf
 from Src.Deploy.shared.model_loader import load_full_model, threshold_for_stage
 
+# ── 配置 ──────────────────────────────────────────────────────────────────────
+CLOUD_IP = "172.16.6.101"
+CLOUD_IPERF_PORT = 32264
+CLOUD_FEATURE_PORT = 32266
+# ─────────────────────────────────────────────────────────────────────────────
+
 status_app = Flask(__name__)
 
 
 @status_app.route("/status")
 def status():
     return jsonify(
-        {"f_e_max": get_max_cpu(), "BW_e2c": measure_bandwidth_iperf("127.0.0.1", 5002)}
+        {
+            "f_e_max": get_max_cpu(),
+            "BW_e2c": measure_bandwidth_iperf(CLOUD_IP, CLOUD_IPERF_PORT),
+        }
     )
 
 
@@ -69,7 +78,7 @@ def run_feature_server():
         cloud_payload = {"tensor": features, "meta": meta}
         t_fwd = time.perf_counter()
         try:
-            cloud_resp = send_to_cloud(cloud_payload, "127.0.0.1", 9004)
+            cloud_resp = send_to_cloud(cloud_payload, CLOUD_IP, CLOUD_FEATURE_PORT)
         except Exception as e:
             send_response(conn, {"status": "error", "message": str(e)})
             conn.close()

@@ -1,5 +1,6 @@
 ﻿import csv
 import json
+import pickle
 import time
 from datetime import datetime
 from pathlib import Path
@@ -7,9 +8,10 @@ from pathlib import Path
 import numpy as np
 import requests
 import torch
-from torchvision import transforms
-from torchvision.datasets import CIFAR10
+import torch.nn.functional as F
 
+# from torchvision import transforms
+# from torchvision.datasets import CIFAR10
 from Src.Deploy.Device.comm import send_tensor
 from Src.Deploy.monitor.bandwidth import measure_bandwidth_iperf
 from Src.Deploy.monitor.cpu_monitor import get_cpu_available_cores
@@ -20,24 +22,23 @@ from Src.Deploy.shared.model_loader import (
     threshold_for_stage,
 )
 
-# 閰嶇疆甯搁噺
-EDGE_IP = "127.0.0.1"
-CLOUD_IP = "127.0.0.1"
+# 配置常量
+EDGE_IP = "100.72.193.11"
+CLOUD_IP = "172.16.6.101"
 EDGE_PORT_FEATURE = 9001
-IPERF_PORT_EDGE = 5001  # iperf3 杈圭紭娴嬮€熺鍙?
-IPERF_PORT_CLOUD = 5002  # iperf3 浜戠娴嬮€熺鍙?
-EDGE_STATUS_PORT = 9002  # 杈圭紭鐘舵€佹帴鍙ｇ鍙?
-CLOUD_STATUS_PORT = 9003  # 浜戠鐘舵€佹帴鍙ｇ鍙?
-ALGO_URL = "http://127.0.0.1:8000/api/v1/decision"
-TEST_SAMPLES = 100  # Test image count
+IPERF_PORT_EDGE = 5001
+IPERF_PORT_CLOUD = 5002
+EDGE_STATUS_PORT = 9002
+CLOUD_STATUS_PORT = 9003
+ALGO_URL = "http://100.72.193.11:8000/api/v1/decision"
+TEST_SAMPLES = 100
 RESULTS_DIR = Path(__file__).resolve().parent / "Results"
 CSV_OUTPUT = RESULTS_DIR / f"test_results_{datetime.now().strftime('%Y%m%d%H%M%S')}.csv"
 
-# ==================== 杈呭姪鍑芥暟 ====================
+# ==================== 辅助函数 ====================
 
 
 def convert_to_jsonable(obj):
-    """灏?torch 寮犻噺銆乶umpy 鏍囬噺绛夎浆鎹负鍙?JSON 搴忓垪鍖栫殑鍘熺敓 Python 绫诲瀷"""
     if isinstance(obj, dict):
         return {k: convert_to_jsonable(v) for k, v in obj.items()}
     elif isinstance(obj, list):
@@ -54,6 +55,34 @@ def convert_to_jsonable(obj):
         return obj.tolist()
     else:
         return obj
+
+
+def normalize(tensor, mean, std):
+    mean = torch.tensor(mean, dtype=tensor.dtype, device=tensor.device).view(
+        1, -1, 1, 1
+    )
+    std = torch.tensor(std, dtype=tensor.dtype, device=tensor.device).view(1, -1, 1, 1)
+    return (tensor - mean) / std
+
+
+def cifar10_test_loader(data_dir="Data/CIFAR10/cifar-10-batches-py"):
+    """逐张返回测试图片和标签，图片形状 (1, 3, 224, 224)，已归一化"""
+
+    def load_cifar10_batch(file_path):
+        with open(file_path, "rb") as f:
+            batch = pickle.load(f, encoding="bytes")
+        images = batch[b"data"].reshape(-1, 3, 32, 32).astype(np.float32) / 255.0
+        labels = np.array(batch[b"labels"])
+        return images, labels
+
+    images, labels = load_cifar10_batch(f"{data_dir}/test_batch")
+    for img, label in zip(images, labels):
+        tensor = torch.from_numpy(img).unsqueeze(0)  # (1, 3, 32, 32)
+        tensor = F.interpolate(
+            tensor, size=(224, 224), mode="bilinear", align_corners=False
+        )
+        tensor = normalize(tensor, [0.4914, 0.4822, 0.4465], [0.2023, 0.1994, 0.2010])
+        yield tensor, label
 
 
 def print_summary_statistics(results):
@@ -106,27 +135,14 @@ def print_summary_statistics(results):
     print(f"Exit layer distribution: {layers}")
 
 
-# ==================== 鍗曟鎺ㄧ悊鏍稿績 ====================
+# ==================== 单次推理核心 ====================
 
 
 def run_single_inference(input_tensor, label, decision, bw_d2e, bw_e2c, cpu_avail):
-    """
-    瀵瑰崟寮犲浘鐗囨墽琛屾帹鐞嗭紝杩斿洖缁撴灉瀛楀吀銆?
-    杈撳叆:
-        input_tensor: [1, 3, 224, 224] 寮犻噺
-        label: 鐪熷疄鏍囩 (int)
-        decision: 绠楁硶杩斿洖鐨勫喅绛?JSON
-        bw_d2e, bw_e2c: 甯﹀
-        cpu_avail: 璁惧鍙敤 CPU
-    杩斿洖:
-        result: 鍖呭惈鍚勭鎸囨爣鐨勫瓧鍏?
-    """
     user = decision["users"][0]
     model = load_full_model()
     exit_thresholds = user["exit_thresholds"]
 
-    # Decision JSON fields from api_server.py/decision_codec.py:
-    # partition_s1 is the Edge start layer, partition_s2 is the Cloud start layer.
     device_end = stage_end_from_partition_boundary(user.get("partition_s1"), 2)
     edge_end = stage_end_from_partition_boundary(user.get("partition_s2"), 3)
     exit_layer, threshold = threshold_for_stage(exit_thresholds, device_end)
@@ -140,14 +156,12 @@ def run_single_inference(input_tensor, label, decision, bw_d2e, bw_e2c, cpu_avai
 
     t_total_start = time.perf_counter()
 
-    # 璁惧娈垫寜 stage 鎵ц銆?
     with torch.no_grad():
         features, logits, conf, pred = model.forward_partial(
             input_tensor, 0, device_end
         )
-    T_device = (time.perf_counter() - t_total_start) * 1000  # ms
+    T_device = (time.perf_counter() - t_total_start) * 1000
 
-    # 璁惧鏃╅€€鍒ゆ柇
     if conf is not None and (
         device_end == 4 or (threshold is not None and conf >= threshold)
     ):
@@ -175,7 +189,6 @@ def run_single_inference(input_tensor, label, decision, bw_d2e, bw_e2c, cpu_avai
         }
         return convert_to_jsonable(result)
 
-    # 鏈棭閫€锛屽彂閫佺壒寰佺粰杈圭紭
     t_send = time.perf_counter()
     meta = {
         "decision_id": decision["decision_id"],
@@ -191,8 +204,7 @@ def run_single_inference(input_tensor, label, decision, bw_d2e, bw_e2c, cpu_avai
     try:
         response = send_tensor(payload, EDGE_IP, EDGE_PORT_FEATURE)
     except Exception as e:
-        print(f"鍙戦€佺壒寰佸埌杈圭紭澶辫触: {e}")
-        # 杩斿洖閿欒缁撴灉
+        print(f"发送特征到边缘失败: {e}")
         return {
             "decision_id": decision["decision_id"],
             "user_id": user["user_id"],
@@ -248,13 +260,12 @@ def run_single_inference(input_tensor, label, decision, bw_d2e, bw_e2c, cpu_avai
     return convert_to_jsonable(result)
 
 
-# ==================== 涓诲嚱鏁?====================
+# ==================== 主函数 ====================
 
 
 def main():
     print("=== Batch test started ===")
 
-    # 1. Collect current state once for this batch.
     print("Collecting current state...")
     cpu_avail = get_cpu_available_cores()
     bw_d2e = measure_bandwidth_iperf(EDGE_IP, IPERF_PORT_EDGE)
@@ -275,36 +286,26 @@ def main():
     }
     print("Collected state:", algo_state)
 
-    # 2. Fetch one decision for this batch.
     decision = report_status(ALGO_URL, algo_state)
     if not decision:
         print("No decision received; exiting.")
         return
     print("Received decision:", json.dumps(decision, indent=2, ensure_ascii=False))
 
-    # 3. Prepare dataset.
     print("Loading CIFAR-10 test set...")
-    transform = transforms.Compose(
-        [
-            transforms.Resize(
-                (224, 224)
-            ),  # 璋冩暣鍥惧儚澶у皬锛屽鏋滃師鏈浘鍍忎负224x224鍙敞閲婃帀
-            transforms.ToTensor(),
-            transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
-        ]
-    )
-    testset = CIFAR10(
-        root="Data/CIFAR10", train=False, download=False, transform=transform
-    )
-    num_samples = min(TEST_SAMPLES, len(testset))
-    print(f"Testing {num_samples} images.")
+    test_loader = cifar10_test_loader("Data/CIFAR10/cifar-10-batches-py")
+    print(f"Testing {TEST_SAMPLES} images.")
 
-    # 4. Batch inference.
     results = []
-    for i in range(num_samples):
-        image, label = testset[i]
-        input_tensor = image.unsqueeze(0)  # [1, 3, 224, 224]
-        print(f"\n[{i + 1}/{num_samples}] image={i}, label={label}")
+    for i in range(TEST_SAMPLES):
+        try:
+            image, label = next(test_loader)
+        except StopIteration:
+            print(f"数据集已用完，实际测试了 {i} 张")
+            break
+
+        input_tensor = image  # 已经是 (1, 3, 224, 224)
+        print(f"\n[{i + 1}/{TEST_SAMPLES}] image={i}, label={label}")
 
         try:
             res = run_single_inference(
@@ -325,7 +326,6 @@ def main():
             )
         except Exception as e:
             print(f"  inference failed: {e}")
-            # Record a failed inference row.
             fail_result = {
                 "decision_id": decision.get("decision_id", "unknown"),
                 "user_id": 0,
@@ -358,7 +358,6 @@ def main():
             }
             results.append(fail_result)
 
-    # 5. Save results.
     print(f"\nAll images processed; saving results to {CSV_OUTPUT} ...")
     if results:
         keys = results[0].keys()
