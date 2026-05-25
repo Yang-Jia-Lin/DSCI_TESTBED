@@ -1,18 +1,15 @@
 import pickle
 import threading
 import time
-from pathlib import Path
 
 import torch
-import torch.nn as nn
 from flask import Flask, jsonify
 
 from Src.Deploy.cloud.comm import receive_tensor
 from Src.Deploy.cloud.resource_ctrl import get_max_cpu
+from Src.Deploy.shared.model_loader import load_full_model
 
 status_app = Flask(__name__)
-BASE_DIR = Path(__file__).resolve().parents[3]
-WEIGHTS_DIR = BASE_DIR / "Data" / "Weights"
 
 
 @status_app.route("/status")
@@ -21,14 +18,7 @@ def status():
 
 
 def run_feature_server():
-    mc = torch.load(
-        WEIGHTS_DIR / "mc.pth", map_location="cpu", weights_only=False
-    ).eval()
-    ec_cloud = nn.Linear(1024, 10)  # 256*4 = 1024
-    ec_cloud.load_state_dict(
-        torch.load(WEIGHTS_DIR / "exit2_fc.pth", map_location="cpu")
-    )
-    ec_cloud.eval()
+    model = load_full_model()
 
     while True:
         payload, conn = receive_tensor("0.0.0.0", 9004)
@@ -36,46 +26,28 @@ def run_feature_server():
             if conn:
                 conn.close()
             continue
-        x3 = payload["tensor"]
+
+        tensor = payload["tensor"]
         meta = payload["meta"]
-        threshold_103 = meta["exit_thresholds"]["103"]
+        cloud_start = int(meta.get("edge_end", 3)) + 1
 
         torch.set_num_threads(
             max(1, int(meta.get("cloud_compute_quota", 1.0) * get_max_cpu()))
         )
 
         t_start = time.perf_counter()
-        # 先尝试早退（在 x3 上应用 fc3）
         with torch.no_grad():
-            pooled = nn.AdaptiveAvgPool2d((1, 1))(x3)
-            flat = torch.flatten(pooled, 1)
-            logits_early = ec_cloud(flat)
-            probs_early = torch.softmax(logits_early, dim=1)
-            conf_early, pred_early = torch.max(probs_early, dim=1)
+            features, logits, conf, pred = model.forward_partial(tensor, cloud_start, 4)
+        T_cloud = (time.perf_counter() - t_start) * 1000
 
-        if conf_early.item() >= threshold_103:
-            T_cloud = (time.perf_counter() - t_start) * 1000
-            result = {
-                "exit_layer": 103,
-                "exit_location": "cloud",
-                "exit_confidence": conf_early.item(),
-                "predicted": pred_early.item(),
-                "T_cloud": T_cloud,
-            }
-        else:
-            # 执行剩余层 (layer4 + avgpool + fc)
-            with torch.no_grad():
-                x_final = mc(x3)
-                probs_final = torch.softmax(x_final, dim=1)
-                conf_final, pred_final = torch.max(probs_final, dim=1)
-            T_cloud = (time.perf_counter() - t_start) * 1000
-            result = {
-                "exit_layer": 128,  # 最后一层
-                "exit_location": "cloud",
-                "exit_confidence": conf_final.item(),
-                "predicted": pred_final.item(),
-                "T_cloud": T_cloud,
-            }
+        result = {
+            "exit_layer": 128,
+            "exit_location": "cloud",
+            "exit_confidence": conf,
+            "prediction": pred,
+            "predicted": pred,
+            "T_cloud": T_cloud,
+        }
         send_data = pickle.dumps(result)
         try:
             conn.sendall(send_data)

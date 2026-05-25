@@ -1,6 +1,5 @@
 import threading
 import time
-from pathlib import Path
 
 import torch
 from flask import Flask, jsonify
@@ -8,10 +7,9 @@ from flask import Flask, jsonify
 from Src.Deploy.edge.comm import receive_tensor, send_response
 from Src.Deploy.edge.resource_ctrl import get_max_cpu
 from Src.Deploy.monitor.bandwidth import measure_bandwidth_iperf
+from Src.Deploy.shared.model_loader import load_full_model, threshold_for_stage
 
 status_app = Flask(__name__)
-BASE_DIR = Path(__file__).resolve().parents[3]
-WEIGHTS_DIR = BASE_DIR / "Data" / "Weights"
 
 
 @status_app.route("/status")
@@ -22,31 +20,53 @@ def status():
 
 
 def run_feature_server():
-    me = torch.load(
-        WEIGHTS_DIR / "me.pth", map_location="cpu", weights_only=False
-    ).eval()
+    model = load_full_model()
     while True:
         payload, conn = receive_tensor("0.0.0.0", 9001)
         if payload is None:
             if conn:
                 conn.close()
             continue
-        tensor = payload["tensor"]  # x2
+
+        tensor = payload["tensor"]
         meta = payload["meta"]
+        edge_start = int(meta.get("device_end", 2)) + 1
+        edge_end = int(meta.get("edge_end", 3))
+        exit_layer, threshold = threshold_for_stage(meta["exit_thresholds"], edge_end)
 
         torch.set_num_threads(
             max(1, int(meta.get("edge_compute_quota", 1.0) * get_max_cpu()))
         )
 
         t0 = time.perf_counter()
-        with torch.no_grad():
-            x3 = me(tensor)  # layer3 输出
+        if edge_start <= edge_end:
+            with torch.no_grad():
+                features, logits, conf, pred = model.forward_partial(
+                    tensor, edge_start, edge_end
+                )
+        else:
+            features, _, conf, pred = tensor, None, None, None
         T_edge = (time.perf_counter() - t0) * 1000
 
-        # 转发给云
+        if conf is not None and (
+            edge_end == 4 or (threshold is not None and conf >= threshold)
+        ):
+            final_resp = {
+                "T_edge": T_edge,
+                "T_cloud": 0.0,
+                "T_trans_e2c": 0.0,
+                "exit_layer": exit_layer,
+                "exit_location": "edge",
+                "exit_confidence": conf,
+                "prediction": pred,
+            }
+            send_response(conn, final_resp)
+            conn.close()
+            continue
+
         from Src.Deploy.device.comm import send_tensor as send_to_cloud
 
-        cloud_payload = {"tensor": x3, "meta": meta}
+        cloud_payload = {"tensor": features, "meta": meta}
         t_fwd = time.perf_counter()
         try:
             cloud_resp = send_to_cloud(cloud_payload, "127.0.0.1", 9004)
@@ -63,7 +83,7 @@ def run_feature_server():
             "exit_layer": cloud_resp.get("exit_layer"),
             "exit_location": cloud_resp.get("exit_location", "cloud"),
             "exit_confidence": cloud_resp.get("exit_confidence"),
-            "prediction": cloud_resp.get("predicted"),
+            "prediction": cloud_resp.get("prediction", cloud_resp.get("predicted")),
         }
         send_response(conn, final_resp)
         conn.close()

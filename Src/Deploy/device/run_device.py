@@ -1,12 +1,10 @@
 import csv
 import json
 import time
-from pathlib import Path
 
 import numpy as np
 import requests
 import torch
-import torch.nn as nn
 from torchvision import transforms
 from torchvision.datasets import CIFAR10
 
@@ -14,9 +12,13 @@ from Src.Deploy.device.comm import send_tensor
 from Src.Deploy.monitor.bandwidth import measure_bandwidth_iperf
 from Src.Deploy.monitor.cpu_monitor import get_cpu_available_cores
 from Src.Deploy.monitor.state_reporter import report_status
+from Src.Deploy.shared.model_loader import (
+    load_full_model,
+    stage_end_from_partition_boundary,
+    threshold_for_stage,
+)
 
 # 配置常量
-BASE_DIR = Path(__file__).resolve().parents[3]
 EDGE_IP = "127.0.0.1"
 CLOUD_IP = "127.0.0.1"
 EDGE_PORT_FEATURE = 9001
@@ -25,11 +27,6 @@ IPERF_PORT_CLOUD = 5002  # iperf3 云端测速端口
 EDGE_STATUS_PORT = 9002  # 边缘状态接口端口
 CLOUD_STATUS_PORT = 9003  # 云端状态接口端口
 ALGO_URL = "http://127.0.0.1:8000/api/v1/decision"
-WEIGHTS_DIR = BASE_DIR / "Data" / "Weights"
-MU_PATH = WEIGHTS_DIR / "mu.pth"
-EXIT1_FC_PATH = WEIGHTS_DIR / "exit1_fc.pth"
-EXIT2_FC_PATH = WEIGHTS_DIR / "exit2_fc.pth"
-NUM_CLASSES = 10
 TEST_SAMPLES = 100  # 测试图片数量，可调
 CSV_OUTPUT = "test_results.csv"
 
@@ -56,13 +53,6 @@ def convert_to_jsonable(obj):
         return obj
 
 
-def load_early_exit_fc(path, in_features, num_classes=NUM_CLASSES):
-    fc = nn.Linear(in_features, num_classes)
-    fc.load_state_dict(torch.load(path, map_location="cpu"))
-    fc.eval()
-    return fc
-
-
 # ==================== 单次推理核心 ====================
 
 
@@ -79,29 +69,24 @@ def run_single_inference(input_tensor, label, decision, bw_d2e, bw_e2c, cpu_avai
         result: 包含各种指标的字典
     """
     user = decision["users"][0]
-    threshold_57 = user["exit_thresholds"]["57"]
-    threshold_103 = user["exit_thresholds"]["103"]
+    model = load_full_model()
+    exit_thresholds = user["exit_thresholds"]
 
-    # 加载模型
-    mu = torch.load(MU_PATH, map_location="cpu", weights_only=False).eval()
-    ec_device = load_early_exit_fc(EXIT1_FC_PATH, 512, NUM_CLASSES)  # 128*4=512
-    ec_cloud = load_early_exit_fc(EXIT2_FC_PATH, 1024, NUM_CLASSES)  # 256*4=1024
+    # Decision JSON fields from api_server.py/decision_codec.py:
+    # partition_s1 is the Edge start layer, partition_s2 is the Cloud start layer.
+    device_end = stage_end_from_partition_boundary(user.get("partition_s1"), 2)
+    edge_end = stage_end_from_partition_boundary(user.get("partition_s2"), 3)
+    exit_layer, threshold = threshold_for_stage(exit_thresholds, device_end)
 
     t_total_start = time.perf_counter()
 
-    # 设备段推理 (0~93)
+    # 设备段按 stage 执行。
     with torch.no_grad():
-        x2 = mu(input_tensor)  # shape [1, 512, 14, 14]
+        features, logits, conf, pred = model.forward_partial(input_tensor, 0, device_end)
     T_device = (time.perf_counter() - t_total_start) * 1000  # ms
 
     # 设备早退判断
-    pooled = nn.AdaptiveAvgPool2d((1, 1))(x2)
-    flat = torch.flatten(pooled, 1)
-    logits_dev = ec_device(flat)
-    probs_dev = torch.softmax(logits_dev, dim=1)
-    conf_dev, pred_dev = torch.max(probs_dev, dim=1)
-
-    if conf_dev.item() >= threshold_57:
+    if conf is not None and (device_end == 4 or (threshold is not None and conf >= threshold)):
         result = {
             "decision_id": decision["decision_id"],
             "user_id": user["user_id"],
@@ -111,12 +96,12 @@ def run_single_inference(input_tensor, label, decision, bw_d2e, bw_e2c, cpu_avai
             "T_trans_d2e": 0.0,
             "T_trans_e2c": 0.0,
             "T_total": T_device,
-            "exit_layer": 57,
+            "exit_layer": exit_layer,
             "exit_location": "device",
-            "exit_confidence": conf_dev.item(),
-            "prediction": pred_dev.item(),
+            "exit_confidence": conf,
+            "prediction": pred,
             "ground_truth": label,
-            "is_correct": pred_dev.item() == label,
+            "is_correct": pred == label,
             "BW_d2e": bw_d2e,
             "BW_e2c": bw_e2c,
             "cpu_util_device": 0.05,
@@ -130,12 +115,14 @@ def run_single_inference(input_tensor, label, decision, bw_d2e, bw_e2c, cpu_avai
     meta = {
         "decision_id": decision["decision_id"],
         "user_id": user["user_id"],
-        "exit_thresholds": user["exit_thresholds"],
+        "exit_thresholds": exit_thresholds,
         "Y_row": user.get("Y_row", []),
+        "device_end": device_end,
+        "edge_end": edge_end,
         "edge_compute_quota": user.get("edge_compute_quota", 1.0),
         "cloud_compute_quota": user.get("cloud_compute_quota", 1.0),
     }
-    payload = {"tensor": x2, "meta": meta}
+    payload = {"tensor": features, "meta": meta}
     try:
         response = send_tensor(payload, EDGE_IP, EDGE_PORT_FEATURE)
     except Exception as e:

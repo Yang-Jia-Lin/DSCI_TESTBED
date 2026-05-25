@@ -1,3 +1,54 @@
+# 真机运行方法
+
+电脑 5 个服务：
+
+1. `iperf3 -s -p 5001`：给树莓派测 Device -> Edge 带宽。
+2. `iperf3 -s -p 5002`：给边端测 Edge -> Cloud 带宽。
+3. `python -m Src.Algorithm.Interface.api_server`：算法服务，监听 `8000`，设备端 POST 状态到 `/api/v1/decision` 拿决策。
+4. `python -m Src.Deploy.edge.run_edge`：边端服务，监听特征输入 `9001`，状态接口 `9002`。
+5. `python -m Src.Deploy.cloud.run_cloud`：云端服务，监听特征输入 `9004`，状态接口 `9003`。
+
+
+从仓库根目录 `D:\Coding\Python\DSCI_testbed` 依次启动：
+
+```powershell
+iperf3 -s -p 5001
+```
+
+```powershell
+iperf3 -s -p 5002
+```
+
+```powershell
+python -m Src.Algorithm.Interface.api_server
+```
+
+```powershell
+python -m Src.Deploy.cloud.run_cloud
+```
+
+```powershell
+python -m Src.Deploy.edge.run_edge
+```
+
+最后再运行设备端：
+
+```powershell
+python -m Src.Deploy.device.run_device
+```
+
+真机时，把树莓派上的 [run_device.py](</mnt/data/D:\Coding\Python\DSCI_testbed\Src\Deploy\device\run_device.py>) 里这几个改成电脑的局域网 IP：`EDGE_IP`、`CLOUD_IP`、`ALGO_URL`。电脑防火墙要放行至少 `5001, 8000, 9001, 9002, 9003`；如果边云不在同一台电脑，还要放行 `5002, 9004`。
+
+
+
+
+
+
+
+
+
+
+
 # DSCI 真机实验平台（DSCI-testbed）
 
 DSCI（Dual-Stage Collaborative Inference）是一套面向端-边-云三层网络的协同深度学习推理框架。它在深度模型中引入早退出口（Early Exit），并结合 PPO 强化学习与资源优化，在多用户并发场景下动态决定：

@@ -249,6 +249,49 @@ class MultiEEResNet50(nn.Module):
         else:
             return x_final, x2_fc, x3_fc  # 默认返回所有输出
 
+    def forward_partial(self, x: torch.Tensor, start: int, end: int):
+        """
+        Execute stages [start, end] inclusive (stage indices 0-4).
+        Returns:
+          features : torch.Tensor  (raw output of the last executed stage)
+          logits   : torch.Tensor | None  (classification logits if end has an exit head)
+          conf     : float | None
+          pred     : int   | None
+        Exit heads:
+          end == 2 -> avgpool + fc2
+          end == 3 -> avgpool + fc3
+          end == 4 -> already included in stage 4, logits = features
+        No exit head for end in {0, 1}.
+        """
+        if start < 0 or end > 4 or start > end:
+            raise ValueError(f"require 0 <= start <= end <= 4, got ({start}, {end})")
+
+        if start <= 0 and end >= 0:
+            x = self.maxpool(self.relu(self.bn1(self.conv1(x))))
+        if start <= 1 and end >= 1:
+            x = self.layer1(x)
+        if start <= 2 and end >= 2:
+            x = self.layer2(x)
+        if start <= 3 and end >= 3:
+            x = self.layer3(x)
+        if start <= 4 and end >= 4:
+            x = self.fc(torch.flatten(self.avgpool(self.layer4(x)), 1))
+
+        logits = None
+        if end == 2:
+            logits = self.fc2(torch.flatten(self.avgpool(x), 1))
+        elif end == 3:
+            logits = self.fc3(torch.flatten(self.avgpool(x), 1))
+        elif end == 4:
+            logits = x
+
+        if logits is None:
+            return x, None, None, None
+
+        probs = torch.softmax(logits, dim=1)
+        conf, pred = torch.max(probs, dim=1)
+        return x, logits, float(conf.item()), int(pred.item())
+
 
 # Helper function to control which layers to freeze/unfreeze
 def freeze_layers(model, freeze_backbone=False, freeze_x2_fc=False, freeze_x3_fc=False):

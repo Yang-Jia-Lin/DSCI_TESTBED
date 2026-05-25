@@ -1,17 +1,13 @@
-from pathlib import Path
-
-import torch
 import torch.nn as nn
 
-BASE_DIR = Path(__file__).resolve().parents[3]
-DEFAULT_WEIGHTS_DIR = BASE_DIR / "Data" / "Weights"
+from Src.Deploy.shared.model_loader import load_full_model
 
 
 class CloudModel(nn.Module):
-    def __init__(self, weight_path: str | Path = DEFAULT_WEIGHTS_DIR / "mc.pth"):
+    def __init__(self, weight_path=None):
         super().__init__()
-        self.model = torch.load(weight_path, map_location="cpu", weights_only=False)
-        self.model.eval()
+        self.model = load_full_model()
 
     def forward(self, x):
-        return self.model(x)
+        features, logits, conf, pred = self.model.forward_partial(x, 4, 4)
+        return features
