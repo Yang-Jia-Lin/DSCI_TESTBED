@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 from typing import cast
 from Src.Utils.plot_utils import set_ieee_style, save_fig_for_ieee
-from Src.Configs.paras import RESULT_EE_MODEL_PATH, COLORS
+from Src.Configs.paras import OFFLINE_TABLE_DIR, RESULT_EE_MODEL_PATH, COLORS
 
 
 def plot_expectation_vs_threshold(
@@ -109,7 +109,7 @@ def plot_expectation_vs_threshold(
 
 
 if __name__ == "__main__":
-    rate_csv = Path(r"D:\Coding\Python\DSCI\Data\Resnet50_rates.csv")
-    acc_csv = Path(r"D:\Coding\Python\DSCI\Data\Resnet50_accs.csv")
+    rate_csv = OFFLINE_TABLE_DIR / "Resnet50_rates.csv"
+    acc_csv = OFFLINE_TABLE_DIR / "Resnet50_accs.csv"
     save_dir = Path(RESULT_EE_MODEL_PATH)
     plot_expectation_vs_threshold(rate_csv, acc_csv, save_dir)

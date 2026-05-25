@@ -5,8 +5,8 @@ import time
 import torch
 from flask import Flask, jsonify
 
-from Src.Deploy.cloud.comm import receive_tensor
-from Src.Deploy.cloud.resource_ctrl import get_max_cpu
+from Src.Deploy.Cloud.comm import receive_tensor
+from Src.Deploy.Cloud.resource_ctrl import get_max_cpu
 from Src.Deploy.shared.model_loader import load_full_model
 
 status_app = Flask(__name__)

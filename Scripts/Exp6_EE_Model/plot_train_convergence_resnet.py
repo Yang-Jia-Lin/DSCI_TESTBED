@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from Src.Utils.plot_utils import save_fig_for_ieee, set_ieee_style
 
-from Src.Configs.paras import COLORS, DATA_DIR, RESULT_EE_MODEL_PATH
+from Src.Configs.paras import COLORS, OFFLINE_TABLE_DIR, RESULT_EE_MODEL_PATH
 
 
 def plot_training_convergence(
@@ -65,6 +65,6 @@ def plot_training_convergence(
 
 
 if __name__ == "__main__":
-    csv_file = DATA_DIR / "ResNet50_trainlog_0508_0137.csv"
+    csv_file = OFFLINE_TABLE_DIR / "ResNet50_trainlog_0508_0137.csv"
     save_dir = Path(RESULT_EE_MODEL_PATH)
     plot_training_convergence(csv_file, save_dir)

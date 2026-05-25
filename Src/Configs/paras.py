@@ -1,7 +1,6 @@
 """Src/Configs/paras.py
-仿真代码：Paras() 或 Paras.from_dict(...)
-测试平台：Paras.from_state(...) 从测量状态 JSON 中构建
-"""
+ä»¿çä»£ç ï¼Paras() æ?Paras.from_dict(...)
+æµè¯å¹³å°ï¼Paras.from_state(...) ä»æµéç¶æ?JSON ä¸­æå»?"""
 
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -15,7 +14,8 @@ from Src.Configs.testbed_config import DEFAULT as TESTBED_CFG
 
 BASE_DRIVE = Path(__file__).resolve().parents[2]
 DATA_DIR = BASE_DRIVE / "Data"
-RESULT_DIR = BASE_DRIVE / "Results"
+OFFLINE_TABLE_DIR = DATA_DIR / "OfflineTables"
+RESULT_DIR = BASE_DRIVE / "Scripts" / "Results"
 
 # --- Train Data Path ---
 DATA_ROOT = DATA_DIR / "CIFAR10"
@@ -31,7 +31,8 @@ LAYER_CSV_PATH = MODEL_CFG.layer_stats_csv
 RESULT_TESTBED_PATH = RESULT_DIR / "Exp1_Testbed"
 RESULT_SOTA_PATH = RESULT_DIR / "Exp2_Baseline"
 RESULT_DYNAMIC_PATH = RESULT_DIR / "Exp3_Dynamic"
-RESULT_CONVERGENCE_PATH = RESULT_DIR / "Exp4_Convergence"
+RESULT_CONVERGENCE_PATH = RESULT_DIR / "Exp4_DSCI_Convergency"
+RESULT_DSCI_CONVERGENCY_PATH = RESULT_CONVERGENCE_PATH
 RESULT_ABLATION_PATH = RESULT_DIR / "Exp5_Ablation"
 RESULT_EE_MODEL_PATH = RESULT_DIR / "Exp6_EE_Model"
 

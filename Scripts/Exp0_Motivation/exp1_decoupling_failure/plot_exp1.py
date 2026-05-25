@@ -35,7 +35,7 @@ STRATEGY_ORDER = ["Local", "EE-Only", "SC-Only", "Decoupled", "DSCI"]
 
 
 def _load_results(output_dir: Path) -> dict:
-    path = output_dir / "data" / "exp1_results.json"
+    path = output_dir / "Data" / "exp1_results.json"
     with open(path, encoding="utf-8") as f:
         return json.load(f)
 
@@ -127,7 +127,7 @@ def plot_main_figure(payload: dict, output_dir: Path) -> None:
     )
     plt.tight_layout(pad=0.15)
     fig.subplots_adjust(top=0.72, wspace=0.28)
-    save_fig_for_ieee(output_dir / "figures" / "exp1_main", fig=fig)
+    save_fig_for_ieee(output_dir / "Figures" / "exp1_main", fig=fig)
     plt.close(fig)
 
 
@@ -167,7 +167,7 @@ def plot_split_drift(payload: dict, output_dir: Path) -> None:
     ax.set_ylim(-2, final_layer + 8)
     ax.legend(loc="upper left", frameon=True, fontsize=9)
     plt.tight_layout(pad=0.15)
-    save_fig_for_ieee(output_dir / "figures" / "exp1_split_drift", fig=fig)
+    save_fig_for_ieee(output_dir / "Figures" / "exp1_split_drift", fig=fig)
     plt.close(fig)
 
 
@@ -181,7 +181,7 @@ def main() -> None:
     payload = _load_results(output_dir)
     plot_main_figure(payload, output_dir)
     plot_split_drift(payload, output_dir)
-    print(f"[plot_exp1] 图表已写入 {output_dir / 'figures'}")
+    print(f"[plot_exp1] 图表已写入 {output_dir / 'Figures'}")
 
 
 if __name__ == "__main__":

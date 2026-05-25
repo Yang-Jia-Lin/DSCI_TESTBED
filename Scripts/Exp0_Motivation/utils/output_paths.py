@@ -9,7 +9,7 @@ import os
 import time
 from pathlib import Path
 
-EXP0_ROOT = Path("Results") / "Exp0_Motivation"
+EXP0_ROOT = Path("Scripts") / "Results" / "Exp0_Motivation"
 LATEST_FILE = EXP0_ROOT / "latest.txt"
 
 
@@ -23,7 +23,7 @@ def create_run_output_dirs(project_root: Path | None = None) -> tuple[str, Path]
     root = project_root or Path.cwd()
     timestamp = time.strftime("%Y%m%d_%H%M%S")
     output_dir = root / EXP0_ROOT / timestamp
-    for sub in ("logs", "data", "figures"):
+    for sub in ("Logs", "Data", "Figures"):
         (output_dir / sub).mkdir(parents=True, exist_ok=True)
     latest = root / LATEST_FILE
     latest.parent.mkdir(parents=True, exist_ok=True)

@@ -4,8 +4,8 @@ import time
 import torch
 from flask import Flask, jsonify
 
-from Src.Deploy.edge.comm import receive_tensor, send_response
-from Src.Deploy.edge.resource_ctrl import get_max_cpu
+from Src.Deploy.Edge.comm import receive_tensor, send_response
+from Src.Deploy.Edge.resource_ctrl import get_max_cpu
 from Src.Deploy.monitor.bandwidth import measure_bandwidth_iperf
 from Src.Deploy.shared.model_loader import load_full_model, threshold_for_stage
 
@@ -64,7 +64,7 @@ def run_feature_server():
             conn.close()
             continue
 
-        from Src.Deploy.device.comm import send_tensor as send_to_cloud
+        from Src.Deploy.Device.comm import send_tensor as send_to_cloud
 
         cloud_payload = {"tensor": features, "meta": meta}
         t_fwd = time.perf_counter()

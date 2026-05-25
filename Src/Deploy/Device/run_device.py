@@ -1,6 +1,8 @@
-import csv
+﻿import csv
 import json
 import time
+from datetime import datetime
+from pathlib import Path
 
 import numpy as np
 import requests
@@ -8,7 +10,7 @@ import torch
 from torchvision import transforms
 from torchvision.datasets import CIFAR10
 
-from Src.Deploy.device.comm import send_tensor
+from Src.Deploy.Device.comm import send_tensor
 from Src.Deploy.monitor.bandwidth import measure_bandwidth_iperf
 from Src.Deploy.monitor.cpu_monitor import get_cpu_available_cores
 from Src.Deploy.monitor.state_reporter import report_status
@@ -18,23 +20,24 @@ from Src.Deploy.shared.model_loader import (
     threshold_for_stage,
 )
 
-# 配置常量
+# 閰嶇疆甯搁噺
 EDGE_IP = "127.0.0.1"
 CLOUD_IP = "127.0.0.1"
 EDGE_PORT_FEATURE = 9001
-IPERF_PORT_EDGE = 5001  # iperf3 边缘测速端口
-IPERF_PORT_CLOUD = 5002  # iperf3 云端测速端口
-EDGE_STATUS_PORT = 9002  # 边缘状态接口端口
-CLOUD_STATUS_PORT = 9003  # 云端状态接口端口
+IPERF_PORT_EDGE = 5001  # iperf3 杈圭紭娴嬮€熺鍙?
+IPERF_PORT_CLOUD = 5002  # iperf3 浜戠娴嬮€熺鍙?
+EDGE_STATUS_PORT = 9002  # 杈圭紭鐘舵€佹帴鍙ｇ鍙?
+CLOUD_STATUS_PORT = 9003  # 浜戠鐘舵€佹帴鍙ｇ鍙?
 ALGO_URL = "http://127.0.0.1:8000/api/v1/decision"
-TEST_SAMPLES = 100  # 测试图片数量，可调
-CSV_OUTPUT = "test_results.csv"
+TEST_SAMPLES = 100  # Test image count
+RESULTS_DIR = Path(__file__).resolve().parent / "Results"
+CSV_OUTPUT = RESULTS_DIR / f"test_results_{datetime.now().strftime('%Y%m%d%H%M%S')}.csv"
 
-# ==================== 辅助函数 ====================
+# ==================== 杈呭姪鍑芥暟 ====================
 
 
 def convert_to_jsonable(obj):
-    """将 torch 张量、numpy 标量等转换为可 JSON 序列化的原生 Python 类型"""
+    """灏?torch 寮犻噺銆乶umpy 鏍囬噺绛夎浆鎹负鍙?JSON 搴忓垪鍖栫殑鍘熺敓 Python 绫诲瀷"""
     if isinstance(obj, dict):
         return {k: convert_to_jsonable(v) for k, v in obj.items()}
     elif isinstance(obj, list):
@@ -55,8 +58,8 @@ def convert_to_jsonable(obj):
 
 def print_summary_statistics(results):
     if not results:
-        print("\n=== 测试统计 ===")
-        print("没有可统计的测试结果。")
+        print("\n=== Test Summary ===")
+        print("No test results to summarize.")
         return
 
     total = len(results)
@@ -68,13 +71,13 @@ def print_summary_statistics(results):
     correct = sum(1 for r in results if bool(r.get("is_correct", False)))
     accuracy = correct / total if total else 0.0
 
-    print("\n=== 测试统计 ===")
-    print(f"样本数: {total}")
-    print(f"有效推理: {len(valid)}")
-    print(f"准确率: {accuracy:.4f} ({correct}/{total})")
+    print("\n=== Test Summary ===")
+    print(f"Samples: {total}")
+    print(f"Valid inferences: {len(valid)}")
+    print(f"Accuracy: {accuracy:.4f} ({correct}/{total})")
 
     if not valid:
-        print("没有有效时延结果。")
+        print("No valid latency results.")
         return
 
     def _print_latency_stats(name, key):
@@ -85,12 +88,12 @@ def print_summary_statistics(results):
             f"min={values.min():.2f}, max={values.max():.2f}"
         )
 
-    _print_latency_stats("设备时延 T_device", "T_device")
-    _print_latency_stats("端到边传输 T_trans_d2e", "T_trans_d2e")
-    _print_latency_stats("边缘时延 T_edge", "T_edge")
-    _print_latency_stats("边到云传输 T_trans_e2c", "T_trans_e2c")
-    _print_latency_stats("云端时延 T_cloud", "T_cloud")
-    _print_latency_stats("总时延 T_total", "T_total")
+    _print_latency_stats("T_device", "T_device")
+    _print_latency_stats("T_trans_d2e", "T_trans_d2e")
+    _print_latency_stats("T_edge", "T_edge")
+    _print_latency_stats("T_trans_e2c", "T_trans_e2c")
+    _print_latency_stats("T_cloud", "T_cloud")
+    _print_latency_stats("T_total", "T_total")
 
     split_points = {}
     layers = {}
@@ -99,24 +102,24 @@ def print_summary_statistics(results):
         layer = r.get("exit_layer", "unknown")
         split_points[split_key] = split_points.get(split_key, 0) + 1
         layers[layer] = layers.get(layer, 0) + 1
-    print(f"切分点决策分布 (p1, p2): {split_points}")
-    print(f"退出层分布: {layers}")
+    print(f"Split decision distribution (p1, p2): {split_points}")
+    print(f"Exit layer distribution: {layers}")
 
 
-# ==================== 单次推理核心 ====================
+# ==================== 鍗曟鎺ㄧ悊鏍稿績 ====================
 
 
 def run_single_inference(input_tensor, label, decision, bw_d2e, bw_e2c, cpu_avail):
     """
-    对单张图片执行推理，返回结果字典。
-    输入:
-        input_tensor: [1, 3, 224, 224] 张量
-        label: 真实标签 (int)
-        decision: 算法返回的决策 JSON
-        bw_d2e, bw_e2c: 带宽
-        cpu_avail: 设备可用 CPU
-    返回:
-        result: 包含各种指标的字典
+    瀵瑰崟寮犲浘鐗囨墽琛屾帹鐞嗭紝杩斿洖缁撴灉瀛楀吀銆?
+    杈撳叆:
+        input_tensor: [1, 3, 224, 224] 寮犻噺
+        label: 鐪熷疄鏍囩 (int)
+        decision: 绠楁硶杩斿洖鐨勫喅绛?JSON
+        bw_d2e, bw_e2c: 甯﹀
+        cpu_avail: 璁惧鍙敤 CPU
+    杩斿洖:
+        result: 鍖呭惈鍚勭鎸囨爣鐨勫瓧鍏?
     """
     user = decision["users"][0]
     model = load_full_model()
@@ -137,14 +140,14 @@ def run_single_inference(input_tensor, label, decision, bw_d2e, bw_e2c, cpu_avai
 
     t_total_start = time.perf_counter()
 
-    # 设备段按 stage 执行。
+    # 璁惧娈垫寜 stage 鎵ц銆?
     with torch.no_grad():
         features, logits, conf, pred = model.forward_partial(
             input_tensor, 0, device_end
         )
     T_device = (time.perf_counter() - t_total_start) * 1000  # ms
 
-    # 设备早退判断
+    # 璁惧鏃╅€€鍒ゆ柇
     if conf is not None and (
         device_end == 4 or (threshold is not None and conf >= threshold)
     ):
@@ -172,7 +175,7 @@ def run_single_inference(input_tensor, label, decision, bw_d2e, bw_e2c, cpu_avai
         }
         return convert_to_jsonable(result)
 
-    # 未早退，发送特征给边缘
+    # 鏈棭閫€锛屽彂閫佺壒寰佺粰杈圭紭
     t_send = time.perf_counter()
     meta = {
         "decision_id": decision["decision_id"],
@@ -188,8 +191,8 @@ def run_single_inference(input_tensor, label, decision, bw_d2e, bw_e2c, cpu_avai
     try:
         response = send_tensor(payload, EDGE_IP, EDGE_PORT_FEATURE)
     except Exception as e:
-        print(f"发送特征到边缘失败: {e}")
-        # 返回错误结果
+        print(f"鍙戦€佺壒寰佸埌杈圭紭澶辫触: {e}")
+        # 杩斿洖閿欒缁撴灉
         return {
             "decision_id": decision["decision_id"],
             "user_id": user["user_id"],
@@ -245,14 +248,14 @@ def run_single_inference(input_tensor, label, decision, bw_d2e, bw_e2c, cpu_avai
     return convert_to_jsonable(result)
 
 
-# ==================== 主函数 ====================
+# ==================== 涓诲嚱鏁?====================
 
 
 def main():
-    print("=== 批量测试启动 ===")
+    print("=== Batch test started ===")
 
-    # 1. 采集一次状态（本地环境稳定，可复用）
-    print("采集当前状态...")
+    # 1. Collect current state once for this batch.
+    print("Collecting current state...")
     cpu_avail = get_cpu_available_cores()
     bw_d2e = measure_bandwidth_iperf(EDGE_IP, IPERF_PORT_EDGE)
     try:
@@ -270,22 +273,22 @@ def main():
         "cloud": {"f_c_max": cloud_status["f_c_max"], "BW_e2c": edge_status["BW_e2c"]},
         "users": [{"f_u": cpu_avail, "BW_d2e": bw_d2e}],
     }
-    print("采集状态:", algo_state)
+    print("Collected state:", algo_state)
 
-    # 2. 获取决策（固定一次，若想每张图动态决策，移入循环内）
+    # 2. Fetch one decision for this batch.
     decision = report_status(ALGO_URL, algo_state)
     if not decision:
-        print("未获得决策，退出")
+        print("No decision received; exiting.")
         return
-    print("收到决策:", json.dumps(decision, indent=2, ensure_ascii=False))
+    print("Received decision:", json.dumps(decision, indent=2, ensure_ascii=False))
 
-    # 3. 准备数据集
-    print("加载 CIFAR-10 测试集...")
+    # 3. Prepare dataset.
+    print("Loading CIFAR-10 test set...")
     transform = transforms.Compose(
         [
             transforms.Resize(
                 (224, 224)
-            ),  # 调整图像大小，如果原本图像为224x224可注释掉
+            ),  # 璋冩暣鍥惧儚澶у皬锛屽鏋滃師鏈浘鍍忎负224x224鍙敞閲婃帀
             transforms.ToTensor(),
             transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
         ]
@@ -294,14 +297,14 @@ def main():
         root="Data/CIFAR10", train=False, download=False, transform=transform
     )
     num_samples = min(TEST_SAMPLES, len(testset))
-    print(f"将测试 {num_samples} 张图片")
+    print(f"Testing {num_samples} images.")
 
-    # 4. 批量测试
+    # 4. Batch inference.
     results = []
     for i in range(num_samples):
         image, label = testset[i]
         input_tensor = image.unsqueeze(0)  # [1, 3, 224, 224]
-        print(f"\n[{i + 1}/{num_samples}] 处理图片 {i}, 真实标签 {label}")
+        print(f"\n[{i + 1}/{num_samples}] image={i}, label={label}")
 
         try:
             res = run_single_inference(
@@ -314,15 +317,15 @@ def main():
                 )
             results.append(res)
             print(
-                f"  决策: p1={res.get('partition_s1', 'N/A')}, p2={res.get('partition_s2', 'N/A')}, "
+                f"  decision: p1={res.get('partition_s1', 'N/A')}, p2={res.get('partition_s2', 'N/A')}, "
                 f"thr57={res.get('threshold_57', 'N/A')}, thr103={res.get('threshold_103', 'N/A')}, "
-                f"  退出层: {res.get('exit_layer', 'N/A')}, 位置: {res.get('exit_location', 'N/A')}, "
-                f"置信度: {res.get('exit_confidence', 0.0):.4f}, 预测: {res.get('prediction', -1)}, "
-                f"正确: {res.get('is_correct', False)}, 总时延: {res.get('T_total', 0.0):.2f} ms"
+                f"exit_layer={res.get('exit_layer', 'N/A')}, location={res.get('exit_location', 'N/A')}, "
+                f"confidence={res.get('exit_confidence', 0.0):.4f}, prediction={res.get('prediction', -1)}, "
+                f"correct={res.get('is_correct', False)}, total={res.get('T_total', 0.0):.2f} ms"
             )
         except Exception as e:
-            print(f"  推理失败: {e}")
-            # 记录失败条目
+            print(f"  inference failed: {e}")
+            # Record a failed inference row.
             fail_result = {
                 "decision_id": decision.get("decision_id", "unknown"),
                 "user_id": 0,
@@ -355,15 +358,16 @@ def main():
             }
             results.append(fail_result)
 
-    # 5. 保存结果
-    print(f"\n所有图片测试完成，正在保存结果到 {CSV_OUTPUT} ...")
+    # 5. Save results.
+    print(f"\nAll images processed; saving results to {CSV_OUTPUT} ...")
     if results:
         keys = results[0].keys()
+        CSV_OUTPUT.parent.mkdir(parents=True, exist_ok=True)
         with open(CSV_OUTPUT, "w", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(f, fieldnames=keys)
             writer.writeheader()
             writer.writerows(results)
-        print("结果已保存。")
+        print("Results saved.")
     print_summary_statistics(results)
 
 

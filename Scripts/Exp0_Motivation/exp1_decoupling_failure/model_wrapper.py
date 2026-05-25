@@ -2,12 +2,12 @@
 Scripts/Exp0_Motivation/exp1_decoupling_failure/model_wrapper.py
 
 关键常量来源（实现前自项目文件读取）：
-- 模型类: MultiEEResNet50 (Src/models/ModelNet/Resnet50.py)
+- 模型类: MultiEEResNet50 (Src/Models/ModelNet/Resnet50.py)
 - 早退头层索引（仅此处设 τ）: E = [57, 103]；末层 127 为最终分类出口
 - 切分点 X: 可在 1..127 任意层枚举；0 表示 Local
 - 总层数 m = 128
-- 层 FLOPs / 特征字节: Data/Resnet50_layer_stats.csv → approx_flops, num_bytes
-- 早退率: Data/Resnet50_rates.csv → exit1_rate, exit2_rate (%, 阈值列 threshold)
+- 层 FLOPs / 特征字节: Data/OfflineTables/Resnet50_layer_stats.csv → approx_flops, num_bytes
+- 早退率: Data/OfflineTables/Resnet50_rates.csv → exit1_rate, exit2_rate (%, 阈值列 threshold)
 - set_ieee_style(mode): single=4.0×2.8in, double=7.0×4.5in (Src/Utils/plot_utils.py)
 - save_fig_for_ieee(save_path: Path, fig=None) → .pdf + .png
 """
@@ -33,14 +33,14 @@ from Scripts.Exp0_Motivation.utils.config import (  # noqa: E402
     FINAL_LAYER,
     NUM_LAYERS,
 )
-from Src.models.ModelNet.Resnet50 import Bottleneck, MultiEEResNet50  # noqa: E402
+from Src.Models.ModelNet.Resnet50 import Bottleneck, MultiEEResNet50  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
 # 权重与 CSV 默认路径（相对项目根）
 DEFAULT_WEIGHTS = Path("Data/Weights/ResNet50_multi_EE_model.pth")
-LAYER_STATS_CSV = Path("Data/Resnet50_layer_stats.csv")
-RATES_CSV = Path("Data/Resnet50_rates.csv")
+LAYER_STATS_CSV = Path("Data/OfflineTables/Resnet50_layer_stats.csv")
+RATES_CSV = Path("Data/OfflineTables/Resnet50_rates.csv")
 
 # 加载失败时的硬编码回退（ResNet-50 @ CIFAR-10 典型量级）
 _FALLBACK_EXIT_LAYERS = [57, 103]
@@ -180,7 +180,7 @@ class ResNet50EEWrapper:
         """
         返回第 layer_idx 层输出特征图的字节数（float32 等效存储）。
 
-        优先从 Data/Resnet50_layer_stats.csv 的 num_bytes 列读取。
+        优先从 Data/OfflineTables/Resnet50_layer_stats.csv 的 num_bytes 列读取。
         """
         if 0 <= layer_idx < len(self._per_layer_bytes):
             return int(self._per_layer_bytes[layer_idx])
@@ -202,7 +202,7 @@ class ResNet50EEWrapper:
 
     def get_exit_rates_from_csv(self, threshold: float) -> list[float]:
         """
-        从 Data/Resnet50_rates.csv 读取给定阈值下各早退头的退出率（0~1）。
+        从 Data/OfflineTables/Resnet50_rates.csv 读取给定阈值下各早退头的退出率（0~1）。
 
         若 CSV 无精确匹配，对 threshold 做线性插值。
         若 CSV 不可用，用 Beta(2,5) 形状随 τ 单调上升的合成率（注明于日志）。

@@ -1,0 +1,11 @@
+# 所有节点的地址和端口，笔记本测试时全用 localhost
+DEVICE_HOST = "127.0.0.1"
+EDGE_HOST = "127.0.0.1"
+CLOUD_HOST = "127.0.0.1"
+
+EDGE_PORT = 9001
+CLOUD_PORT = 9002
+ALGO_PORT = 8000
+
+# 带宽测试端口
+IPERF_PORT = 5001

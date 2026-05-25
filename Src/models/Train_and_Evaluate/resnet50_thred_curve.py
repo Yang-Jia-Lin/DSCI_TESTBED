@@ -14,7 +14,7 @@ from tqdm import tqdm
 from Src.Models.ModelNet.Resnet50 import Bottleneck, MultiEEResNet50
 from Src.Algorithm.Utils.log_function import save_thr_data
 from Src.Algorithm.Utils.utils_function import get_device, get_test_data_loaders
-from Src.Configs.paras import DATA_ROOT, WEIGHTS_DIR
+from Src.Configs.paras import DATA_ROOT, OFFLINE_TABLE_DIR, WEIGHTS_DIR
 
 
 def evaluate_model(device, test_loader, model, threshold):
@@ -146,8 +146,8 @@ def main():
         }
     )
 
-    rates_saved_path = save_thr_data(rates, "rates", Path(DATA_ROOT))
-    accs_saved_path = save_thr_data(accs, "accs", Path(DATA_ROOT))
+    rates_saved_path = save_thr_data(rates, "rates", Path(OFFLINE_TABLE_DIR))
+    accs_saved_path = save_thr_data(accs, "accs", Path(OFFLINE_TABLE_DIR))
     print(f"\nSaved CSV: {rates_saved_path} and {accs_saved_path}\n")
 
 

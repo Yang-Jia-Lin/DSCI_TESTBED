@@ -1,69 +1,68 @@
-# DSCI 动机实验说明（Exp0_Motivation）
+# DSCI å¨æºå®éªè¯´æï¼Exp0_Motivationï¼?
 
-本文档说明 `Scripts/Exp0_Motivation/` 下两个动机实验**在代码中如何实现**、与论文论点/原实验计划的对应关系，以及如何复现。实现采用**解析期望仿真**（非真实多机推理），以便快速、可重复地验证结构性规律。
+æ¬ææ¡£è¯´æ?`Scripts/Exp0_Motivation/` ä¸ä¸¤ä¸ªå¨æºå®éª?*å¨ä»£ç ä¸­å¦ä½å®ç°**ãä¸è®ºæè®ºç¹/åå®éªè®¡åçå¯¹åºå³ç³»ï¼ä»¥åå¦ä½å¤ç°ãå®ç°éç?*è§£æææä»¿ç**ï¼éçå®å¤æºæ¨çï¼ï¼ä»¥ä¾¿å¿«éãå¯éå¤å°éªè¯ç»ææ§è§å¾ã?
 
 ---
 
-## 1. 动机与分析框架（论文论点）
+## 1. å¨æºä¸åææ¡æ¶ï¼è®ºæè®ºç¹ï¼?
 
-### 1.1 客观物理规律
+### 1.1 å®¢è§ç©çè§å¾
 
-在端边云协同推理中，早退阈值 $\tau$ 与最优切分点 $X^*$ 并非独立变量，而是通过期望传输流量 $\mathbb{E}[V(\tau)]$ 耦合：
-
-
-$$\tau \;\Rightarrow\; \text{各层退出概率} \;\Rightarrow\; \mathbb{E}[V(\tau)] \;\Rightarrow\; X^*(\tau)$$
+å¨ç«¯è¾¹äºååæ¨çä¸­ï¼æ©ééå?$\tau$ ä¸æä¼ååç¹ $X^*$ å¹¶éç¬ç«åéï¼èæ¯éè¿ææä¼ è¾æµé $\mathbb{E}[V(\tau)]$ è¦åï¼?
 
 
-代码中体现为：`simulator.py` 里 `transmission_ratio = 1 - Σ r_i`（对 `exit_layer ≤ split_layer` 的早退头求和），传输与边缘计算时延均乘以该比例。
+$$\tau \;\Rightarrow\; \text{åå±éåºæ¦ç} \;\Rightarrow\; \mathbb{E}[V(\tau)] \;\Rightarrow\; X^*(\tau)$$
 
-### 1.2 现有工作的两类困境
 
-| 困境 | 代表方法 | 本仓库对照实现 |
+ä»£ç ä¸­ä½ç°ä¸ºï¼`simulator.py` é?`transmission_ratio = 1 - Î£ r_i`ï¼å¯¹ `exit_layer â?split_layer` çæ©éå¤´æ±åï¼ï¼ä¼ è¾ä¸è¾¹ç¼è®¡ç®æ¶å»¶åä¹ä»¥è¯¥æ¯ä¾ã?
+
+### 1.2 ç°æå·¥ä½çä¸¤ç±»å°å¢?
+
+| å°å¢ | ä»£è¡¨æ¹æ³ | æ¬ä»åºå¯¹ç§å®ç?|
 |------|----------|----------------|
-| 忽视 $\tau$–$X$ 耦合 | Neurosurgeon / BranchyNet 式「单边优化」 | **EE-Only**、**SC-Only**、**Decoupled** |
-| 请求粒度联合决策 | MEOCI、I-SplitEE | **Per-request 调度器**（Exp2） |
+| å¿½è§ $\tau$â?X$ è¦å | Neurosurgeon / BranchyNet å¼ãåè¾¹ä¼åã?| **EE-Only**ã?*SC-Only**ã?*Decoupled** |
+| è¯·æ±ç²åº¦èåå³ç­ | MEOCIãI-SplitEE | **Per-request è°åº¦å?*ï¼Exp2ï¼?|
 
-### 1.3 DSCI 的对应
+### 1.3 DSCI çå¯¹åº?
 
-| 创新点 | 动机实验 | 代码体现 |
+| åæ°ç?| å¨æºå®éª | ä»£ç ä½ç° |
 |--------|----------|----------|
-| 期望空间显式建模 $X^*(\tau)$ | 实验 1 | **DSCI-Joint** 在 $(X,\tau)$ 上网格联合搜索 |
-| 控制环与推理环解耦、$O(1)$ 广播 | 实验 2 | **QuasiStaticScheduler**（DSCI） |
+| ææç©ºé´æ¾å¼å»ºæ¨¡ $X^*(\tau)$ | å®éª 1 | **DSCI-Joint** å?$(X,\tau)$ ä¸ç½æ ¼èåæç´?|
+| æ§å¶ç¯ä¸æ¨çç¯è§£è¦ã?O(1)$ å¹¿æ­ | å®éª 2 | **QuasiStaticScheduler**ï¼DSCIï¼?|
 
 ---
 
-## 2. 目录与运行环境
+## 2. ç®å½ä¸è¿è¡ç¯å¢?
 
-### 2.1 目录结构
+### 2.1 ç®å½ç»æ
 
 ```
 Scripts/Exp0_Motivation/
-├── Motivation_README.md          # 本文档
-├── utils/
-│   ├── config.py                 # 算力、RTT、调度超参
-│   ├── network_sim.py            # 传输/计算时延辅助函数
-│   └── output_paths.py           # 时间戳目录与 latest.txt
-├── exp1_decoupling_failure/      # 动机实验 1：解耦失效
-│   ├── model_wrapper.py
-│   ├── strategies.py
-│   ├── simulator.py
-│   ├── run_exp1.py
-│   └── plot_exp1.py
-└── exp2_scalability/             # 动机实验 2：可扩展性
-    ├── scheduler.py
-    ├── run_exp2.py
-    └── plot_exp2.py
+âââ Motivation_README.md          # æ¬ææ¡?
+âââ utils/
+â?  âââ config.py                 # ç®åãRTTãè°åº¦è¶å?
+â?  âââ network_sim.py            # ä¼ è¾/è®¡ç®æ¶å»¶è¾å©å½æ°
+â?  âââ output_paths.py           # æ¶é´æ³ç®å½ä¸ latest.txt
+âââ exp1_decoupling_failure/      # å¨æºå®éª 1ï¼è§£è¦å¤±æ?
+â?  âââ model_wrapper.py
+â?  âââ strategies.py
+â?  âââ simulator.py
+â?  âââ run_exp1.py
+â?  âââ plot_exp1.py
+âââ exp2_scalability/             # å¨æºå®éª 2ï¼å¯æ©å±æ?
+    âââ scheduler.py
+    âââ run_exp2.py
+    âââ plot_exp2.py
 ```
 
-### 2.2 解释器（已验证）
+### 2.2 è§£éå¨ï¼å·²éªè¯ï¼
 
 ```text
 %USERPROFILE%\.conda\envs\DSCI\python.exe   # Python 3.10.19
 ```
 
-依赖：`numpy`, `torch`, `pandas`, `matplotlib`, `scipy`，以及项目内 `Src/models/`、`Data/`、`Src/Utils/plot_utils.py`。
-
-### 2.3 一键复现（在项目根目录 `DSCI_testbed/`）
+ä¾èµï¼`numpy`, `torch`, `pandas`, `matplotlib`, `scipy`ï¼ä»¥åé¡¹ç®å `Src/Models/`ã`Data/`ã`Src/Utils/plot_utils.py`ã?
+### 2.3 ä¸é®å¤ç°ï¼å¨é¡¹ç®æ ¹ç®å½ `DSCI_testbed/`ï¼?
 
 ```powershell
 $py = "$env:USERPROFILE\.conda\envs\DSCI\python.exe"
@@ -76,114 +75,114 @@ cd D:\Coding\Python\DSCI_testbed
 & $py Scripts/Exp0_Motivation/exp2_scalability/plot_exp2.py
 ```
 
-绘图脚本默认读取 `Results/Exp0_Motivation/latest.txt`；若 Exp1/Exp2 连续运行，需对 Exp1 指定时间戳：
+ç»å¾èæ¬é»è®¤è¯»å `Scripts/Results/Exp0_Motivation/latest.txt`ï¼è¥ Exp1/Exp2 è¿ç»­è¿è¡ï¼éå¯?Exp1 æå®æ¶é´æ³ï¼
 
 ```powershell
 & $py Scripts/Exp0_Motivation/exp1_decoupling_failure/plot_exp1.py --timestamp 20260520_080309
 ```
 
-### 2.4 输出约定
+### 2.4 è¾åºçº¦å®
 
-每次 `run_exp*.py` 创建：
+æ¯æ¬¡ `run_exp*.py` åå»ºï¼?
 
 ```text
-Results/Exp0_Motivation/YYYYMMDD_HHMMSS/
-├── logs/exp1.log 或 exp2.log
-├── data/exp1_results.json 或 exp2_results.json
-└── figures/
-    ├── exp1_main.{pdf,png}
-    ├── exp1_split_drift.{pdf,png}
-    ├── exp2_drift.{pdf,png}
-    └── exp2_throughput_overhead.{pdf,png}
+Scripts/Results/Exp0_Motivation/YYYYMMDD_HHMMSS/
+âââ Logs/exp1.log æ?exp2.log
+âââ Data/exp1_results.json æ?exp2_results.json
+âââ Figures/
+    âââ exp1_main.{pdf,png}
+    âââ exp1_split_drift.{pdf,png}
+    âââ exp2_drift.{pdf,png}
+    âââ exp2_throughput_overhead.{pdf,png}
 ```
 
-`latest.txt` 始终指向**最后一次**运行的目录。
+`latest.txt` å§ç»æå**æåä¸æ¬?*è¿è¡çç®å½ã?
 
 ---
 
-## 3. 共享数据与模型（实验 1 基础）
+## 3. å±äº«æ°æ®ä¸æ¨¡åï¼å®éª 1 åºç¡ï¼?
 
-### 3.1 模型
+### 3.1 æ¨¡å
 
-| 项目 | 实现取值 | 来源 |
+| é¡¹ç® | å®ç°åå?| æ¥æº |
 |------|----------|------|
-| 网络结构 | `MultiEEResNet50`（Bottleneck, blocks `[3,4,6,3]`, CIFAR-10） | `Src/models/ModelNet/Resnet50.py` |
-| 权重 | `Src/models/Weights/ResNet50_multi_EE_model.pth` | 加载失败时仅用 CSV 元数据继续 |
-| 早退头层索引 | **57**, **103** | `Src/Configs/model_config.py` |
-| 末层 / 总层数 | **127** / **128** | 同上 |
-| 早退阈值 \(\tau\) | 仅层 **57、103** 两个早退头 | CSV `exit1_rate` / `exit2_rate` |
-| 候选切分点 \(X\) | **1～127 任意层** 枚举 | `0`=Local，与早退头位置无关 |
+| ç½ç»ç»æ | `MultiEEResNet50`ï¼Bottleneck, blocks `[3,4,6,3]`, CIFAR-10ï¼?| `Src/Models/ModelNet/Resnet50.py` |
+| æé | `Data/Weights/ResNet50_multi_EE_model.pth` | å è½½å¤±è´¥æ¶ä»ç?CSV åæ°æ®ç»§ç»?|
+| æ©éå¤´å±ç´¢å¼ | **57**, **103** | `Src/Configs/model_config.py` |
+| æ«å± / æ»å±æ?| **127** / **128** | åä¸ |
+| æ©ééå?\(\tau\) | ä»å± **57ã?03** ä¸¤ä¸ªæ©éå¤?| CSV `exit1_rate` / `exit2_rate` |
+| åéååç¹ \(X\) | **1ï½?27 ä»»æå±?* æä¸¾ | `0`=Localï¼ä¸æ©éå¤´ä½ç½®æ å?|
 
-> **与原计划差异**：文档中曾写 ResNet-56/MobileNetV2；本仓库统一使用项目已有的 **ResNet-50 多早退头** 与对应 CSV，与主实验 testbed 一致。
+> **ä¸åè®¡åå·®å¼**ï¼ææ¡£ä¸­æ¾å ResNet-56/MobileNetV2ï¼æ¬ä»åºç»ä¸ä½¿ç¨é¡¹ç®å·²æç?**ResNet-50 å¤æ©éå¤?* ä¸å¯¹åº?CSVï¼ä¸ä¸»å®éª?testbed ä¸è´ã?
 
-### 3.2 CSV 数据
+### 3.2 CSV æ°æ®
 
-| 文件 | 用途 |
+| æä»¶ | ç¨é?|
 |------|------|
-| `Data/Resnet50_rates.csv` | 阈值 $\tau$ → `exit1_rate`, `exit2_rate`（%，线性插值） |
-| `Data/Resnet50_layer_stats.csv` | 逐层 `num_bytes`、`approx_flops` → 传输量与累积算力 |
-| `Data/Resnet50_accs.csv` | 本动机实验未直接用于时延（主实验精度用） |
+| `Data/OfflineTables/Resnet50_rates.csv` | éå?$\tau$ â?`exit1_rate`, `exit2_rate`ï¼?ï¼çº¿æ§æå¼ï¼ |
+| `Data/OfflineTables/Resnet50_layer_stats.csv` | éå± `num_bytes`ã`approx_flops` â?ä¼ è¾éä¸ç´¯ç§¯ç®å |
+| `Data/OfflineTables/Resnet50_accs.csv` | æ¬å¨æºå®éªæªç´æ¥ç¨äºæ¶å»¶ï¼ä¸»å®éªç²¾åº¦ç¨ï¼ |
 
-### 3.3 硬件/网络仿真参数（`utils/config.py`）
+### 3.3 ç¡¬ä»¶/ç½ç»ä»¿çåæ°ï¼`utils/config.py`ï¼?
 
-| 参数 | 值 | 含义 |
+| åæ° | å?| å«ä¹ |
 |------|-----|------|
-| `DEVICE_GFLOPS` | 0.5 | 端侧算力 |
-| `EDGE_GFLOPS` | 10.0 | 边缘算力 |
-| `RTT_MS` | 20.0 | 固定 RTT（与原计划 `netem` 一致） |
+| `DEVICE_GFLOPS` | 0.5 | ç«¯ä¾§ç®å |
+| `EDGE_GFLOPS` | 10.0 | è¾¹ç¼ç®å |
+| `RTT_MS` | 20.0 | åºå® RTTï¼ä¸åè®¡å?`netem` ä¸è´ï¼ |
 
 ---
 
-## 4. 动机实验 1：解耦失效定理
+## 4. å¨æºå®éª 1ï¼è§£è¦å¤±æå®ç?
 
-### 4.1 实验目标（对应论文）
+### 4.1 å®éªç®æ ï¼å¯¹åºè®ºæï¼
 
-量化验证：
+éåéªè¯ï¼?
 
-1. 忽略 $\mathbb{E} [V(\tau)]$ 时切分点**系统性偏深**（相对联合最优）；
-2. 带宽受限时解耦策略可能出现**性能劣于 Local** 的「倒置区」；
-3. 期望空间**联合优化**（DSCI）在同一仿真器下取得更低期望时延。
+1. å¿½ç¥ $\mathbb{E} [V(\tau)]$ æ¶ååç¹**ç³»ç»æ§åæ·?*ï¼ç¸å¯¹èåæä¼ï¼ï¼?
+2. å¸¦å®½åéæ¶è§£è¦ç­ç¥å¯è½åºç?*æ§è½å£äº Local** çãåç½®åºãï¼
+3. ææç©ºé´**èåä¼å**ï¼DSCIï¼å¨åä¸ä»¿çå¨ä¸åå¾æ´ä½æææ¶å»¶ã?
 
-### 4.2 对照策略（`strategies.py`）
+### 4.2 å¯¹ç§ç­ç¥ï¼`strategies.py`ï¼?
 
-| 策略 | 切分点 $X$ | 阈值 $\tau$ | 建模含义 |
+| ç­ç¥ | ååç?$X$ | éå?$\tau$ | å»ºæ¨¡å«ä¹ |
 |------|-------------|--------------|----------|
-| **Local** | 0（无卸载） | 1.0（不参与优化） | 全本地，$ \mathbb{E}[V]=0 $ |
-| **EE-Only** | 固定末层 127 | 在 `tau_grid` 内搜索 | 仅早退，不切分卸载 |
-| **SC-Only** | 在 `{57,103,127}` 枚举 | 1.0（无早退） | 隐含 $\mathbb{E}[V]=V_{max}$ |
-| **Decoupled** | 先按 SC-Only 得 $X^*$，再固定 $X^*$ 搜 $\tau$ | 两阶段独立 | **解耦失效**的核心对照 |
-| **DSCI (Joint)** | $(X,\tau)$ 笛卡尔积网格搜索 | 联合 | 期望空间联合最优（仿真版） |
+| **Local** | 0ï¼æ å¸è½½ï¼?| 1.0ï¼ä¸åä¸ä¼åï¼?| å¨æ¬å°ï¼$ \mathbb{E}[V]=0 $ |
+| **EE-Only** | åºå®æ«å± 127 | å?`tau_grid` åæç´?| ä»æ©éï¼ä¸ååå¸è½½ |
+| **SC-Only** | å?`{57,103,127}` æä¸¾ | 1.0ï¼æ æ©éï¼?| éå« $\mathbb{E}[V]=V_{max}$ |
+| **Decoupled** | åæ SC-Only å¾?$X^*$ï¼ååºå® $X^*$ æ?$\tau$ | ä¸¤é¶æ®µç¬ç«?| **è§£è¦å¤±æ?*çæ ¸å¿å¯¹ç?|
+| **DSCI (Joint)** | $(X,\tau)$ ç¬å¡å°ç§¯ç½æ ¼æç´¢ | èå | ææç©ºé´èåæä¼ï¼ä»¿ççï¼ |
 
-各策略在每组自变量下调用同一 `simulate_latency()`，保证对比公平。
+åç­ç¥å¨æ¯ç»èªåéä¸è°ç¨åä¸ `simulate_latency()`ï¼ä¿è¯å¯¹æ¯å¬å¹³ã?
 
-### 4.3 自变量
+### 4.3 èªåé?
 
-| 变量 | 代码 | 说明 |
+| åé | ä»£ç  | è¯´æ |
 |------|------|------|
-| 带宽 $B$ | `[0.5, 1, 2, 4, 8]` Mbps | 主自变量；图中 `invert_xaxis()`，右→左为恶化 |
-| 数据集难度（代理） | `easy` / `hard` 两组 `tau_grid` | 见下节「简化说明」 |
+| å¸¦å®½ $B$ | `[0.5, 1, 2, 4, 8]` Mbps | ä¸»èªåéï¼å¾ä¸?`invert_xaxis()`ï¼å³âå·¦ä¸ºæ¶å?|
+| æ°æ®éé¾åº¦ï¼ä»£çï¼?| `easy` / `hard` ä¸¤ç» `tau_grid` | è§ä¸èãç®åè¯´æã?|
 
 ```python
 THRESHOLD_GROUPS = {
-    "easy": [0.85, 0.88, 0.90, 0.92],   # 高 τ → 高早退率
-    "hard": [0.55, 0.60, 0.65, 0.70],   # 低 τ → 低早退率
+    "easy": [0.85, 0.88, 0.90, 0.92],   # é«?Ï â?é«æ©éç?
+    "hard": [0.55, 0.60, 0.65, 0.70],   # ä½?Ï â?ä½æ©éç?
 }
 ```
 
-### 4.4 因变量与记录字段
+### 4.4 å åéä¸è®°å½å­æ®µ
 
-| 因变量 | JSON 字段 |
+| å åé?| JSON å­æ®µ |
 |--------|-----------|
-| 平均端到端时延 | `avg_latency_ms` |
-| 选定切分点 | `split_layer_chosen` |
-| 使用阈值 | `exit_threshold_used` |
-| 实际传输比例 | `actual_transmission_ratio` |
+| å¹³åç«¯å°ç«¯æ¶å»?| `avg_latency_ms` |
+| éå®ååç?| `split_layer_chosen` |
+| ä½¿ç¨éå?| `exit_threshold_used` |
+| å®éä¼ è¾æ¯ä¾ | `actual_transmission_ratio` |
 
-**时延分解**（端侧 / 传输 / 边缘）在 `simulator.py` 内分三项计算后相加；当前 JSON **未单独导出**三项，若论文需要可在 `simulate_latency` 返回值中扩展。
+**æ¶å»¶åè§£**ï¼ç«¯ä¾?/ ä¼ è¾ / è¾¹ç¼ï¼å¨ `simulator.py` ååä¸é¡¹è®¡ç®åç¸å ï¼å½å JSON **æªåç¬å¯¼å?*ä¸é¡¹ï¼è¥è®ºæéè¦å¯å?`simulate_latency` è¿åå¼ä¸­æ©å±ã?
 
-### 4.5 期望时延公式（`simulator.py`）
+### 4.5 æææ¶å»¶å¬å¼ï¼`simulator.py`ï¼?
 
-设切分层为 $X$，早退头层集合 $\mathcal{E}=\{57,103\}$，对应退出率 $r_i(\tau)$（来自 CSV，0~1）：
+è®¾ååå±ä¸?$X$ï¼æ©éå¤´å±éå $\mathcal{E}=\{57,103\}$ï¼å¯¹åºéåºç $r_i(\tau)$ï¼æ¥è?CSVï¼?~1ï¼ï¼
 
 \[
 \rho(X,\tau) = \max\left(0,\; 1 - \sum_{i:\, e_i \le X} r_i(\tau)\right)
@@ -197,147 +196,146 @@ T_{\mathrm{e2e}} = T_{\mathrm{dev}}(X) + \rho \cdot T_{\mathrm{tx}}(X,B) + \rho 
 - $T_{\mathrm{tx}} = \dfrac{\mathrm{bytes}(X)}{B} + \mathrm{RTT}$
 - $T_{\mathrm{edge}} = \dfrac{\mathrm{FLOPs}_{\mathrm{total}} - \mathrm{FLOPs}_X}{\mathrm{GFLOPS}_{\mathrm{edge}}}$
 
-`split_layer=0` 时仅计算全模型本地时延，$\rho=0$。
+`split_layer=0` æ¶ä»è®¡ç®å¨æ¨¡åæ¬å°æ¶å»¶ï¼$\rho=0$ã?
 
-### 4.6 与原实验计划的简化 / 差异
+### 4.6 ä¸åå®éªè®¡åçç®å?/ å·®å¼
 
-| 原计划 | 实际实现 | 原因 |
+| åè®¡å?| å®éå®ç° | åå  |
 |--------|----------|------|
-| CIFAR-10 易/难**子集**实测 | 用 **$\tau$ 网格** 驱动 CSV 早退率，代理易/难样本 | 已有 `Resnet50_rates.csv` 覆盖阈值–退出率关系，无需重复前向 |
-| `tc netem` 实测带宽 | **解析带宽模型** + 固定 RTT | 可重复、批量扫参 |
-| 1000 张实测推理时延 | **期望仿真**（无逐样本 Monte Carlo） | 动机实验聚焦结构性规律，非绝对毫秒值 |
-| 时延分解堆叠图 | 未默认出图 | 可按需扩展 `simulate_latency` 返回值 |
+| CIFAR-10 æ?é?*å­é**å®æµ | ç?**$\tau$ ç½æ ¼** é©±å¨ CSV æ©éçï¼ä»£çæ?é¾æ ·æ?| å·²æ `Resnet50_rates.csv` è¦çéå¼âéåºçå³ç³»ï¼æ ééå¤åå |
+| `tc netem` å®æµå¸¦å®½ | **è§£æå¸¦å®½æ¨¡å** + åºå® RTT | å¯éå¤ãæ¹éæ«å?|
+| 1000 å¼ å®æµæ¨çæ¶å»?| **ææä»¿ç**ï¼æ éæ ·æ?Monte Carloï¼?| å¨æºå®éªèç¦ç»ææ§è§å¾ï¼éç»å¯¹æ¯«ç§å?|
+| æ¶å»¶åè§£å å å?| æªé»è®¤åºå?| å¯æéæ©å± `simulate_latency` è¿åå?|
 
-### 4.7 图表（`plot_exp1.py`）
+### 4.7 å¾è¡¨ï¼`plot_exp1.py`ï¼?
 
-| 图文件 | 内容 |
+| å¾æä»?| åå®¹ |
 |--------|------|
-| `exp1_main` | 1×2 子图：easy / hard 的时延–带宽，5 策略曲线 |
-| `exp1_split_drift` | hard 组：SC-Only / Decoupled / DSCI 的切分点–带宽 |
+| `exp1_main` | 1Ã2 å­å¾ï¼easy / hard çæ¶å»¶âå¸¦å®½ï¼5 ç­ç¥æ²çº¿ |
+| `exp1_split_drift` | hard ç»ï¼SC-Only / Decoupled / DSCI çååç¹âå¸¦å®?|
 
-若存在 `Decoupled > Local` 的带宽点，主图标注 **Performance Inversion**（红圈 + 箭头）。
+è¥å­å?`Decoupled > Local` çå¸¦å®½ç¹ï¼ä¸»å¾æ æ³?**Performance Inversion**ï¼çº¢å?+ ç®­å¤´ï¼ã?
 
-### 4.8 图表含义与动机论证
+### 4.8 å¾è¡¨å«ä¹ä¸å¨æºè®ºè¯?
 
-| 图 | 横轴 | 纵轴 | 证明什么 |
+| å?| æ¨ªè½´ | çºµè½´ | è¯æä»ä¹?|
 |----|------|------|----------|
-| **exp1_main** (a)(b) | 带宽（右→左恶化） | 端到端期望时延 | **解耦失效**：Decoupled/SC-Only 相对 DSCI 的间隙；若 Decoupled 曲线高于 Local 虚线，即**性能倒置**（独立优化不如不协同） |
-| **exp1_split_drift** | 带宽 | 选定切分层 \(X^*\) | **切分点漂移**：SC/Decoupled 的 \(X^*\) 随 \(B\) 与 \(\tau\) 代理组变化；DSCI 轨迹体现 \(\mathbb{E}[V(\tau)]\) 耦合下的联合选点 |
+| **exp1_main** (a)(b) | å¸¦å®½ï¼å³âå·¦æ¶åï¼?| ç«¯å°ç«¯æææ¶å»?| **è§£è¦å¤±æ?*ï¼Decoupled/SC-Only ç¸å¯¹ DSCI çé´éï¼è?Decoupled æ²çº¿é«äº Local èçº¿ï¼å³**æ§è½åç½®**ï¼ç¬ç«ä¼åä¸å¦ä¸ååï¼?|
+| **exp1_split_drift** | å¸¦å®½ | éå®ååå±?\(X^*\) | **ååç¹æ¼ç§?*ï¼SC/Decoupled ç?\(X^*\) é?\(B\) ä¸?\(\tau\) ä»£çç»ååï¼DSCI è½¨è¿¹ä½ç° \(\mathbb{E}[V(\tau)]\) è¦åä¸çèåéç¹ |
 
-### 4.9 实测快照（20260520_082224，切分点 1～127 全枚举）
+### 4.9 å®æµå¿«ç§ï¼?0260520_082224ï¼ååç¹ 1ï½?27 å¨æä¸¾ï¼
 
-环境：`~\.conda\envs\DSCI\python.exe`，`rates_from_csv=true`，`total_flops≈1.67×10⁸`。
+ç¯å¢ï¼`~\.conda\envs\DSCI\python.exe`ï¼`rates_from_csv=true`ï¼`total_flopsâ?.67Ã10â¸`ã?
 
-**现象摘要：**
+**ç°è±¡æè¦ï¼?*
 
-- **Local** 恒约 **335 ms**（与带宽无关）。
-- 切分点已在 **L1–L127** 全枚举；高带宽下 SC/Decoupled 常选 **L3**（$\mathbb{E}[V]=V_{max}$ 下偏浅切分），低带宽 easy 组约 **L58**。
-- **hard @1Mbps**：DSCI **162.7 ms**（L58, $\rho=0.46$）vs Decoupled **177.1 ms**（L3, $\rho=1$）— 固定错误 $X^*$ 后调 $\tau$ 无法恢复联合最优。
-- 本轮 **`inversions` 仍为空**；可降 `DEVICE_GFLOPS` 或加 0.25 Mbps 等更严带宽以触发 Decoupled>Local。
+- **Local** æçº¦ **335 ms**ï¼ä¸å¸¦å®½æ å³ï¼ã?
+- ååç¹å·²å?**L1âL127** å¨æä¸¾ï¼é«å¸¦å®½ä¸ SC/Decoupled å¸¸é?**L3**ï¼?\mathbb{E}[V]=V_{max}$ ä¸åæµååï¼ï¼ä½å¸¦å®½ easy ç»çº¦ **L58**ã?
+- **hard @1Mbps**ï¼DSCI **162.7 ms**ï¼L58, $\rho=0.46$ï¼vs Decoupled **177.1 ms**ï¼L3, $\rho=1$ï¼â?åºå®éè¯¯ $X^*$ åè° $\tau$ æ æ³æ¢å¤èåæä¼ã?
+- æ¬è½® **`inversions` ä»ä¸ºç©?*ï¼å¯é?`DEVICE_GFLOPS` æå  0.25 Mbps ç­æ´ä¸¥å¸¦å®½ä»¥è§¦å Decoupled>Localã?
 
 ---
 
-## 5. 动机实验 2：控制–推理耦合的可扩展性
+## 5. å¨æºå®éª 2ï¼æ§å¶âæ¨çè¦åçå¯æ©å±æ?
 
-### 5.1 实验目标
+### 5.1 å®éªç®æ 
 
-对比 **Per-request**（MEOCI / I-SplitEE 类）与 **DSCI 准静态广播** 在并发用户数 $N$ 增长时的：
+å¯¹æ¯ **Per-request**ï¼MEOCI / I-SplitEE ç±»ï¼ä¸?**DSCI åéæå¹¿æ?* å¨å¹¶åç¨æ·æ° $N$ å¢é¿æ¶çï¼?
 
-1. 配置漂移（Configuration Drift）；
-2. 有效推理吞吐量（req/s）；
-3. 调度开销占比（%）。
+1. éç½®æ¼ç§»ï¼Configuration Driftï¼ï¼
+2. æææ¨çååéï¼req/sï¼ï¼
+3. è°åº¦å¼éå æ¯ï¼?ï¼ã?
 
-### 5.2 对照实现（`scheduler.py`）
+### 5.2 å¯¹ç§å®ç°ï¼`scheduler.py`ï¼?
 
-| 方案 | 类 | 决策粒度 |
+| æ¹æ¡ | ç±?| å³ç­ç²åº¦ |
 |------|-----|----------|
-| Per-request | `PerRequestScheduler` | 每请求触发；开销 $\propto N$ |
-| DSCI 准静态 | `QuasiStaticScheduler` | 每周期一次优化 + 广播；摊销后 $\approx O(1)$ |
+| Per-request | `PerRequestScheduler` | æ¯è¯·æ±è§¦åï¼å¼é $\propto N$ |
+| DSCI åéæ?| `QuasiStaticScheduler` | æ¯å¨æä¸æ¬¡ä¼å?+ å¹¿æ­ï¼æéå?$\approx O(1)$ |
 
-> **论文需注明**：未复现完整 DRL，仅用**等价调度开销解析模型**（与原计划「可用调度开销模型替代」一致）。
+> **è®ºæéæ³¨æ**ï¼æªå¤ç°å®æ´ DRLï¼ä»ç?*ç­ä»·è°åº¦å¼éè§£ææ¨¡å**ï¼ä¸åè®¡åãå¯ç¨è°åº¦å¼éæ¨¡åæ¿ä»£ãä¸è´ï¼ã?
 
-### 5.3 Per-request 开销模型
+### 5.3 Per-request å¼éæ¨¡å
 
-单轮调度总时延（ms）：
+åè½®è°åº¦æ»æ¶å»¶ï¼msï¼ï¼
 
 $$
 T_{\mathrm{sched}} = T_{\mathrm{collect}} + N \cdot T_{\mathrm{decision}} + N \cdot T_{\mathrm{dispatch}}
 $$
 
-- $T_{\mathrm{collect}} = \dfrac{4 \cdot d_{\mathrm{state}}}{B} + \mathrm{RTT}/2$，默认 $d_{\mathrm{state}}=20$
-- $T_{\mathrm{decision}} = 2$ ms/用户
+- $T_{\mathrm{collect}} = \dfrac{4 \cdot d_{\mathrm{state}}}{B} + \mathrm{RTT}/2$ï¼é»è®?$d_{\mathrm{state}}=20$
+- $T_{\mathrm{decision}} = 2$ ms/ç¨æ·
 - $T_{\mathrm{dispatch}} = \dfrac{16\ \mathrm{B}}{B} + \mathrm{RTT}/2$
 
-每请求分摊：$T_{\mathrm{sched}} / N$。
+æ¯è¯·æ±åæï¼$T_{\mathrm{sched}} / N$ã?
 
-**配置漂移**：在 $(X_{\mathrm{opt}},\tau_{\mathrm{opt}})=(27,0.80)$ 邻域加随机扰动，$K=20$ 请求/用户，归一化方差：
+**éç½®æ¼ç§»**ï¼å¨ $(X_{\mathrm{opt}},\tau_{\mathrm{opt}})=(27,0.80)$ é»åå éæºæ°å¨ï¼$K=20$ è¯·æ±/ç¨æ·ï¼å½ä¸åæ¹å·®ï¼
 
 $$
 \mathrm{drift} = 0.5 \frac{\mathrm{Var}(X)}{127^2} + 0.5 \frac{\mathrm{Var}(\tau)}{0.5^2}
 $$
 
-### 5.4 DSCI 准静态模型
+### 5.4 DSCI åéææ¨¡å?
 
-- 周期开销：$T_{\mathrm{period}} = 500\ \mathrm{ms} + T_{\mathrm{broadcast}}$
-- 周期内请求数：$N \cdot \dfrac{T_{\mathrm{period\_s}} \cdot 1000}{T_{\mathrm{infer}}}$（默认 $T_{\mathrm{infer}}=50$ ms）
-- 每请求摊销：$T_{\mathrm{period}} / \text{requests}$，**drift = 0**
+- å¨æå¼éï¼?T_{\mathrm{period}} = 500\ \mathrm{ms} + T_{\mathrm{broadcast}}$
+- å¨æåè¯·æ±æ°ï¼?N \cdot \dfrac{T_{\mathrm{period\_s}} \cdot 1000}{T_{\mathrm{infer}}}$ï¼é»è®?$T_{\mathrm{infer}}=50$ msï¼?
+- æ¯è¯·æ±æéï¼?T_{\mathrm{period}} / \text{requests}$ï¼?*drift = 0**
 
-### 5.5 自变量与因变量
+### 5.5 èªåéä¸å åé?
 
-| 自变量 | `CONCURRENT_USERS = [1,2,4,8,16,32]` | \
-| 因变量 | `config_drift`, `effective_throughput_rps`, `scheduling_overhead_ratio_pct` |
+| èªåé?| `CONCURRENT_USERS = [1,2,4,8,16,32]` | \
+| å åé?| `config_drift`, `effective_throughput_rps`, `scheduling_overhead_ratio_pct` |
 
-固定：$B=4$ Mbps，RTT=20 ms，推理时延=50 ms/请求。
+åºå®ï¼?B=4$ Mbpsï¼RTT=20 msï¼æ¨çæ¶å»?50 ms/è¯·æ±ã?
 
-### 5.6 图表（`plot_exp2.py`）
+### 5.6 å¾è¡¨ï¼`plot_exp2.py`ï¼?
 
-| 图文件 | 内容 |
+| å¾æä»?| åå®¹ |
 |--------|------|
-| `exp2_drift` | 漂移 vs $N$（对数横轴），填充 Per-request 与 DSCI 之间区域 |
-| `exp2_throughput_overhead` | 左：吞吐量；右：调度开销柱状对比 |
+| `exp2_drift` | æ¼ç§» vs $N$ï¼å¯¹æ°æ¨ªè½´ï¼ï¼å¡«å?Per-request ä¸?DSCI ä¹é´åºå |
+| `exp2_throughput_overhead` | å·¦ï¼ååéï¼å³ï¼è°åº¦å¼éæ±ç¶å¯¹æ¯ |
 
-### 5.6 图表含义与动机论证
+### 5.6 å¾è¡¨å«ä¹ä¸å¨æºè®ºè¯?
 
-| 图 | 含义 | 证明什么 |
+| å?| å«ä¹ | è¯æä»ä¹?|
 |----|------|----------|
-| **exp2_drift** | 并发用户 \(N\) vs 归一化配置漂移 | Per-request 无法维持全局一致 \((X,\tau)\)；DSCI 周期内 drift≈0，**策略稳定** |
-| **exp2_throughput_overhead** 左 | 有效吞吐 vs \(N\) | DSCI 随 \(N\) 近线性扩展；Per-request 被调度开销压制 |
-| **exp2_throughput_overhead** 右 | 调度开销占比柱状图 | Per-request 开销 ~20% 且随 \(N\) 显性；DSCI 摊销后 **<0.2%**，支撑 \(O(1)\) 广播论点 |
+| **exp2_drift** | å¹¶åç¨æ· \(N\) vs å½ä¸åéç½®æ¼ç§?| Per-request æ æ³ç»´æå¨å±ä¸è?\((X,\tau)\)ï¼DSCI å¨æå?driftâ?ï¼?*ç­ç¥ç¨³å®** |
+| **exp2_throughput_overhead** å·?| ææåå vs \(N\) | DSCI é?\(N\) è¿çº¿æ§æ©å±ï¼Per-request è¢«è°åº¦å¼éåå¶ |
+| **exp2_throughput_overhead** å?| è°åº¦å¼éå æ¯æ±ç¶å?| Per-request å¼é ~20% ä¸é \(N\) æ¾æ§ï¼DSCI æéå?**<0.2%**ï¼æ¯æ?\(O(1)\) å¹¿æ­è®ºç¹ |
 
-### 5.7 实测快照（20260520_080318）
+### 5.7 å®æµå¿«ç§ï¼?0260520_080318ï¼?
 
-| N | Per-request 开销% | 吞吐 (rps) | DSCI 开销% | 吞吐 (rps) | 倍率 |
+| N | Per-request å¼é% | åå (rps) | DSCI å¼é% | åå (rps) | åç |
 |---|-------------------|------------|------------|------------|------|
-| 1 | 30.7 | 13.9 | 1.7 | 19.7 | 1.42× |
-| 16 | 20.2 | 255.3 | 0.1 | 319.7 | 1.25× |
-| 32 | 19.8 | 513.2 | 0.1 | 639.7 | 1.25× |
+| 1 | 30.7 | 13.9 | 1.7 | 19.7 | 1.42Ã |
+| 16 | 20.2 | 255.3 | 0.1 | 319.7 | 1.25Ã |
+| 32 | 19.8 | 513.2 | 0.1 | 639.7 | 1.25Ã |
 
-- Per-request **drift** 维持约 **0.005**（仿真扰动较弱，曲线近似平）；DSCI **drift = 0**。
-- 吞吐量：Per-request 随 $N$ 近线性扩展但斜率受开销压制；DSCI 摊销后开销极低，吞吐更高。
-- 与原计划「$N\ge16$ 开销成为瓶颈」一致：Per-request 开销约 **20%** 且 drift 不收敛；DSCI 开销 **<0.2%**。
-
----
-
-## 6. 论文撰写建议
-
-1. **实验 1** 强调：在**同一期望仿真器**下，Decoupled 的 $X^*$ 与 DSCI 不一致（hard 组 0.5 Mbps）；联合搜索降低 $\rho$ 与时延。
-2. **实验 2** 明确写出「调度开销等价模型，未训练 DRL」。
-3. 若需严格复现「性能倒置」，可：(a) 降低 `DEVICE_GFLOPS`；(b) 增加带宽点如 0.25 Mbps；(c) 改用实测 `tc netem` 替换 `network_sim.transmission_latency_ms`。
-4. 图表引用路径：`Results/Exp0_Motivation/<timestamp>/figures/`。
+- Per-request **drift** ç»´æçº?**0.005**ï¼ä»¿çæ°å¨è¾å¼±ï¼æ²çº¿è¿ä¼¼å¹³ï¼ï¼DSCI **drift = 0**ã?
+- ååéï¼Per-request é?$N$ è¿çº¿æ§æ©å±ä½æçåå¼éåå¶ï¼DSCI æéåå¼éæä½ï¼ååæ´é«ã?
+- ä¸åè®¡åã?N\ge16$ å¼éæä¸ºç¶é¢ãä¸è´ï¼Per-request å¼éçº?**20%** ä¸?drift ä¸æ¶æï¼DSCI å¼é **<0.2%**ã?
 
 ---
 
-## 7. 常见问题
+## 6. è®ºææ°åå»ºè®®
 
-**Q: 为何 Exp1 中 Decoupled 与 DSCI 在 easy 组完全相同？**  
-A: 在 `tau_grid=[0.85,…]` 下，第二步 $\tau$ 优化与联合搜索收敛到同一 $(X,\tau)$；hard 组低 $\tau$ 时二者分叉更明显。
+1. **å®éª 1** å¼ºè°ï¼å¨**åä¸ææä»¿çå?*ä¸ï¼Decoupled ç?$X^*$ ä¸?DSCI ä¸ä¸è´ï¼hard ç»?0.5 Mbpsï¼ï¼èåæç´¢éä½ $\rho$ ä¸æ¶å»¶ã?
+2. **å®éª 2** æç¡®ååºãè°åº¦å¼éç­ä»·æ¨¡åï¼æªè®­ç» DRLãã?
+3. è¥éä¸¥æ ¼å¤ç°ãæ§è½åç½®ãï¼å¯ï¼(a) éä½ `DEVICE_GFLOPS`ï¼?b) å¢å å¸¦å®½ç¹å¦ 0.25 Mbpsï¼?c) æ¹ç¨å®æµ `tc netem` æ¿æ¢ `network_sim.transmission_latency_ms`ã?
+4. å¾è¡¨å¼ç¨è·¯å¾ï¼`Scripts/Results/Exp0_Motivation/<timestamp>/Figures/`ã?
+---
 
-**Q: 为何未跑真实 CIFAR 推理？**  
-A: 动机实验验证**结构性命题**（耦合、漂移、调度复杂度），非绝对时延标定；主实验 testbed（Exp1–Exp6）负责实测。
+## 7. å¸¸è§é®é¢
 
-**Q: `latest.txt` 指向错误批次？**  
-A: 对绘图使用 `--timestamp YYYYMMDD_HHMMSS`。
+**Q: ä¸ºä½ Exp1 ä¸?Decoupled ä¸?DSCI å?easy ç»å®å¨ç¸åï¼**  
+A: å?`tau_grid=[0.85,â¦]` ä¸ï¼ç¬¬äºæ­?$\tau$ ä¼åä¸èåæç´¢æ¶æå°åä¸ $(X,\tau)$ï¼hard ç»ä½ $\tau$ æ¶äºèååæ´ææ¾ã?
+
+**Q: ä¸ºä½æªè·çå® CIFAR æ¨çï¼?*  
+A: å¨æºå®éªéªè¯**ç»ææ§å½é¢?*ï¼è¦åãæ¼ç§»ãè°åº¦å¤æåº¦ï¼ï¼éç»å¯¹æ¶å»¶æ å®ï¼ä¸»å®éª?testbedï¼Exp1âExp6ï¼è´è´£å®æµã?
+
+**Q: `latest.txt` æåéè¯¯æ¹æ¬¡ï¼?*  
+A: å¯¹ç»å¾ä½¿ç?`--timestamp YYYYMMDD_HHMMSS`ã?
 
 ---
 
-*文档版本：与代码树 2026-05-20 运行结果同步；解释器 `~\.conda\envs\DSCI\python.exe`。*
+*ææ¡£çæ¬ï¼ä¸ä»£ç æ ?2026-05-20 è¿è¡ç»æåæ­¥ï¼è§£éå¨ `~\.conda\envs\DSCI\python.exe`ã?

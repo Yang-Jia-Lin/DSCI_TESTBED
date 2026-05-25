@@ -26,12 +26,13 @@ from Src.Algorithm.Optimizer.DSCI.agent import (
 )
 from Src.Algorithm.Optimizer.DSCI.run_DSCI import _build_ppo_params
 from Src.Configs.algo_config import DEFAULT as DEFAULT_ALGO_CONFIG
-from Src.Configs.paras import Paras, RESULT_PPO_PATH
+from Src.Configs.paras import Paras
 from Src.Objective.compute_P import compute_layer_exit_probs
 from Src.Objective.objective import objective
 
-LATEST_SOLUTION_PATH = Path(RESULT_PPO_PATH) / "latest_solution.npz"
-LATEST_META_PATH = Path(RESULT_PPO_PATH) / "latest_solution_meta.json"
+INTERFACE_SOLUTION_DIR = Path(__file__).resolve().parent / "SolutionCache"
+LATEST_SOLUTION_PATH = INTERFACE_SOLUTION_DIR / "latest_solution.npz"
+LATEST_META_PATH = INTERFACE_SOLUTION_DIR / "latest_solution_meta.json"
 
 _PRESET_MODE_ALIASES = {
     "dsci": None,
@@ -66,6 +67,7 @@ class AlgoServiceConfig:
     auto_train: bool = True
     latest_solution_path: str | Path = LATEST_SOLUTION_PATH
     latest_meta_path: str | Path = LATEST_META_PATH
+    max_cached_solutions: int = 3
 
 
 @dataclass
@@ -398,7 +400,28 @@ class AlgoService:
         meta_path = Path(self.config.latest_meta_path)
         solution_path.parent.mkdir(parents=True, exist_ok=True)
         meta_path.parent.mkdir(parents=True, exist_ok=True)
+        timestamp = time.strftime("%Y%m%d%H%M%S", time.localtime())
+        timestamp = f"{timestamp}{int((time.time() % 1) * 1000):03d}"
+        archived_solution = solution_path.with_name(f"solution_{timestamp}.npz")
+        archived_meta = meta_path.with_name(f"solution_{timestamp}_meta.json")
 
+        meta = {
+            "state_signature": solution.state_signature,
+            "objective": float(solution.objective),
+            "created_at": float(solution.created_at),
+            "saved_at": time.time(),
+        }
+        self._write_solution_pair(archived_solution, archived_meta, solution, meta)
+        self._write_solution_pair(solution_path, meta_path, solution, meta)
+        self._prune_archived_solutions(solution_path.parent)
+
+    @staticmethod
+    def _write_solution_pair(
+        solution_path: Path,
+        meta_path: Path,
+        solution: CachedSolution,
+        meta: dict[str, Any],
+    ) -> None:
         tmp_solution = solution_path.with_name(solution_path.name + ".tmp.npz")
         np.savez(
             tmp_solution,
@@ -410,16 +433,23 @@ class AlgoService:
         )
         tmp_solution.replace(solution_path)
 
-        meta = {
-            "state_signature": solution.state_signature,
-            "objective": float(solution.objective),
-            "created_at": float(solution.created_at),
-            "saved_at": time.time(),
-        }
         tmp_meta = meta_path.with_name(meta_path.name + ".tmp")
         with open(tmp_meta, "w", encoding="utf-8") as f:
             json.dump(meta, f, indent=2)
         tmp_meta.replace(meta_path)
+
+    def _prune_archived_solutions(self, cache_dir: Path) -> None:
+        keep = max(1, int(self.config.max_cached_solutions))
+        archives = sorted(cache_dir.glob("solution_*.npz"), key=lambda p: p.name)
+        stale = archives[:-keep]
+        for solution_path in stale:
+            stem = solution_path.stem
+            meta_path = solution_path.with_name(f"{stem}_meta.json")
+            try:
+                solution_path.unlink(missing_ok=True)
+                meta_path.unlink(missing_ok=True)
+            except OSError:
+                pass
 
     def _load_latest_solution(self) -> None:
         solution_path = Path(self.config.latest_solution_path)

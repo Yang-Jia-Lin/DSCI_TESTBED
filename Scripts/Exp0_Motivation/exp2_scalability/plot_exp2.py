@@ -26,7 +26,7 @@ from Scripts.Exp0_Motivation.utils.output_paths import resolve_output_dir
 
 
 def _load(output_dir: Path) -> dict:
-    with open(output_dir / "data" / "exp2_results.json", encoding="utf-8") as f:
+    with open(output_dir / "Data" / "exp2_results.json", encoding="utf-8") as f:
         return json.load(f)
 
 
@@ -80,7 +80,7 @@ def plot_drift(payload: dict, output_dir: Path) -> None:
     )
     ax.set_title("Configuration Drift vs. Concurrency")
     plt.tight_layout(pad=0.15)
-    save_fig_for_ieee(output_dir / "figures" / "exp2_drift", fig=fig)
+    save_fig_for_ieee(output_dir / "Figures" / "exp2_drift", fig=fig)
     plt.close(fig)
 
 
@@ -138,7 +138,7 @@ def plot_throughput_overhead(payload: dict, output_dir: Path) -> None:
         y=1.02,
     )
     plt.tight_layout(pad=0.15)
-    save_fig_for_ieee(output_dir / "figures" / "exp2_throughput_overhead", fig=fig)
+    save_fig_for_ieee(output_dir / "Figures" / "exp2_throughput_overhead", fig=fig)
     plt.close(fig)
 
 
@@ -152,7 +152,7 @@ def main() -> None:
     payload = _load(output_dir)
     plot_drift(payload, output_dir)
     plot_throughput_overhead(payload, output_dir)
-    print(f"[plot_exp2] 图表已写入 {output_dir / 'figures'}")
+    print(f"[plot_exp2] 图表已写入 {output_dir / 'Figures'}")
 
 
 if __name__ == "__main__":

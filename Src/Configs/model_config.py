@@ -12,19 +12,20 @@ class ModelConfig:
     num_layers: int = 128
     early_exit_layers: list[int] = field(default_factory=lambda: [57, 103])
     data_dir: Path = BASE_DIR / "Data"
+    profile_dir: Path = BASE_DIR / "Data" / "OfflineTables"
     weights_dir: Path = BASE_DIR / "Data" / "Weights"
 
     @property
     def rate_csv(self) -> Path:
-        return self.data_dir / f"{self.name}_rates.csv"
+        return self.profile_dir / f"{self.name}_rates.csv"
 
     @property
     def acc_csv(self) -> Path:
-        return self.data_dir / f"{self.name}_accs.csv"
+        return self.profile_dir / f"{self.name}_accs.csv"
 
     @property
     def layer_stats_csv(self) -> Path:
-        return self.data_dir / f"{self.name}_layer_stats.csv"
+        return self.profile_dir / f"{self.name}_layer_stats.csv"
 
 
 RESNET50 = ModelConfig()

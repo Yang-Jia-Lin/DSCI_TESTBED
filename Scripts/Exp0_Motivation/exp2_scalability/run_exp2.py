@@ -55,7 +55,7 @@ def main() -> None:
     os.chdir(PROJECT_ROOT)
     _, output_dir = create_run_output_dirs(Path(PROJECT_ROOT))
     log = logging.getLogger(__name__)
-    _setup_logging(output_dir / "logs" / "exp2.log")
+    _setup_logging(output_dir / "Logs" / "exp2.log")
 
     per_req = PerRequestScheduler(
         state_vector_dim=STATE_VECTOR_DIM,
@@ -131,7 +131,7 @@ def main() -> None:
                 n,
             )
 
-    out_path = output_dir / "data" / "exp2_results.json"
+    out_path = output_dir / "Data" / "exp2_results.json"
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(
             {

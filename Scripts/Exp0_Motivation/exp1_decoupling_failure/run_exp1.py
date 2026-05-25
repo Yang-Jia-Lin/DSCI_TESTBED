@@ -65,7 +65,7 @@ def _primary_tau(thresholds: list[float]) -> float:
 def main() -> None:
     os.chdir(PROJECT_ROOT)
     _, output_dir = create_run_output_dirs(Path(PROJECT_ROOT))
-    log_path = output_dir / "logs" / "exp1.log"
+    log_path = output_dir / "Logs" / "exp1.log"
     _setup_logging(log_path)
     log = logging.getLogger(__name__)
 
@@ -74,7 +74,7 @@ def main() -> None:
     final_layer = model_info["final_layer"]
 
     if model_info["rates_from_csv"]:
-        log.info("[Exp1] 早退率来自 Data/Resnet50_rates.csv（阈值线性插值）")
+        log.info("[Exp1] 早退率来自 Data/OfflineTables/Resnet50_rates.csv（阈值线性插值）")
     else:
         log.info("[Exp1] 早退率由 Beta 分布合成（CSV 不可用）")
 
@@ -142,7 +142,7 @@ def main() -> None:
                 log.info(msg)
                 inversions.append(f"{group}@{bw}Mbps")
 
-    out_json = output_dir / "data" / "exp1_results.json"
+    out_json = output_dir / "Data" / "exp1_results.json"
     payload = {
         "model_info": {
             "exit_layer_indices": model_info["exit_layer_indices"],

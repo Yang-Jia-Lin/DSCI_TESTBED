@@ -1,6 +1,10 @@
 Data/CIFAR10/
 Data/Model_Checkpoints
 Data/Weights
+Src/Algorithm/Interface/SolutionCache/*
+!Src/Algorithm/Interface/SolutionCache/.gitkeep
+Src/Deploy/Device/Results/*
+!Src/Deploy/Device/Results/.gitkeep
 *.pth
 *.pt
 *.h5
@@ -9,14 +13,14 @@ Data/Weights
 *.onnx
 *.tar.gz
 *.zip
-# 忽略 Python 缓存和环境
+# Python caches and environments
 __pycache__/
 *.pyc
 .env
 venv/
 .ipynb_checkpoints/
 
-# 忽略 pycharm 文件
+# PyCharm files
 .idea/
 .idea
 __pycache__
