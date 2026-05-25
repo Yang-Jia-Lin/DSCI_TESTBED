@@ -167,6 +167,54 @@ class Paras:
         edge = state["edge"]
         cloud = state["cloud"]
 
+        def positive_float(value, fallback, name, minimum=1e-6):
+            try:
+                out = float(value)
+            except (TypeError, ValueError):
+                out = float("nan")
+            if not np.isfinite(out) or out <= 0:
+                safe = max(float(fallback), float(minimum))
+                print(
+                    f"Warning: invalid measured state {name}={value!r}; "
+                    f"using fallback {safe}."
+                )
+                return safe
+            return max(out, float(minimum))
+
+        f_u_values = [
+            positive_float(
+                u.get("f_u"),
+                USER_FREQs[min(i, len(USER_FREQs) - 1)] if USER_FREQs else 1.0,
+                f"users[{i}].f_u",
+                minimum=1e-3,
+            )
+            for i, u in enumerate(users)
+        ]
+        bw_d2e_values = [
+            positive_float(
+                u.get("BW_d2e"),
+                TESTBED_CFG.default_bw_d2e,
+                f"users[{i}].BW_d2e",
+                minimum=0.1,
+            )
+            for i, u in enumerate(users)
+        ]
+        f_e_max = positive_float(
+            edge.get("f_e_max"), algo_cfg.edge_max_freq, "edge.f_e_max", minimum=1e-3
+        )
+        f_c_max = positive_float(
+            cloud.get("f_c_max"),
+            algo_cfg.cloud_max_freq,
+            "cloud.f_c_max",
+            minimum=1e-3,
+        )
+        bw_e2c = positive_float(
+            cloud.get("BW_e2c"),
+            TESTBED_CFG.default_bw_e2c,
+            "cloud.BW_e2c",
+            minimum=0.1,
+        )
+
         layer_df = pd.read_csv(model_cfg.layer_stats_csv)
         layer_bytes = layer_df["num_bytes"].astype(int).tolist()
         layer_flops = layer_df["approx_flops"].astype(int).tolist()
@@ -177,13 +225,13 @@ class Paras:
             E=list(model_cfg.early_exit_layers),
             D=layer_bytes,
             C=layer_flops,
-            f_e_max=float(edge["f_e_max"]),
-            f_c_max=float(cloud["f_c_max"]),
-            b_c=float(cloud["BW_e2c"]),
+            f_e_max=f_e_max,
+            f_c_max=f_c_max,
+            b_c=bw_e2c,
             alpha=float(algo_cfg.alpha),
             beta=float(algo_cfg.beta),
-            F_u=np.array([u["f_u"] for u in users], dtype=float),
+            F_u=np.array(f_u_values, dtype=float),
             H_u=None,
-            B_u=np.array([u["BW_d2e"] for u in users], dtype=float),
+            B_u=np.array(bw_d2e_values, dtype=float),
             model_cfg=model_cfg,
         )

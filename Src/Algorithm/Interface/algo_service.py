@@ -33,6 +33,27 @@ from Src.Objective.objective import objective
 LATEST_SOLUTION_PATH = Path(RESULT_PPO_PATH) / "latest_solution.npz"
 LATEST_META_PATH = Path(RESULT_PPO_PATH) / "latest_solution_meta.json"
 
+_PRESET_MODE_ALIASES = {
+    "dsci": None,
+    "cached": None,
+    "auto": None,
+    "device": ("device", False),
+    "pure_device": ("device", False),
+    "device_no_exit": ("device", False),
+    "device_early_exit": ("device", True),
+    "device_exit": ("device", True),
+    "edge": ("edge", False),
+    "pure_edge": ("edge", False),
+    "edge_no_exit": ("edge", False),
+    "edge_early_exit": ("edge", True),
+    "edge_exit": ("edge", True),
+    "cloud": ("cloud", False),
+    "pure_cloud": ("cloud", False),
+    "cloud_no_exit": ("cloud", False),
+    "cloud_early_exit": ("cloud", True),
+    "cloud_exit": ("cloud", True),
+}
+
 
 @dataclass
 class AlgoServiceConfig:
@@ -93,12 +114,18 @@ class AlgoService:
         cfg = paras.model_cfg
         model_name = state.get("model_name") or (cfg.name if cfg is not None else None)
         users = []
+        f_u_values = np.asarray(paras.F_u, dtype=float).reshape(-1)
+        bw_d2e_values = (
+            np.asarray(paras.B_u, dtype=float).reshape(-1)
+            if paras.B_u is not None
+            else np.full(int(paras.n), 0.0)
+        )
         for i, user in enumerate(state.get("users") or []):
             users.append(
                 {
                     "user_id": int(user.get("user_id", i)),
-                    "f_u": cls._round_float(user["f_u"]),
-                    "BW_d2e": cls._round_float(user["BW_d2e"]),
+                    "f_u": cls._round_float(f_u_values[i]),
+                    "BW_d2e": cls._round_float(bw_d2e_values[i]),
                 }
             )
         return {
@@ -109,10 +136,10 @@ class AlgoService:
             },
             "num_users": int(paras.n),
             "users": users,
-            "edge": {"f_e_max": cls._round_float(state["edge"]["f_e_max"])},
+            "edge": {"f_e_max": cls._round_float(paras.f_e_max)},
             "cloud": {
-                "f_c_max": cls._round_float(state["cloud"]["f_c_max"]),
-                "BW_e2c": cls._round_float(state["cloud"]["BW_e2c"]),
+                "f_c_max": cls._round_float(paras.f_c_max),
+                "BW_e2c": cls._round_float(paras.b_c),
             },
         }
 
@@ -156,6 +183,95 @@ class AlgoService:
             F_c=F_c,
             objective=obj,
             state_signature=copy.deepcopy(signature),
+        )
+
+    @staticmethod
+    def _normalise_decision_mode(state: dict) -> tuple[str, bool] | None:
+        mode = state.get("decision_mode") or state.get("decision_policy")
+        if mode is None:
+            return None
+
+        if isinstance(mode, str):
+            key = mode.strip().lower().replace("-", "_")
+            if key not in _PRESET_MODE_ALIASES:
+                raise ValueError(
+                    "decision_mode must be one of: "
+                    + ", ".join(sorted(k for k in _PRESET_MODE_ALIASES if k))
+                )
+            return _PRESET_MODE_ALIASES[key]
+
+        if isinstance(mode, dict):
+            placement = str(mode.get("placement", "dsci")).strip().lower()
+            placement = placement.replace("pure_", "").replace("-", "_")
+            if placement in ("dsci", "cached", "auto"):
+                return None
+            if placement not in ("device", "edge", "cloud"):
+                raise ValueError("decision_mode.placement must be device, edge, or cloud")
+            return placement, bool(mode.get("early_exit", False))
+
+        raise ValueError("decision_mode must be a string or object")
+
+    @staticmethod
+    def _make_resource_vector(total: float, n: int, enabled: bool) -> np.ndarray:
+        if not enabled or total <= 0:
+            return np.zeros((n, 1), dtype=np.float32)
+        return (np.ones((n, 1), dtype=np.float32) * (float(total) / n)).astype(
+            np.float32
+        )
+
+    def _preset_solution(
+        self,
+        paras: Paras,
+        signature: dict[str, Any],
+        placement: str,
+        early_exit: bool,
+    ) -> CachedSolution:
+        n, m = int(paras.n), int(paras.m)
+        last = m - 1
+        penultimate = max(0, m - 2)
+
+        if placement == "device":
+            s1, s2 = (57, last) if early_exit and m > 58 else (penultimate, last)
+        elif placement == "edge":
+            s1, s2 = (0, 103) if early_exit and m > 104 else (0, penultimate)
+        else:
+            s1, s2 = (0, 4 if m > 5 else 1)
+
+        if not (0 <= s1 < s2 < m):
+            s1, s2 = max(0, m // 3), min(last, (2 * m) // 3)
+            if s1 == s2:
+                s2 = min(last, s1 + 1)
+
+        X = np.zeros((n, m), dtype=np.float32)
+        X[:, s1] = 1.0
+        X[:, s2] = 1.0
+
+        Y = np.ones((n, m), dtype=np.float32)
+        if early_exit:
+            if placement == "device" and 57 in paras.E and 57 < m:
+                Y[:, 57] = 0.0
+            elif placement == "edge" and 103 in paras.E and 103 < m:
+                Y[:, 103] = 0.0
+            elif placement == "cloud":
+                for layer in paras.E:
+                    if 0 <= layer < m:
+                        Y[:, layer] = 0.0
+
+        F_e = self._make_resource_vector(paras.f_e_max, n, placement == "edge")
+        F_c = self._make_resource_vector(paras.f_c_max, n, placement == "cloud")
+
+        preset_signature = copy.deepcopy(signature)
+        preset_signature["decision_mode"] = {
+            "placement": placement,
+            "early_exit": bool(early_exit),
+        }
+        return CachedSolution(
+            X=X,
+            Y=Y,
+            F_e=F_e,
+            F_c=F_c,
+            objective=0.0,
+            state_signature=preset_signature,
         )
 
     def _solution_for_response(
@@ -207,11 +323,20 @@ class AlgoService:
         """Return the current cached/default decision and train the next one in back."""
         paras = to_paras(state)
         signature = self._state_signature(state, paras)
+        preset_mode = self._normalise_decision_mode(state)
 
-        with self._lock:
-            solution = self._solution_for_response(paras, signature)
-            if self._should_start_training(signature, paras):
-                self._start_training_locked(state, signature)
+        if preset_mode is None:
+            with self._lock:
+                cached = self._cached_solution
+                using_cache = cached is not None and self._arrays_compatible(cached, paras)
+                solution = self._solution_for_response(paras, signature)
+                if self._should_start_training(signature, paras):
+                    self._start_training_locked(state, signature)
+            decision_source = "cached_dsci" if using_cache else "default"
+        else:
+            placement, early_exit = preset_mode
+            solution = self._preset_solution(paras, signature, placement, early_exit)
+            decision_source = f"preset:{placement}:{'early_exit' if early_exit else 'no_exit'}"
 
         decision_id = state.get("round_id") or f"round_{int(time.time() * 1000)}"
         model_name = state.get("model_name")
@@ -229,6 +354,7 @@ class AlgoService:
             user_ids=self._extract_user_ids(state, paras.n),
         )
         decision["objective"] = float(solution.objective)
+        decision["decision_source"] = decision_source
         return decision
 
     def _train_background(self, state: dict, signature: dict[str, Any]) -> None:

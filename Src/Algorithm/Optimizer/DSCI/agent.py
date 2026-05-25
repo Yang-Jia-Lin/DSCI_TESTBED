@@ -503,7 +503,13 @@ class PPOAgent:
 
                     # 增量奖励：r_t = U(s_{t+1}) - U(s_t)
                     new_obj = objective(X_new, Y_new, F_e, F_c, self.paras)
-                    reward = float(new_obj - prev_obj)
+                    if not np.isfinite(new_obj) or not np.isfinite(prev_obj):
+                        reward = -float(self.hparams.get("obj_scale", 1000.0))
+                        new_obj = prev_obj if np.isfinite(prev_obj) else 0.0
+                        X_new = X.copy()
+                        Y_new = Y.copy()
+                    else:
+                        reward = float(new_obj - prev_obj)
                     done = 1.0 if (i == self.paras.n - 1) else 0.0
 
                     # 存 buffer

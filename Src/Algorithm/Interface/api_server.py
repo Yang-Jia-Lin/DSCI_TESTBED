@@ -36,6 +36,8 @@ def create_app(service: AlgoService | None = None) -> Flask:
             return jsonify(decision)
         except KeyError as exc:
             return _error(f"Invalid state payload: {exc}", 400)
+        except ValueError as exc:
+            return _error(str(exc), 400)
         except DecisionCodecError as exc:
             return _error(str(exc), 400)
         except RuntimeError as exc:

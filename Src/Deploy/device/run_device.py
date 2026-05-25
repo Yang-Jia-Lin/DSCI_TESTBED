@@ -53,6 +53,56 @@ def convert_to_jsonable(obj):
         return obj
 
 
+def print_summary_statistics(results):
+    if not results:
+        print("\n=== 测试统计 ===")
+        print("没有可统计的测试结果。")
+        return
+
+    total = len(results)
+    valid = [
+        r
+        for r in results
+        if r.get("exit_location") != "error" and r.get("T_total") is not None
+    ]
+    correct = sum(1 for r in results if bool(r.get("is_correct", False)))
+    accuracy = correct / total if total else 0.0
+
+    print("\n=== 测试统计 ===")
+    print(f"样本数: {total}")
+    print(f"有效推理: {len(valid)}")
+    print(f"准确率: {accuracy:.4f} ({correct}/{total})")
+
+    if not valid:
+        print("没有有效时延结果。")
+        return
+
+    def _print_latency_stats(name, key):
+        values = np.array([float(r.get(key, 0.0)) for r in valid], dtype=np.float64)
+        print(
+            f"{name}: mean={values.mean():.2f} ms, "
+            f"var={values.var():.2f}, std={values.std():.2f}, "
+            f"min={values.min():.2f}, max={values.max():.2f}"
+        )
+
+    _print_latency_stats("设备时延 T_device", "T_device")
+    _print_latency_stats("端到边传输 T_trans_d2e", "T_trans_d2e")
+    _print_latency_stats("边缘时延 T_edge", "T_edge")
+    _print_latency_stats("边到云传输 T_trans_e2c", "T_trans_e2c")
+    _print_latency_stats("云端时延 T_cloud", "T_cloud")
+    _print_latency_stats("总时延 T_total", "T_total")
+
+    split_points = {}
+    layers = {}
+    for r in results:
+        split_key = (r.get("partition_s1", "unknown"), r.get("partition_s2", "unknown"))
+        layer = r.get("exit_layer", "unknown")
+        split_points[split_key] = split_points.get(split_key, 0) + 1
+        layers[layer] = layers.get(layer, 0) + 1
+    print(f"切分点决策分布 (p1, p2): {split_points}")
+    print(f"退出层分布: {layers}")
+
+
 # ==================== 单次推理核心 ====================
 
 
@@ -77,16 +127,27 @@ def run_single_inference(input_tensor, label, decision, bw_d2e, bw_e2c, cpu_avai
     device_end = stage_end_from_partition_boundary(user.get("partition_s1"), 2)
     edge_end = stage_end_from_partition_boundary(user.get("partition_s2"), 3)
     exit_layer, threshold = threshold_for_stage(exit_thresholds, device_end)
+    decision_info = {
+        "partition_s1": user.get("partition_s1"),
+        "partition_s2": user.get("partition_s2"),
+        "threshold_57": exit_thresholds.get("57"),
+        "threshold_103": exit_thresholds.get("103"),
+        "decision_source": decision.get("decision_source", "unknown"),
+    }
 
     t_total_start = time.perf_counter()
 
     # 设备段按 stage 执行。
     with torch.no_grad():
-        features, logits, conf, pred = model.forward_partial(input_tensor, 0, device_end)
+        features, logits, conf, pred = model.forward_partial(
+            input_tensor, 0, device_end
+        )
     T_device = (time.perf_counter() - t_total_start) * 1000  # ms
 
     # 设备早退判断
-    if conf is not None and (device_end == 4 or (threshold is not None and conf >= threshold)):
+    if conf is not None and (
+        device_end == 4 or (threshold is not None and conf >= threshold)
+    ):
         result = {
             "decision_id": decision["decision_id"],
             "user_id": user["user_id"],
@@ -107,6 +168,7 @@ def run_single_inference(input_tensor, label, decision, bw_d2e, bw_e2c, cpu_avai
             "cpu_util_device": 0.05,
             "cpu_util_edge": 0.0,
             "cpu_util_cloud": 0.0,
+            **decision_info,
         }
         return convert_to_jsonable(result)
 
@@ -148,6 +210,7 @@ def run_single_inference(input_tensor, label, decision, bw_d2e, bw_e2c, cpu_avai
             "cpu_util_device": 0.05,
             "cpu_util_edge": 0.0,
             "cpu_util_cloud": 0.0,
+            **decision_info,
         }
 
     t_recv = time.perf_counter()
@@ -177,6 +240,7 @@ def run_single_inference(input_tensor, label, decision, bw_d2e, bw_e2c, cpu_avai
         "cpu_util_device": 0.05,
         "cpu_util_edge": 0.0,
         "cpu_util_cloud": 0.0,
+        **decision_info,
     }
     return convert_to_jsonable(result)
 
@@ -196,7 +260,7 @@ def main():
         cloud_status = requests.get(
             f"http://{CLOUD_IP}:{CLOUD_STATUS_PORT}/status"
         ).json()
-    except:
+    except (requests.RequestException, ValueError, KeyError):
         edge_status = {"f_e_max": 4.0, "BW_e2c": 500}
         cloud_status = {"f_c_max": 8.0}
 
@@ -243,11 +307,18 @@ def main():
             res = run_single_inference(
                 input_tensor, label, decision, bw_d2e, edge_status["BW_e2c"], cpu_avail
             )
+            res = convert_to_jsonable(res)
+            if not isinstance(res, dict):
+                raise TypeError(
+                    f"Unexpected inference result type: {type(res).__name__}"
+                )
             results.append(res)
             print(
-                f"  退出层: {res['exit_layer']}, 位置: {res['exit_location']}, "
-                f"置信度: {res['exit_confidence']:.4f}, 预测: {res['prediction']}, "
-                f"正确: {res['is_correct']}, 总时延: {res['T_total']:.2f} ms"
+                f"  决策: p1={res.get('partition_s1', 'N/A')}, p2={res.get('partition_s2', 'N/A')}, "
+                f"thr57={res.get('threshold_57', 'N/A')}, thr103={res.get('threshold_103', 'N/A')}, "
+                f"  退出层: {res.get('exit_layer', 'N/A')}, 位置: {res.get('exit_location', 'N/A')}, "
+                f"置信度: {res.get('exit_confidence', 0.0):.4f}, 预测: {res.get('prediction', -1)}, "
+                f"正确: {res.get('is_correct', False)}, 总时延: {res.get('T_total', 0.0):.2f} ms"
             )
         except Exception as e:
             print(f"  推理失败: {e}")
@@ -272,6 +343,15 @@ def main():
                 "cpu_util_device": 0.05,
                 "cpu_util_edge": 0.0,
                 "cpu_util_cloud": 0.0,
+                "partition_s1": decision.get("users", [{}])[0].get("partition_s1"),
+                "partition_s2": decision.get("users", [{}])[0].get("partition_s2"),
+                "threshold_57": decision.get("users", [{}])[0]
+                .get("exit_thresholds", {})
+                .get("57"),
+                "threshold_103": decision.get("users", [{}])[0]
+                .get("exit_thresholds", {})
+                .get("103"),
+                "decision_source": decision.get("decision_source", "unknown"),
             }
             results.append(fail_result)
 
@@ -284,6 +364,7 @@ def main():
             writer.writeheader()
             writer.writerows(results)
         print("结果已保存。")
+    print_summary_statistics(results)
 
 
 if __name__ == "__main__":
