@@ -218,11 +218,21 @@ class ResNet50EEWrapper:
                 )
             return [r / 100.0 for r in rates_pct]
 
-        # Beta 分布补充（仅 CSV 缺失时）
-        from scipy.stats import beta
-
-        a, b = 2.0, 5.0
-        base = beta.cdf(threshold, a, b)
+        # Beta(2,5) 分布补充（仅 CSV 缺失时）
+        # 尽量避免对 scipy 的直接依赖，使用 Beta(2,5) 的解析多项式形式：
+        # PDF ∝ t^(2-1) (1-t)^(5-1) = t (1-t)^4
+        # CDF = ∫0^x t (1-t)^4 dt = x^2/2 - 4 x^3/3 + 6 x^4/4 - 4 x^5/5 + x^6/6
+        # 归一化常数 B(2,5) = 1/30，因此正则化 CDF = 30 * integral
+        x = float(threshold)
+        x2 = x * x
+        x3 = x2 * x
+        x4 = x3 * x
+        x5 = x4 * x
+        x6 = x5 * x
+        integral = (
+            x2 / 2.0 - 4.0 * x3 / 3.0 + 6.0 * x4 / 4.0 - 4.0 * x5 / 5.0 + x6 / 6.0
+        )
+        base = min(max(0.0, 30.0 * integral), 1.0)
         return [
             min(0.99, base * (0.6 + 0.4 * i)) for i, _ in enumerate(self._exit_layers)
         ]
