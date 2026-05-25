@@ -207,7 +207,9 @@ class PPOAgent:
 
         return (logp_X + logp_Y).float()
 
-    def load_policy_state_dict(self, state_dict: dict, strict: bool = True) -> "PPOAgent":
+    def load_policy_state_dict(
+        self, state_dict: dict, strict: bool = True
+    ) -> "PPOAgent":
         self.policy.load_state_dict(state_dict, strict=strict)
         return self
 
