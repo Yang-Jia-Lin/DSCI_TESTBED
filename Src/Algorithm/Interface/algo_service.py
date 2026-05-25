@@ -1,21 +1,37 @@
-"""Testbed algorithm service: one decision round + measurement feedback."""
+"""Testbed algorithm service: cached decisions + background DSCI training."""
 
+from __future__ import annotations
+
+import copy
+import json
 import threading
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+import numpy as np
+
 from Src.Algorithm.Interface.decision_codec import encode
 from Src.Algorithm.Interface.reward_adapter import (
     RoundRewardResult,
-    apply_rewards_to_buffer,
     compute_round_reward,
 )
 from Src.Algorithm.Interface.state_adapter import to_paras
-from Src.Algorithm.Optimizer.DSCI.agent import PPOAgent
-from Src.Algorithm.Optimizer.DSCI.run_DSCI import _build_ppo_params, infer_one_round
+from Src.Algorithm.Optimizer.DSCI.agent import (
+    PPOAgent,
+    _init_feasible_XY,
+    allocate_resources,
+    compute_iota_kappa,
+)
+from Src.Algorithm.Optimizer.DSCI.run_DSCI import _build_ppo_params
 from Src.Configs.algo_config import DEFAULT as DEFAULT_ALGO_CONFIG
-from Src.Configs.paras import Paras
+from Src.Configs.paras import Paras, RESULT_PPO_PATH
+from Src.Objective.compute_P import compute_layer_exit_probs
+from Src.Objective.objective import objective
+
+LATEST_SOLUTION_PATH = Path(RESULT_PPO_PATH) / "latest_solution.npz"
+LATEST_META_PATH = Path(RESULT_PPO_PATH) / "latest_solution_meta.json"
 
 
 @dataclass
@@ -26,163 +42,312 @@ class AlgoServiceConfig:
     outer_ema: float = 1.0
     buffer_size: int = DEFAULT_ALGO_CONFIG.buffer_size
     custom_ppo_hyperparams: dict | None = None
+    auto_train: bool = True
+    latest_solution_path: str | Path = LATEST_SOLUTION_PATH
+    latest_meta_path: str | Path = LATEST_META_PATH
 
 
 @dataclass
-class PendingRound:
-    decision_id: str
-    n_users: int
-    buffer_start: int
-    paras: Paras
+class CachedSolution:
+    X: np.ndarray
+    Y: np.ndarray
+    F_e: np.ndarray
+    F_c: np.ndarray
+    objective: float
+    state_signature: dict[str, Any]
+    created_at: float = field(default_factory=time.time)
 
 
 @dataclass
 class AlgoService:
-    """Stateful coordinator for HTTP testbed rounds."""
+    """Stateful coordinator for cached HTTP decisions and background DSCI runs."""
 
     config: AlgoServiceConfig = field(default_factory=AlgoServiceConfig)
     _lock: threading.RLock = field(default_factory=threading.RLock, repr=False)
-    _agent: PPOAgent | None = field(default=None, init=False, repr=False)
-    _agent_key: tuple | None = field(default=None, init=False, repr=False)
-    _pending: PendingRound | None = field(default=None, init=False, repr=False)
+    _cached_solution: CachedSolution | None = field(default=None, init=False, repr=False)
+    _training_status: str = field(default="idle", init=False, repr=False)
+    _training_signature: dict[str, Any] | None = field(
+        default=None, init=False, repr=False
+    )
+    _training_thread: threading.Thread | None = field(
+        default=None, init=False, repr=False
+    )
+    _last_error: str | None = field(default=None, init=False, repr=False)
+    _last_reward: RoundRewardResult | None = field(default=None, init=False, repr=False)
     _update_epoch: int = field(default=0, init=False, repr=False)
-    _last_reward: RoundRewardResult | None = field(
-        default=None, init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        self.config.latest_solution_path = Path(self.config.latest_solution_path)
+        self.config.latest_meta_path = Path(self.config.latest_meta_path)
+        self._load_latest_solution()
 
     def _ppo_params(self) -> dict:
         return _build_ppo_params(self.config.custom_ppo_hyperparams)
 
-    def _agent_cache_key(self, paras: Paras) -> tuple:
-        cfg = paras.model_cfg
-        name = cfg.name if cfg is not None else "default"
-        return (int(paras.m), tuple(int(x) for x in paras.E), name)
+    @staticmethod
+    def _round_float(value) -> float:
+        return round(float(value), 4)
 
-    def _get_or_create_agent(self, paras: Paras) -> PPOAgent:
-        key = self._agent_cache_key(paras)
-        if self._agent is None or self._agent_key != key:
-            self._agent = PPOAgent(paras, self._ppo_params())
-            self._agent_key = key
-            if self.config.checkpoint_path is not None:
-                path = Path(self.config.checkpoint_path)
-                if path.is_file():
-                    self._agent.load_checkpoint(path)
-        else:
-            self._agent.paras = paras
-        return self._agent
+    @classmethod
+    def _state_signature(cls, state: dict, paras: Paras) -> dict[str, Any]:
+        cfg = paras.model_cfg
+        model_name = state.get("model_name") or (cfg.name if cfg is not None else None)
+        users = []
+        for i, user in enumerate(state.get("users") or []):
+            users.append(
+                {
+                    "user_id": int(user.get("user_id", i)),
+                    "f_u": cls._round_float(user["f_u"]),
+                    "BW_d2e": cls._round_float(user["BW_d2e"]),
+                }
+            )
+        return {
+            "model": {
+                "name": model_name,
+                "m": int(paras.m),
+                "early_exit_layers": [int(x) for x in paras.E],
+            },
+            "num_users": int(paras.n),
+            "users": users,
+            "edge": {"f_e_max": cls._round_float(state["edge"]["f_e_max"])},
+            "cloud": {
+                "f_c_max": cls._round_float(state["cloud"]["f_c_max"]),
+                "BW_e2c": cls._round_float(state["cloud"]["BW_e2c"]),
+            },
+        }
 
     @staticmethod
     def _extract_user_ids(state: dict, n: int) -> list[int]:
         users = state.get("users") or []
         if len(users) != n:
             return list(range(n))
-        ids = []
-        for i, u in enumerate(users):
-            ids.append(int(u.get("user_id", i)))
-        return ids
+        return [int(u.get("user_id", i)) for i, u in enumerate(users)]
+
+    @staticmethod
+    def _arrays_compatible(solution: CachedSolution, paras: Paras) -> bool:
+        expected = (int(paras.n), int(paras.m))
+        return (
+            solution.X.shape == expected
+            and solution.Y.shape == expected
+            and np.asarray(solution.F_e).reshape(-1).shape[0] == int(paras.n)
+            and np.asarray(solution.F_c).reshape(-1).shape[0] == int(paras.n)
+        )
+
+    @staticmethod
+    def _allocate_resources_for_xy(
+        X: np.ndarray, Y: np.ndarray, paras: Paras
+    ) -> tuple[np.ndarray, np.ndarray]:
+        exit_prob = compute_layer_exit_probs(Y, paras)
+        iota, kappa = compute_iota_kappa(X, paras.C, exit_prob)
+        f_e, f_c = allocate_resources(iota, kappa, paras.f_e_max, paras.f_c_max)
+        return (
+            f_e.reshape(paras.n, 1).astype(np.float32),
+            f_c.reshape(paras.n, 1).astype(np.float32),
+        )
+
+    def _default_solution(self, paras: Paras, signature: dict[str, Any]) -> CachedSolution:
+        X, Y = _init_feasible_XY(paras)
+        F_e, F_c = self._allocate_resources_for_xy(X, Y, paras)
+        obj = float(objective(X, Y, F_e, F_c, paras))
+        return CachedSolution(
+            X=X,
+            Y=Y,
+            F_e=F_e,
+            F_c=F_c,
+            objective=obj,
+            state_signature=copy.deepcopy(signature),
+        )
+
+    def _solution_for_response(
+        self, paras: Paras, signature: dict[str, Any]
+    ) -> CachedSolution:
+        cached = self._cached_solution
+        if cached is None or not self._arrays_compatible(cached, paras):
+            return self._default_solution(paras, signature)
+
+        X = cached.X.astype(np.float32, copy=True)
+        Y = cached.Y.astype(np.float32, copy=True)
+        F_e, F_c = self._allocate_resources_for_xy(X, Y, paras)
+        obj = float(objective(X, Y, F_e, F_c, paras))
+        return CachedSolution(
+            X=X,
+            Y=Y,
+            F_e=F_e,
+            F_c=F_c,
+            objective=obj,
+            state_signature=copy.deepcopy(signature),
+        )
+
+    def _should_start_training(self, signature: dict[str, Any], paras: Paras) -> bool:
+        if not self.config.auto_train:
+            return False
+        if self._training_status == "running":
+            return False
+        cached = self._cached_solution
+        if cached is None or not self._arrays_compatible(cached, paras):
+            return True
+        return cached.state_signature != signature
+
+    def _start_training_locked(self, state: dict, signature: dict[str, Any]) -> None:
+        self._training_status = "running"
+        self._training_signature = copy.deepcopy(signature)
+        self._last_error = None
+        train_state = copy.deepcopy(state)
+        train_signature = copy.deepcopy(signature)
+        thread = threading.Thread(
+            target=self._train_background,
+            args=(train_state, train_signature),
+            daemon=True,
+            name="DSCIBackgroundTraining",
+        )
+        self._training_thread = thread
+        thread.start()
 
     def make_decision(self, state: dict) -> dict[str, Any]:
-        """Run one decision round from deploy state JSON."""
+        """Return the current cached/default decision and train the next one in back."""
+        paras = to_paras(state)
+        signature = self._state_signature(state, paras)
+
         with self._lock:
-            if self._pending is not None:
-                raise RuntimeError(
-                    f"Previous round {self._pending.decision_id!r} has no measurements yet"
-                )
+            solution = self._solution_for_response(paras, signature)
+            if self._should_start_training(signature, paras):
+                self._start_training_locked(state, signature)
 
+        decision_id = state.get("round_id") or f"round_{int(time.time() * 1000)}"
+        model_name = state.get("model_name")
+        if model_name is None and paras.model_cfg is not None:
+            model_name = paras.model_cfg.name
+
+        decision = encode(
+            solution.X,
+            solution.Y,
+            solution.F_e,
+            solution.F_c,
+            paras,
+            decision_id=str(decision_id),
+            model_name=model_name,
+            user_ids=self._extract_user_ids(state, paras.n),
+        )
+        decision["objective"] = float(solution.objective)
+        return decision
+
+    def _train_background(self, state: dict, signature: dict[str, Any]) -> None:
+        try:
             paras = to_paras(state)
-            agent = self._get_or_create_agent(paras)
-            buffer_start = len(agent.buffer)
+            agent = PPOAgent(paras, self._ppo_params())
+            best_val, best_sol, _history = agent.train()
+            if best_sol is None:
+                raise RuntimeError("DSCI training returned no solution")
 
-            record = bool(self.config.enable_training)
-            _obj, (X, Y, F_e, F_c), paras = infer_one_round(
-                paras,
-                agent=agent,
-                deterministic=self.config.deterministic,
-                outer_ema=self.config.outer_ema,
-                record_transitions=record,
+            X, Y, F_e, F_c = best_sol
+            solution = CachedSolution(
+                X=np.asarray(X, dtype=np.float32),
+                Y=np.asarray(Y, dtype=np.float32),
+                F_e=np.asarray(F_e, dtype=np.float32).reshape(paras.n, 1),
+                F_c=np.asarray(F_c, dtype=np.float32).reshape(paras.n, 1),
+                objective=float(best_val),
+                state_signature=copy.deepcopy(signature),
             )
 
-            decision_id = state.get("round_id") or f"round_{buffer_start:04d}"
-            model_name = state.get("model_name")
-            if model_name is None and paras.model_cfg is not None:
-                model_name = paras.model_cfg.name
+            with self._lock:
+                self._cached_solution = solution
+                self._training_status = "idle"
+                self._training_signature = None
+                self._update_epoch += 1
 
-            decision = encode(
-                X,
-                Y,
-                F_e,
-                F_c,
-                paras,
-                decision_id=str(decision_id),
-                model_name=model_name,
-                user_ids=self._extract_user_ids(state, paras.n),
+            try:
+                self._save_latest_solution(solution)
+            except Exception as exc:  # pragma: no cover - filesystem dependent
+                with self._lock:
+                    self._training_status = "error"
+                    self._last_error = f"Failed to persist latest solution: {exc}"
+        except Exception as exc:  # pragma: no cover - long-running training path
+            with self._lock:
+                self._training_status = "error"
+                self._training_signature = None
+                self._last_error = str(exc)
+
+    def _save_latest_solution(self, solution: CachedSolution) -> None:
+        solution_path = Path(self.config.latest_solution_path)
+        meta_path = Path(self.config.latest_meta_path)
+        solution_path.parent.mkdir(parents=True, exist_ok=True)
+        meta_path.parent.mkdir(parents=True, exist_ok=True)
+
+        tmp_solution = solution_path.with_name(solution_path.name + ".tmp.npz")
+        np.savez(
+            tmp_solution,
+            X=solution.X,
+            Y=solution.Y,
+            F_e=solution.F_e,
+            F_c=solution.F_c,
+            objective=np.array(solution.objective, dtype=np.float64),
+        )
+        tmp_solution.replace(solution_path)
+
+        meta = {
+            "state_signature": solution.state_signature,
+            "objective": float(solution.objective),
+            "created_at": float(solution.created_at),
+            "saved_at": time.time(),
+        }
+        tmp_meta = meta_path.with_name(meta_path.name + ".tmp")
+        with open(tmp_meta, "w", encoding="utf-8") as f:
+            json.dump(meta, f, indent=2)
+        tmp_meta.replace(meta_path)
+
+    def _load_latest_solution(self) -> None:
+        solution_path = Path(self.config.latest_solution_path)
+        meta_path = Path(self.config.latest_meta_path)
+        if not solution_path.exists() or not meta_path.exists():
+            return
+
+        try:
+            with open(meta_path, "r", encoding="utf-8") as f:
+                meta = json.load(f)
+            data = np.load(solution_path, allow_pickle=False)
+            self._cached_solution = CachedSolution(
+                X=np.asarray(data["X"], dtype=np.float32),
+                Y=np.asarray(data["Y"], dtype=np.float32),
+                F_e=np.asarray(data["F_e"], dtype=np.float32),
+                F_c=np.asarray(data["F_c"], dtype=np.float32),
+                objective=float(meta.get("objective", data["objective"])),
+                state_signature=meta["state_signature"],
+                created_at=float(meta.get("created_at", time.time())),
             )
-
-            if record:
-                self._pending = PendingRound(
-                    decision_id=str(decision_id),
-                    n_users=int(paras.n),
-                    buffer_start=buffer_start,
-                    paras=paras,
-                )
-
-            decision["objective"] = float(_obj)
-            return decision
+        except Exception as exc:
+            self._cached_solution = None
+            self._training_status = "error"
+            self._last_error = f"Failed to load latest solution: {exc}"
 
     def report_measurements(self, payload: dict) -> dict[str, Any]:
-        """Ingest deploy measurements; optionally trigger PPO update."""
+        """Ingest deploy measurements without online PPO buffer updates."""
         with self._lock:
-            pending = self._pending
-            expected_id = pending.decision_id if pending is not None else None
-            expected_n = pending.n_users if pending is not None else None
-            paras = pending.paras if pending is not None else None
-
-            reward_result = compute_round_reward(
-                payload,
-                paras=paras,
-                expected_decision_id=expected_id,
-                expected_num_users=expected_n,
-            )
+            reward_result = compute_round_reward(payload)
             self._last_reward = reward_result
-
-            policy_updated = False
-            if (
-                self.config.enable_training
-                and self._agent is not None
-                and pending is not None
-            ):
-                apply_rewards_to_buffer(
-                    self._agent.buffer,
-                    reward_result.per_user_rewards,
-                    buffer_start=pending.buffer_start,
-                )
-                if len(self._agent.buffer) >= self.config.buffer_size:
-                    self._agent.update_policy(epoch=self._update_epoch)
-                    self._update_epoch += 1
-                    self._agent.buffer.clear()
-                    policy_updated = True
-
-            self._pending = None
-
             return {
                 "status": "ok",
                 "decision_id": reward_result.decision_id,
                 "round_reward": reward_result.round_reward,
                 "per_user_rewards": reward_result.per_user_rewards,
-                "policy_updated": policy_updated,
+                "policy_updated": False,
             }
 
     def health(self) -> dict[str, Any]:
         with self._lock:
+            cached = self._cached_solution
             return {
                 "status": "ok",
                 "checkpoint": str(self.config.checkpoint_path)
                 if self.config.checkpoint_path
                 else None,
                 "enable_training": self.config.enable_training,
-                "pending_decision_id": (
-                    self._pending.decision_id if self._pending else None
-                ),
-                "buffer_steps": len(self._agent.buffer) if self._agent else 0,
+                "auto_train": self.config.auto_train,
+                "training_status": self._training_status,
+                "training_state_signature": self._training_signature,
+                "has_cached_solution": cached is not None,
+                "cached_state_signature": cached.state_signature if cached else None,
+                "cached_objective": float(cached.objective) if cached else None,
+                "last_error": self._last_error,
                 "update_epochs": self._update_epoch,
             }
 
@@ -198,8 +363,7 @@ def report_measurements(payload: dict, service: AlgoService | None = None) -> di
 
 
 if __name__ == "__main__":
-    """Smoke test for deploy-facing JSON interface (no HTTP)"""
-    import json
+    import json as _json
 
     state = {
         "round_id": "round_0001",
@@ -212,49 +376,10 @@ if __name__ == "__main__":
         "cloud": {"BW_e2c": 120.0, "f_c_max": 50.0, "cpu_util": 0.4},
     }
 
-    svc = AlgoService(config=AlgoServiceConfig(enable_training=False))
+    svc = AlgoService(config=AlgoServiceConfig(auto_train=False))
     decision = svc.make_decision(state)
     print("=== Decision JSON (excerpt) ===")
-    print(json.dumps({k: decision[k]
-          for k in decision if k != "users"}, indent=2))
-    print("user[0]:", json.dumps(decision["users"][0], indent=2)[:500], "...")
-
-    measurements = {
-        "decision_id": "round_0001",
-        "measurements": [
-            {
-                "user_id": 0,
-                "T_device": 1.0,
-                "T_trans_d2e": 0.5,
-                "T_edge": 2.0,
-                "T_trans_e2c": 0.1,
-                "T_cloud": 1.0,
-                "T_total": 4.6,
-                "exit_layer": 103,
-                "exit_location": "edge",
-                "exit_confidence": 0.9,
-                "prediction": 1,
-                "ground_truth": 1,
-                "is_correct": True,
-            },
-            {
-                "user_id": 1,
-                "T_device": 0.8,
-                "T_trans_d2e": 0,
-                "T_edge": 0,
-                "T_trans_e2c": 0,
-                "T_cloud": 0,
-                "T_total": 0.8,
-                "exit_layer": 57,
-                "exit_location": "device",
-                "exit_confidence": 0.95,
-                "prediction": 2,
-                "ground_truth": 2,
-                "is_correct": True,
-            },
-        ],
-    }
-    resp = svc.report_measurements(measurements)
-    print("\n=== Measurements response ===")
-    print(json.dumps(resp, indent=2))
-    print("\nSmoke test passed.")
+    print(_json.dumps({k: decision[k] for k in decision if k != "users"}, indent=2))
+    print("user[0]:", _json.dumps(decision["users"][0], indent=2)[:500], "...")
+    print("\n=== Health ===")
+    print(_json.dumps(svc.health(), indent=2))

@@ -115,12 +115,14 @@ def build_service_from_env(
     *,
     checkpoint: str | None = None,
     enable_training: bool = False,
+    auto_train: bool = True,
     deterministic: bool = True,
     buffer_size: int | None = None,
 ) -> AlgoService:
     cfg = AlgoServiceConfig(
         checkpoint_path=checkpoint,
         enable_training=enable_training,
+        auto_train=auto_train,
         deterministic=deterministic,
     )
     if buffer_size is not None:
@@ -129,6 +131,5 @@ def build_service_from_env(
 
 
 if __name__ == '__main__':
-    # 若有训练好的 checkpoint，请指定路径；否则使用默认初始化（可能随机）
-    service = AlgoService()   # 或 build_service_from_env(checkpoint="path/to/checkpoint.pth")
+    service = AlgoService()
     run_server(service=service, port=8000)

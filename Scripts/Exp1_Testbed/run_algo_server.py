@@ -3,7 +3,7 @@ Start the DSCI algorithm HTTP server for real testbed rounds.
 
 Example:
     python -m Scripts.Exp1_Testbed.run_algo_server --host 0.0.0.0 --port 8080
-    python -m Scripts.Exp1_Testbed.run_algo_server --checkpoint Results/Optimize/DSCI/...
+    python -m Scripts.Exp1_Testbed.run_algo_server --no-auto-train
 """
 
 import argparse
@@ -26,12 +26,17 @@ def parse_args() -> argparse.Namespace:
         "--checkpoint",
         type=str,
         default=None,
-        help="Path to trained PPO checkpoint (.pth)",
+        help="Deprecated: retained for config compatibility",
     )
     parser.add_argument(
         "--enable-training",
         action="store_true",
-        help="Record transitions and run PPO updates from measurements",
+        help="Deprecated: measurements no longer drive online PPO updates",
+    )
+    parser.add_argument(
+        "--no-auto-train",
+        action="store_true",
+        help="Disable background DSCI training and return cached/default decisions only",
     )
     parser.add_argument(
         "--stochastic",
@@ -53,6 +58,7 @@ def main() -> None:
     cfg = AlgoServiceConfig(
         checkpoint_path=args.checkpoint,
         enable_training=args.enable_training,
+        auto_train=not args.no_auto_train,
         deterministic=not args.stochastic,
     )
     if args.buffer_size is not None:
@@ -61,7 +67,7 @@ def main() -> None:
     service = AlgoService(config=cfg)
     print(
         f"[Algo Server] http://{args.host}:{args.port}  "
-        f"checkpoint={args.checkpoint!r}  training={args.enable_training}"
+        f"auto_train={not args.no_auto_train}  checkpoint={args.checkpoint!r}"
     )
     run_server(host=args.host, port=args.port, service=service, debug=args.debug)
 
