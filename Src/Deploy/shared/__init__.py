@@ -1,1 +1,1 @@
-"""Shared deployment utilities for all physical nodes."""
+"""Deployment monitoring package."""

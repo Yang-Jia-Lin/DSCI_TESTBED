@@ -15,11 +15,11 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
+from Src.Algorithm.Objective.compute_P import compute_layer_exit_probs
+from Src.Algorithm.Objective.objective import get_lat_and_acc, objective
 from Src.Algorithm.Optimizer.DSCI.buffer import RolloutBuffer
 from Src.Algorithm.Optimizer.DSCI.networks import ActorCritic
-from Src.Objective.compute_P import compute_layer_exit_probs
-from Src.Objective.objective import get_lat_and_acc, objective
-from Src.Utils.parsing_data import split_points_matrix
+from Src.Algorithm.Utils.parsing_data import split_points_matrix
 
 
 # ---------- 状态构造（紧凑 Markov） ----------

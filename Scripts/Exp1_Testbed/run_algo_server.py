@@ -10,7 +10,7 @@ import argparse
 
 from Src.Algorithm.Interface.algo_service import AlgoService, AlgoServiceConfig
 from Src.Algorithm.Interface.api_server import run_server
-from Src.Configs.testbed_config import DEFAULT as TESTBED_CFG
+from Src.Deploy.deploy_config import DEFAULT as TESTBED_CFG
 
 
 def parse_args() -> argparse.Namespace:
@@ -20,7 +20,7 @@ def parse_args() -> argparse.Namespace:
         "--port",
         type=int,
         default=TESTBED_CFG.algo_server_port,
-        help="Bind port (default from testbed_config)",
+        help="Bind port (default from deploy_config)",
     )
     parser.add_argument(
         "--checkpoint",

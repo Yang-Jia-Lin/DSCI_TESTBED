@@ -7,10 +7,10 @@ from pathlib import Path
 
 import torch
 import torch.nn.functional as F
-from Src.Models.ModelNet.Resnet50 import Bottleneck, MultiEEResNet50
-from Src.Algorithm.Utils.utils_function import get_device, get_test_data_loaders
 
-from Src.Configs.paras import DATA_ROOT, WEIGHTS_DIR
+from Src.Algorithm.Utils.utils_function import get_device, get_test_data_loaders
+from Src.Models.ModelNet.Resnet50 import Bottleneck, MultiEEResNet50
+from Src.paras import DATA_ROOT, WEIGHTS_DIR
 
 
 def main():

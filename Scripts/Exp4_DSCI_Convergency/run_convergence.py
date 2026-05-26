@@ -12,7 +12,7 @@ from Scripts.Exp4_DSCI_Convergency.plot_convergency import (
     plot_entropy,
     plot_lan_and_acc,
 )
-from Src.Configs.paras import RESULT_CONVERGENCE_PATH, RESULT_DIR
+from Src.paras import RESULT_CONVERGENCE_PATH, RESULT_DIR
 
 
 def run_convergence_analysis(

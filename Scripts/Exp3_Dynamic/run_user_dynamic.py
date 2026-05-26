@@ -7,14 +7,14 @@ from datetime import datetime
 from pathlib import Path
 
 import numpy as np
-from Src.Algorithm.Optimizer.DSCI.run_DSCI import run_dsci_experiment
-from Src.Utils.utils_function import NumpyEncoder
 
 from Scripts.Exp3_Dynamic.plot_decision import plot_X, plot_Y
 from Scripts.Exp3_Dynamic.plot_latency_stacked import plot_latency_stacked
-from Src.Objective.compute_latency import compute_5_latency
-from Src.Objective.compute_P import compute_layer_exit_probs
-from Src.Configs.paras import RESULT_DYNAMIC_PATH, Paras
+from Src.Algorithm.Objective.compute_latency import compute_5_latency
+from Src.Algorithm.Objective.compute_P import compute_layer_exit_probs
+from Src.Algorithm.Optimizer.DSCI.run_DSCI import run_dsci_experiment
+from Src.Algorithm.Utils.utils_function import NumpyEncoder
+from Src.paras import RESULT_DYNAMIC_PATH, Paras
 
 
 def plot_user_dynamic(
@@ -125,6 +125,6 @@ if __name__ == "__main__":
     # )
 
     # 直接运行PPO的
-    from Src.Configs.paras import RESULT_DIR
+    from Src.paras import RESULT_DIR
 
     dynamic_with_data(RESULT_DIR / "Optimize" / "PPO" / "PPO_20260129_224216")

@@ -7,12 +7,12 @@ from typing import Dict, Tuple
 
 import numpy as np
 
-from Src.Configs.paras import RESULT_ABLATION_PATH, RESULT_DIR
-from Src.Objective.compute_accuracy import compute_expected_accuracy
-from Src.Objective.compute_latency import compute_total_latency
-from Src.Objective.compute_P import compute_layer_exit_probs
-from Src.Objective.objective import objective
-from Src.Utils.log_function import load_and_analyze_results
+from Src.Algorithm.Objective.compute_accuracy import compute_expected_accuracy
+from Src.Algorithm.Objective.compute_latency import compute_total_latency
+from Src.Algorithm.Objective.compute_P import compute_layer_exit_probs
+from Src.Algorithm.Objective.objective import objective
+from Src.Algorithm.Utils.log_function import load_and_analyze_results
+from Src.paras import RESULT_ABLATION_PATH, RESULT_DIR
 
 
 def evaluate_strategy(X, Y, F_e, F_c, paras, name: str = "Strategy") -> Dict:

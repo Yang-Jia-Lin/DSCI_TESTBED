@@ -3,7 +3,7 @@
 import numpy as np
 
 from Src.Algorithm.Utils.parsing_data import split_points_matrix
-from Src.Configs.paras import Paras
+from Src.paras import Paras
 
 _ALLOC_TOL = 1e-6
 

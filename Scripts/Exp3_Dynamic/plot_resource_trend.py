@@ -9,8 +9,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from Src.Configs.paras import COLORS, NUM_LAYERS
-from Src.Utils.plot_utils import save_fig_for_ieee, set_ieee_style
+from Src.Algorithm.Utils.plot_utils import save_fig_for_ieee, set_ieee_style
+from Src.paras import COLORS, NUM_LAYERS
 
 
 def plot_resource_trend(csv_path: Path, save_dir: Path):
@@ -93,7 +93,7 @@ def plot_resource_trend(csv_path: Path, save_dir: Path):
 
 if __name__ == "__main__":
     # 路径
-    from Src.Configs.paras import RESULT_TEST_PATH
+    from Src.paras import RESULT_TEST_PATH
 
     test_dir = Path(RESULT_TEST_PATH) / "Test_Resource_Trend"
     test_csv = test_dir / "test_dynamic_data.csv"

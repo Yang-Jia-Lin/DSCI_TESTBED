@@ -2,13 +2,15 @@
 Src/Experiments/Exp5_EE_Model/plot_combine_resnet.py
 """
 
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
 from pathlib import Path
 from typing import cast
-from Src.Utils.plot_utils import set_ieee_style, save_fig_for_ieee
-from Src.Configs.paras import OFFLINE_TABLE_DIR, RESULT_EE_MODEL_PATH, COLORS
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+
+from Src.Algorithm.Utils.plot_utils import save_fig_for_ieee, set_ieee_style
+from Src.paras import COLORS, OFFLINE_TABLE_DIR, RESULT_EE_MODEL_PATH
 
 
 def plot_expectation_vs_threshold(

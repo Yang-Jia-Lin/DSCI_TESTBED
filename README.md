@@ -1,3 +1,40 @@
+# DSCI Testbed
+
+DSCI Testbed is a three-node collaborative inference prototype for Device, Edge, and Cloud execution.
+Each node loads the same full `MultiEEResNet50` model and executes only the stages assigned by the
+algorithm decision JSON.
+
+## One-Click Startup (Windows)
+
+Each node directory has a startup wrapper. Logs are written to the project-root `Logs/` directory.
+After submitting background processes, the script prints the PID, log file paths, and whether each
+expected port is listening. If a process exits immediately, the script prints the tail of its error log.
+
+```powershell
+Src\Deploy\Cloud\start_cloud.ps1
+Src\Deploy\Edge\start_edge.ps1
+Src\Deploy\Device\start_device.ps1
+```
+
+Start Cloud first, then Edge, then Device. The Edge script starts the Algorithm API by default. If the
+Algorithm API is running somewhere else, start Edge with:
+
+```powershell
+Src\Deploy\Edge\start_edge.ps1 -NoAlgo
+```
+
+Stop with:
+
+```powershell
+Src\Deploy\Cloud\stop_cloud.ps1
+Src\Deploy\Edge\stop_edge.ps1
+Src\Deploy\Device\stop_device.ps1
+```
+
+## Manual Startup
+
+If you prefer the original multi-terminal startup method, use these commands:
+
 ```bash
 iperf3 -s -p 32264                              # Cloud: Edge->Cloud bandwidth
 python -m Src.Deploy.Cloud.run_cloud            # Cloud: status + feature service
@@ -8,12 +45,6 @@ python -m Src.Algorithm.Interface.api_server    # Algorithm API
 
 python -m Src.Deploy.Device.run_device          # Device
 ```
-
-# DSCI Testbed
-
-DSCI Testbed is a three-node collaborative inference prototype for Device, Edge, and Cloud execution.
-Each node loads the same full `MultiEEResNet50` model and executes only the stages assigned by the
-algorithm decision JSON.
 
 ## Runtime Layout
 
@@ -45,14 +76,13 @@ DSCI_testbed/
     |   |   |-- state_adapter.py
     |   |   `-- SolutionCache/
     |   `-- Optimizer/
-    |-- Configs/
     |-- Deploy/
     |   |-- Cloud/
     |   |-- Device/
     |   |   `-- Results/
     |   |-- Edge/
-    |   |-- monitor/
-    |   `-- shared/
+    |   |-- Shared/
+    |   `-- deploy_config.py
     `-- Models/
 ```
 
@@ -142,11 +172,8 @@ Ports used by Edge:
 | `9001` | Feature tensor input from Device |
 | `9002` | Edge status HTTP API (`/status`, returns `f_e_max` and `BW_e2c`) |
 
-> **Configuration required** - In `Src/Deploy/Edge/run_edge.py`, make the cloud-facing settings match the Cloud node:
-> - `CLOUD_IP` must be the real Cloud IP.
-> - `CLOUD_IPERF_PORT = 32264`.
-> - `CLOUD_FEATURE_PORT = 32266`.
-> Edge's own `5001`, `9001`, and `9002` ports stay unchanged.
+> **Configuration required** - Edit `Src/Deploy/deploy_config.py` if the Cloud address or ports change.
+> Edge reads `cloud_host`, `cloud_iperf_port`, and `cloud_feature_port` from that shared config.
 
 ---
 
@@ -168,17 +195,15 @@ Port used:
 
 ### 4. Device Node (Raspberry Pi)
 
-**Before starting**, edit `Src/Deploy/Device/run_device.py` and set the real IP addresses:
+**Before starting**, edit `Src/Deploy/deploy_config.py` and set the real IP addresses:
 
 ```python
-EDGE_IP  = "<Edge real IP>"
-CLOUD_IP = "<Cloud real IP>"
-CLOUD_STATUS_PORT = 32265
-IPERF_PORT_CLOUD = 32264
-ALGO_URL = "http://<API server IP>:8000/api/v1/decision"
+edge_host = "<Edge real IP>"
+cloud_host = "<Cloud real IP>"
+algo_host = "<Algorithm API real IP>"
 ```
 
-Also edit `Src/Deploy/monitor/bandwidth.py` and change `IPERF_EXE` for Linux/Raspberry Pi:
+Also edit `Src/Deploy/Shared/bandwidth_iperf.py` and change `IPERF_EXE` for Linux/Raspberry Pi:
 
 ```python
 # Replace the Windows path:
@@ -208,6 +233,14 @@ python -m Src.Deploy.Device.run_device
 
 Cloud and Edge services must be fully up before Device starts so that iperf3 measurements and status
 queries succeed on the first inference request.
+
+On Windows, the equivalent one-click order is:
+
+```
+1.  Cloud:   Src\Deploy\Cloud\start_cloud.ps1
+2.  Edge:    Src\Deploy\Edge\start_edge.ps1
+3.  Device:  Src\Deploy\Device\start_device.ps1
+```
 
 ---
 
@@ -279,7 +312,7 @@ Weights are loaded as a `state_dict` from `Data/Weights/full_model.pth`. Runtime
   with the DSCI training environment.
 - For Raspberry Pi deployment, keep the module commands consistent and adjust:
   - IP addresses and ports in deploy scripts.
-  - `IPERF_EXE` in `Src/Deploy/monitor/bandwidth.py` to `"iperf3"`.
+  - `IPERF_EXE` in `Src/Deploy/Shared/bandwidth_iperf.py` to `"iperf3"`.
   - PyTorch/ONNX/MNN runtime availability.
   - `Data/Weights/full_model.pth`.
   - `Data/OfflineTables/` CSV files.

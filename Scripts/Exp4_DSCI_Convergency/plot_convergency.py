@@ -6,9 +6,9 @@ from datetime import datetime
 from pathlib import Path
 
 import matplotlib.pyplot as plt
-from Src.Utils.plot_utils import save_fig_for_ieee, set_ieee_style
 
-from Src.Configs.paras import COLORS, RESULT_CONVERGENCE_PATH
+from Src.Algorithm.Utils.plot_utils import save_fig_for_ieee, set_ieee_style
+from Src.paras import COLORS, RESULT_CONVERGENCE_PATH
 
 
 def plot_convergence(
@@ -117,8 +117,7 @@ def plot_lan_and_acc(latency, acc, save_dir=Path(RESULT_CONVERGENCE_PATH)):
 
 if __name__ == "__main__":
     from Src.Algorithm.Utils.log_function import load_and_analyze_results
-
-    from Src.Configs.paras import RESULT_DIR, RESULT_TEST_PATH
+    from Src.paras import RESULT_DIR, RESULT_TEST_PATH
 
     PPO_path = RESULT_DIR / "Optimize" / "PPO" / "PPO_20260129_202802"
     X_opt, Y_opt, F_e, F_c, history, paras = load_and_analyze_results(

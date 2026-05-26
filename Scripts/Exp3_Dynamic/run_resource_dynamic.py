@@ -11,9 +11,9 @@ import pandas as pd
 
 from Scripts.Exp3_Dynamic.plot_resource_trend import plot_resource_trend
 from Src.Algorithm.Optimizer.DSCI.run_DSCI import run_dsci_experiment
-from Src.Configs.paras import RESULT_DYNAMIC_PATH
-from Src.Utils.parsing_data import split_points_matrix
-from Src.Utils.utils_function import NumpyEncoder
+from Src.Algorithm.Utils.parsing_data import split_points_matrix
+from Src.Algorithm.Utils.utils_function import NumpyEncoder
+from Src.paras import RESULT_DYNAMIC_PATH
 
 
 def start_resource_experiment(sweep_var: str, sweep_range: list, static_params):

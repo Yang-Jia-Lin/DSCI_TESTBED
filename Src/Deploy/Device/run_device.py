@@ -13,24 +13,16 @@ import torch.nn.functional as F
 # from torchvision import transforms
 # from torchvision.datasets import CIFAR10
 from Src.Deploy.Device.comm import send_tensor
-from Src.Deploy.monitor.bandwidth import measure_bandwidth_iperf
-from Src.Deploy.monitor.cpu_monitor import get_cpu_available_cores
-from Src.Deploy.monitor.state_reporter import report_status
-from Src.Deploy.shared.model_loader import (
+from Src.Deploy.deploy_config import DEFAULT as TESTBED_CFG
+from Src.Deploy.Shared.bandwidth_iperf import measure_bandwidth_iperf
+from Src.Deploy.Shared.cpu_monitor import get_cpu_available_cores
+from Src.Deploy.Shared.state_reporter import report_status
+from Src.Deploy.Shared.model_loader import (
     load_full_model,
     stage_end_from_partition_boundary,
     threshold_for_stage,
 )
 
-# 配置常量
-EDGE_IP = "100.72.193.11"
-CLOUD_IP = "172.16.6.101"
-EDGE_PORT_FEATURE = 9001
-IPERF_PORT_EDGE = 5001
-IPERF_PORT_CLOUD = 5002
-EDGE_STATUS_PORT = 9002
-CLOUD_STATUS_PORT = 9003
-ALGO_URL = "http://100.72.193.11:8000/api/v1/decision"
 TEST_SAMPLES = 100
 RESULTS_DIR = Path(__file__).resolve().parent / "Results"
 CSV_OUTPUT = RESULTS_DIR / f"test_results_{datetime.now().strftime('%Y%m%d%H%M%S')}.csv"
@@ -202,7 +194,9 @@ def run_single_inference(input_tensor, label, decision, bw_d2e, bw_e2c, cpu_avai
     }
     payload = {"tensor": features, "meta": meta}
     try:
-        response = send_tensor(payload, EDGE_IP, EDGE_PORT_FEATURE)
+        response = send_tensor(
+            payload, TESTBED_CFG.edge_host, TESTBED_CFG.edge_feature_port
+        )
     except Exception as e:
         print(f"发送特征到边缘失败: {e}")
         return {
@@ -268,14 +262,18 @@ def main():
 
     print("Collecting current state...")
     cpu_avail = get_cpu_available_cores()
-    bw_d2e = measure_bandwidth_iperf(EDGE_IP, IPERF_PORT_EDGE)
+    bw_d2e = measure_bandwidth_iperf(
+        TESTBED_CFG.edge_host, TESTBED_CFG.edge_iperf_port
+    )
     try:
-        edge_status = requests.get(f"http://{EDGE_IP}:{EDGE_STATUS_PORT}/status").json()
+        edge_status = requests.get(
+            f"http://{TESTBED_CFG.edge_host}:{TESTBED_CFG.edge_status_port}/status"
+        ).json()
         cloud_status = requests.get(
-            f"http://{CLOUD_IP}:{CLOUD_STATUS_PORT}/status"
+            f"http://{TESTBED_CFG.cloud_host}:{TESTBED_CFG.cloud_status_port}/status"
         ).json()
     except (requests.RequestException, ValueError, KeyError):
-        edge_status = {"f_e_max": 4.0, "BW_e2c": 500}
+        edge_status = {"f_e_max": 4.0, "BW_e2c": TESTBED_CFG.default_bw_e2c}
         cloud_status = {"f_c_max": 8.0}
 
     algo_state = {
@@ -286,7 +284,7 @@ def main():
     }
     print("Collected state:", algo_state)
 
-    decision = report_status(ALGO_URL, algo_state)
+    decision = report_status(TESTBED_CFG.algo_decision_url, algo_state)
     if not decision:
         print("No decision received; exiting.")
         return

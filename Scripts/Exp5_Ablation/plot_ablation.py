@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 
 from Src.Algorithm.Utils.plot_utils import save_fig_for_ieee, set_ieee_style
-from Src.Configs.paras import COLORS, RESULT_ABLATION_PATH
+from Src.paras import COLORS, RESULT_ABLATION_PATH
 
 
 def _to_float(x):
@@ -170,7 +170,7 @@ if __name__ == "__main__":
         }
     )
 
-    from Src.Configs.paras import RESULT_TEST_PATH
+    from Src.paras import RESULT_TEST_PATH
 
     plot_bubble_chart(mock_data, save_dir=Path(RESULT_TEST_PATH))
     plot_utility_bar(mock_data, save_dir=Path(RESULT_TEST_PATH))

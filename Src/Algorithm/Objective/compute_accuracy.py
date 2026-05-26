@@ -4,7 +4,8 @@ Src/Objective/compute_accuracy.py
 """
 
 import numpy as np
-from Src.Configs.paras import Paras
+
+from Src.paras import Paras
 
 
 def _get_acc(Y_ij, j, exit_rates):
@@ -35,8 +36,8 @@ def compute_expected_accuracy(Y, P, paras):
 
 
 if __name__ == "__main__":
-    from Src.Utils.parsing_data import parsing_rate_and_acc
-    from Src.Objective.compute_P import compute_layer_exit_probs
+    from Src.Algorithm.Objective.compute_P import compute_layer_exit_probs
+    from Src.Algorithm.Utils.parsing_data import parsing_rate_and_acc
 
     paras = Paras()
     paras.rates, paras.accs = parsing_rate_and_acc(paras)

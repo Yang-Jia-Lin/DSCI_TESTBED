@@ -4,8 +4,8 @@ from Src.Algorithm.Interface.algo_service import AlgoService, AlgoServiceConfig
 from Src.Algorithm.Interface.decision_codec import DecisionCodecError
 from Src.Algorithm.Interface.reward_adapter import RewardAdapterError
 from Src.Algorithm.Interface.state_adapter import to_paras
-from Src.Configs.model_config import get_model_config
-from Src.Configs.testbed_config import DEFAULT as TESTBED_CFG
+from Src.Deploy.deploy_config import DEFAULT as TESTBED_CFG
+from Src.Models.model_config import get_model_config
 
 try:
     from flask import Flask, jsonify, request
@@ -36,9 +36,9 @@ def create_app(service: AlgoService | None = None) -> Flask:
             return jsonify(decision)
         except KeyError as exc:
             return _error(f"Invalid state payload: {exc}", 400)
-        except ValueError as exc:
-            return _error(str(exc), 400)
         except DecisionCodecError as exc:
+            return _error(str(exc), 400)
+        except ValueError as exc:
             return _error(str(exc), 400)
         except RuntimeError as exc:
             return _error(str(exc), 409)
@@ -101,15 +101,14 @@ def _validate_state_payload(state: dict) -> None:
 
 
 def run_server(
-    host: str = "0.0.0.0",
+    host: str = TESTBED_CFG.listen_host,
     port: int | None = None,
     service: AlgoService | None = None,
     debug: bool = False,
 ) -> None:
     """Blocking entrypoint for the testbed algorithm HTTP server."""
     app = create_app(service)
-    listen_port = int(
-        port if port is not None else TESTBED_CFG.algo_server_port)
+    listen_port = int(port if port is not None else TESTBED_CFG.algo_server_port)
     app.run(host=host, port=listen_port, debug=debug, threaded=True)
 
 
@@ -132,6 +131,6 @@ def build_service_from_env(
     return AlgoService(config=cfg)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     service = AlgoService()
-    run_server(service=service, port=8000)
+    run_server(service=service)

@@ -4,10 +4,11 @@ import time
 import torch
 from flask import Flask, jsonify
 
+from Src.Deploy.deploy_config import DEFAULT as TESTBED_CFG
 from Src.Deploy.Edge.comm import receive_tensor, send_response
 from Src.Deploy.Edge.resource_ctrl import get_max_cpu
-from Src.Deploy.monitor.bandwidth import measure_bandwidth_iperf
-from Src.Deploy.shared.model_loader import load_full_model, threshold_for_stage
+from Src.Deploy.Shared.bandwidth_iperf import measure_bandwidth_iperf
+from Src.Deploy.Shared.model_loader import load_full_model, threshold_for_stage
 
 status_app = Flask(__name__)
 
@@ -15,14 +16,21 @@ status_app = Flask(__name__)
 @status_app.route("/status")
 def status():
     return jsonify(
-        {"f_e_max": get_max_cpu(), "BW_e2c": measure_bandwidth_iperf("127.0.0.1", 5002)}
+        {
+            "f_e_max": get_max_cpu(),
+            "BW_e2c": measure_bandwidth_iperf(
+                TESTBED_CFG.cloud_host, TESTBED_CFG.cloud_iperf_port
+            ),
+        }
     )
 
 
 def run_feature_server():
     model = load_full_model()
     while True:
-        payload, conn = receive_tensor("0.0.0.0", 9001)
+        payload, conn = receive_tensor(
+            TESTBED_CFG.listen_host, TESTBED_CFG.edge_feature_port
+        )
         if payload is None:
             if conn:
                 conn.close()
@@ -69,7 +77,11 @@ def run_feature_server():
         cloud_payload = {"tensor": features, "meta": meta}
         t_fwd = time.perf_counter()
         try:
-            cloud_resp = send_to_cloud(cloud_payload, "127.0.0.1", 9004)
+            cloud_resp = send_to_cloud(
+                cloud_payload,
+                TESTBED_CFG.cloud_host,
+                TESTBED_CFG.cloud_feature_port,
+            )
         except Exception as e:
             send_response(conn, {"status": "error", "message": str(e)})
             conn.close()
@@ -92,7 +104,10 @@ def run_feature_server():
 if __name__ == "__main__":
     threading.Thread(
         target=lambda: status_app.run(
-            host="0.0.0.0", port=9002, debug=False, use_reloader=False
+            host=TESTBED_CFG.listen_host,
+            port=TESTBED_CFG.edge_status_port,
+            debug=False,
+            use_reloader=False,
         ),
         daemon=True,
     ).start()

@@ -5,9 +5,9 @@ Src/Objective/compute_latency.py
 
 import numpy as np
 
-from Src.Configs.paras import Paras
-from Src.Objective.compute_exit_points import compute_exit_points
-from Src.Objective.compute_P import compute_layer_exit_probs
+from Src.Algorithm.Objective.compute_exit_points import compute_exit_points
+from Src.Algorithm.Objective.compute_P import compute_layer_exit_probs
+from Src.paras import Paras
 
 
 def _compute_end_to_edge_delay(d_i, h_i, B_e, G, delta):

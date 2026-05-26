@@ -11,10 +11,10 @@ import torch
 import torch.nn.functional as F
 from tqdm import tqdm
 
-from Src.Models.ModelNet.Resnet50 import Bottleneck, MultiEEResNet50
 from Src.Algorithm.Utils.log_function import save_thr_data
 from Src.Algorithm.Utils.utils_function import get_device, get_test_data_loaders
-from Src.Configs.paras import DATA_ROOT, OFFLINE_TABLE_DIR, WEIGHTS_DIR
+from Src.Models.ModelNet.Resnet50 import Bottleneck, MultiEEResNet50
+from Src.paras import DATA_ROOT, OFFLINE_TABLE_DIR, WEIGHTS_DIR
 
 
 def evaluate_model(device, test_loader, model, threshold):

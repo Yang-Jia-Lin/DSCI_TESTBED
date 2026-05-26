@@ -6,8 +6,8 @@ from typing import Any
 import numpy as np
 import torch
 
-from Src.Configs.algo_config import DEFAULT as DEFAULT_ALGO_CONFIG
-from Src.Configs.paras import Paras
+from Src.Algorithm.algo_config import DEFAULT as DEFAULT_ALGO_CONFIG
+from Src.paras import Paras
 
 
 class RewardAdapterError(ValueError):

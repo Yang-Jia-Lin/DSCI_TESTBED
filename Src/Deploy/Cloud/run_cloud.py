@@ -5,9 +5,10 @@ import time
 import torch
 from flask import Flask, jsonify
 
+from Src.Deploy.deploy_config import DEFAULT as TESTBED_CFG
 from Src.Deploy.Cloud.comm import receive_tensor
 from Src.Deploy.Cloud.resource_ctrl import get_max_cpu
-from Src.Deploy.shared.model_loader import load_full_model
+from Src.Deploy.Shared.model_loader import load_full_model
 
 status_app = Flask(__name__)
 
@@ -21,7 +22,9 @@ def run_feature_server():
     model = load_full_model()
 
     while True:
-        payload, conn = receive_tensor("0.0.0.0", 32266)
+        payload, conn = receive_tensor(
+            TESTBED_CFG.listen_host, TESTBED_CFG.cloud_feature_port
+        )
         if payload is None:
             if conn:
                 conn.close()
@@ -58,7 +61,10 @@ def run_feature_server():
 if __name__ == "__main__":
     threading.Thread(
         target=lambda: status_app.run(
-            host="0.0.0.0", port=32265, debug=False, use_reloader=False
+            host=TESTBED_CFG.listen_host,
+            port=TESTBED_CFG.cloud_status_port,
+            debug=False,
+            use_reloader=False,
         ),
         daemon=True,
     ).start()

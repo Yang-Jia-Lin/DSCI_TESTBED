@@ -49,7 +49,7 @@ def compute_layer_exit_probs(Y, paras):
 # Test Block
 # ==========================================
 if __name__ == "__main__":
-    from Src.Configs.paras import Paras
+    from Src.paras import Paras
 
     print(">>> 正在初始化参数并读取真实数据...")
 

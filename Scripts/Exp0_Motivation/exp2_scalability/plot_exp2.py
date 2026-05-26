@@ -20,7 +20,7 @@ PROJECT_ROOT = os.path.abspath(
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-from Src.Utils.plot_utils import save_fig_for_ieee, set_ieee_style  # noqa: E402
+from Src.Algorithm.Utils.plot_utils import save_fig_for_ieee, set_ieee_style  # noqa: E402
 
 from Scripts.Exp0_Motivation.utils.output_paths import resolve_output_dir
 
@@ -115,9 +115,7 @@ def plot_throughput_overhead(payload: dict, output_dir: Path) -> None:
             fontsize=9,
         )
 
-    n_pr, o_pr = _get_series(
-        results, "Per-Request", "scheduling_overhead_ratio_pct"
-    )
+    n_pr, o_pr = _get_series(results, "Per-Request", "scheduling_overhead_ratio_pct")
     n_ds, o_ds = _get_series(results, "DSCI", "scheduling_overhead_ratio_pct")
     x = np.arange(len(n_pr))
     w = 0.35

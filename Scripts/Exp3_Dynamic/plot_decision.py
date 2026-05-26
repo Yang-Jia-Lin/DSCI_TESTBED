@@ -8,8 +8,8 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 
-from Src.Configs.paras import COLORS, Paras
-from Src.Utils.plot_utils import save_fig_for_ieee, set_ieee_style
+from Src.Algorithm.Utils.plot_utils import save_fig_for_ieee, set_ieee_style
+from Src.paras import COLORS, Paras
 
 
 def plot_X(X_opt, EE_layers, save_dir: Path):
@@ -87,7 +87,7 @@ if __name__ == "__main__":
     Y[7, 57] = 0.1
     Y[9, 103] = 0.5
 
-    from Src.Configs.paras import RESULT_TEST_PATH
+    from Src.paras import RESULT_TEST_PATH
 
     plot_X(X, paras.E, save_dir=Path(RESULT_TEST_PATH))
     plot_Y(Y, paras.E, save_dir=Path(RESULT_TEST_PATH))

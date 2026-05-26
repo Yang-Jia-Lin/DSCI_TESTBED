@@ -20,7 +20,7 @@ PROJECT_ROOT = os.path.abspath(
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-from Src.Utils.plot_utils import save_fig_for_ieee, set_ieee_style  # noqa: E402
+from Src.Algorithm.Utils.plot_utils import save_fig_for_ieee, set_ieee_style  # noqa: E402
 
 from Scripts.Exp0_Motivation.utils.output_paths import resolve_output_dir
 
@@ -75,7 +75,7 @@ def plot_main_figure(payload: dict, output_dir: Path) -> None:
             bw, lat = _series(results, group, name)
             kw = {**STYLES[name]}
             lw = kw.pop("linewidth", None)
-            line, = ax.plot(bw, lat, label=name, **kw)
+            (line,) = ax.plot(bw, lat, label=name, **kw)
             if lw:
                 line.set_linewidth(lw)
             curves[name] = (bw, lat)
@@ -157,8 +157,12 @@ def plot_split_drift(payload: dict, output_dir: Path) -> None:
 
     xmin, xmax = ax.get_xlim()
     x_text = xmin + 0.03 * (xmax - xmin)
-    ax.text(x_text, exit_layers[0] + 1.5, f"L{exit_layers[0]}", fontsize=7, color="gray")
-    ax.text(x_text, exit_layers[1] + 1.5, f"L{exit_layers[1]}", fontsize=7, color="gray")
+    ax.text(
+        x_text, exit_layers[0] + 1.5, f"L{exit_layers[0]}", fontsize=7, color="gray"
+    )
+    ax.text(
+        x_text, exit_layers[1] + 1.5, f"L{exit_layers[1]}", fontsize=7, color="gray"
+    )
     ax.text(x_text, final_layer + 1.0, f"L{final_layer}", fontsize=7, color="gray")
 
     ax.set_xlabel("Bandwidth (Mbps)")

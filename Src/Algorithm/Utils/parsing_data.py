@@ -2,13 +2,14 @@
 Src/Utils/parsing_data.py
 """
 
-import numpy as np
-import pandas as pd
 from pathlib import Path
 from typing import Tuple
 
-from Src.Configs.model_config import RESNET50
-from Src.Configs.paras import Paras
+import numpy as np
+import pandas as pd
+
+from Src.Models.model_config import RESNET50
+from Src.paras import Paras
 
 
 def _resolve_rate_acc_paths(
@@ -30,24 +31,24 @@ def parsing_rate_and_acc(
     df_rate = pd.read_csv(rate_csv)
 
     m = paras.m
-    exit_layer: list[int] = paras.E
+    exit_layer = paras.E
     num_thresholds = len(df_acc) + 1
     num_exits = len(exit_layer)
     rate_matrix = np.zeros((num_thresholds, m))
     acc_matrix = np.zeros((num_thresholds, m))
 
     # 提取 Rate
-    for row_idx, threshold in enumerate(df_rate.itertuples(index=False)):
-        exit_rates = threshold[1 : num_exits + 1]  # 提取
+    for idx, threshold in enumerate(df_rate.itertuples(index=False)):
+        exit_rates = np.asarray(threshold[1 : num_exits + 1])  # 提取
         for i, layer in enumerate(exit_layer):  # 填充
-            rate_matrix[row_idx, layer] = exit_rates[i]
+            rate_matrix[idx, layer] = exit_rates[i]
 
     # 提取 Acc
-    for row_idx, threshold in enumerate(df_acc.itertuples(index=False)):
-        exit_accuracies = threshold[1 : num_exits + 1]
+    for idx, threshold in enumerate(df_acc.itertuples(index=False)):
+        exit_accuracies = np.asarray(threshold[1 : num_exits + 1])
         # print(f"threshold.values is {threshold[num_exits + 1]}")
         for i, layer in enumerate(exit_layer):
-            acc_matrix[row_idx, layer] = exit_accuracies[i]
+            acc_matrix[idx, layer] = exit_accuracies[i]
         acc_matrix[:, m - 1] = threshold[num_exits + 1]
     return rate_matrix, acc_matrix
 
@@ -68,6 +69,6 @@ def split_points_matrix(X: np.ndarray) -> np.ndarray:
 
 if __name__ == "__main__":
     paras = Paras()
-    assert paras.accs is not None, "Paras.accs should be initialized"
+    assert paras.accs is not None, "Accs data not loaded"
     print(paras.accs[:, 57])
     print(paras.accs[:, 127])

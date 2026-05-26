@@ -3,10 +3,10 @@ Src/Optimizer/BF/run_BF.py
 """
 
 from pathlib import Path
-from Src.Configs.paras import Paras, RESULT_BF_PATH
-from Src.Algorithm.Optimizer.BF.alg_BF import optimize_BF
-from Src.Utils.log_function import save_experiment_results
 
+from Src.Algorithm.Optimizer.BF.alg_BF import optimize_BF
+from Src.Algorithm.Utils.log_function import save_experiment_results
+from Src.paras import RESULT_BF_PATH, Paras
 
 paras = Paras()
 BF_hyperparams = {"max_iter": 5, "restarts": 2, "threshold_step": 0.05}

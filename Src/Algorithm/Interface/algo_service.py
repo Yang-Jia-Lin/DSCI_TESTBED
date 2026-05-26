@@ -12,12 +12,15 @@ from typing import Any
 
 import numpy as np
 
+from Src.Algorithm.algo_config import DEFAULT as DEFAULT_ALGO_CONFIG
 from Src.Algorithm.Interface.decision_codec import encode
 from Src.Algorithm.Interface.reward_adapter import (
     RoundRewardResult,
     compute_round_reward,
 )
 from Src.Algorithm.Interface.state_adapter import to_paras
+from Src.Algorithm.Objective.compute_P import compute_layer_exit_probs
+from Src.Algorithm.Objective.objective import objective
 from Src.Algorithm.Optimizer.DSCI.agent import (
     PPOAgent,
     _init_feasible_XY,
@@ -25,10 +28,7 @@ from Src.Algorithm.Optimizer.DSCI.agent import (
     compute_iota_kappa,
 )
 from Src.Algorithm.Optimizer.DSCI.run_DSCI import _build_ppo_params
-from Src.Configs.algo_config import DEFAULT as DEFAULT_ALGO_CONFIG
-from Src.Configs.paras import Paras
-from Src.Objective.compute_P import compute_layer_exit_probs
-from Src.Objective.objective import objective
+from Src.paras import Paras
 
 INTERFACE_SOLUTION_DIR = Path(__file__).resolve().parent / "SolutionCache"
 LATEST_SOLUTION_PATH = INTERFACE_SOLUTION_DIR / "latest_solution.npz"
@@ -87,7 +87,9 @@ class AlgoService:
 
     config: AlgoServiceConfig = field(default_factory=AlgoServiceConfig)
     _lock: threading.RLock = field(default_factory=threading.RLock, repr=False)
-    _cached_solution: CachedSolution | None = field(default=None, init=False, repr=False)
+    _cached_solution: CachedSolution | None = field(
+        default=None, init=False, repr=False
+    )
     _training_status: str = field(default="idle", init=False, repr=False)
     _training_signature: dict[str, Any] | None = field(
         default=None, init=False, repr=False
@@ -174,7 +176,9 @@ class AlgoService:
             f_c.reshape(paras.n, 1).astype(np.float32),
         )
 
-    def _default_solution(self, paras: Paras, signature: dict[str, Any]) -> CachedSolution:
+    def _default_solution(
+        self, paras: Paras, signature: dict[str, Any]
+    ) -> CachedSolution:
         X, Y = _init_feasible_XY(paras)
         F_e, F_c = self._allocate_resources_for_xy(X, Y, paras)
         obj = float(objective(X, Y, F_e, F_c, paras))
@@ -208,7 +212,9 @@ class AlgoService:
             if placement in ("dsci", "cached", "auto"):
                 return None
             if placement not in ("device", "edge", "cloud"):
-                raise ValueError("decision_mode.placement must be device, edge, or cloud")
+                raise ValueError(
+                    "decision_mode.placement must be device, edge, or cloud"
+                )
             return placement, bool(mode.get("early_exit", False))
 
         raise ValueError("decision_mode must be a string or object")
@@ -330,7 +336,9 @@ class AlgoService:
         if preset_mode is None:
             with self._lock:
                 cached = self._cached_solution
-                using_cache = cached is not None and self._arrays_compatible(cached, paras)
+                using_cache = cached is not None and self._arrays_compatible(
+                    cached, paras
+                )
                 solution = self._solution_for_response(paras, signature)
                 if self._should_start_training(signature, paras):
                     self._start_training_locked(state, signature)
@@ -338,7 +346,9 @@ class AlgoService:
         else:
             placement, early_exit = preset_mode
             solution = self._preset_solution(paras, signature, placement, early_exit)
-            decision_source = f"preset:{placement}:{'early_exit' if early_exit else 'no_exit'}"
+            decision_source = (
+                f"preset:{placement}:{'early_exit' if early_exit else 'no_exit'}"
+            )
 
         decision_id = state.get("round_id") or f"round_{int(time.time() * 1000)}"
         model_name = state.get("model_name")

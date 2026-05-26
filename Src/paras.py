@@ -1,6 +1,4 @@
-"""Src/Configs/paras.py
-ä»¿çä»£ç ï¼Paras() æ?Paras.from_dict(...)
-æµè¯å¹³å°ï¼Paras.from_state(...) ä»æµéç¶æ?JSON ä¸­æå»?"""
+"""Src/Configs/paras.py"""
 
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -8,9 +6,10 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from Src.Configs.algo_config import DEFAULT as ALGO_CFG
-from Src.Configs.model_config import ModelConfig, RESNET50 as MODEL_CFG
-from Src.Configs.testbed_config import DEFAULT as TESTBED_CFG
+from Src.Algorithm.algo_config import DEFAULT as ALGO_CFG
+from Src.Deploy.deploy_config import DEFAULT as TESTBED_CFG
+from Src.Models.model_config import RESNET50 as MODEL_CFG
+from Src.Models.model_config import ModelConfig
 
 BASE_DRIVE = Path(__file__).resolve().parents[2]
 DATA_DIR = BASE_DRIVE / "Data"
