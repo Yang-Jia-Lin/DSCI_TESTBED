@@ -1,9 +1,11 @@
 ```bash
 iperf3 -s -p 32264                              # Cloud: Edge->Cloud bandwidth
 python -m Src.Deploy.Cloud.run_cloud            # Cloud: status + feature service
+
 iperf3 -s -p 5001                               # Edge: Device->Edge bandwidth
 python -m Src.Deploy.Edge.run_edge              # Edge: status + feature service
 python -m Src.Algorithm.Interface.api_server    # Algorithm API
+
 python -m Src.Deploy.Device.run_device          # Device
 ```
 
@@ -213,8 +215,8 @@ queries succeed on the first inference request.
 
 | Port | Owner | Purpose |
 | --- | --- | --- |
-| `5001` | Edge | iperf3 server 闂?Device闂備焦鍓氶崑鍛櫠閻㈩泹e bandwidth measurement |
-| `32264` | Cloud | iperf3 server 闂?Edge闂備焦鍓氶崑鍛櫠閻滅尦ud bandwidth measurement |
+| `5001` | Edge | iperf3 server - Device->Edge bandwidth measurement |
+| `32264` | Cloud | iperf3 server - Edge->Cloud bandwidth measurement |
 | `8000` | Algorithm API | Decision and health HTTP API |
 | `9001` | Edge | Feature tensor input from Device |
 | `9002` | Edge | Edge status HTTP API (`f_e_max`, `BW_e2c`) |
