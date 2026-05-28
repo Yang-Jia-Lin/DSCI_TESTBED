@@ -277,7 +277,7 @@ Device                         Edge                          Cloud
   |-- TCP ---------------------->| :9001                        |
   |   send feature tensor        |-- inference stage s1+1..s2   |
   |                              |-- TCP ---------------------->| :32266
-  |                              |   forward feature tensor      |-- inference s2+1..end
+  |                              |   forward feature tensor     |-- inference s2+1..end
   |<-----------------------------|<-----------------------------|
   |   receive final result       |                              |
 ```
