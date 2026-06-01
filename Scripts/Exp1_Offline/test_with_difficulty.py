@@ -5,12 +5,12 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+from Src.Models.model_config import RESNET50 as MODEL_CFG
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from Src.Models.model_config import RESNET50 as MODEL_CFG
 
 EXIT1_LAYER = 57
 EXIT2_LAYER = 103
@@ -328,8 +328,7 @@ def main():
     output_dir.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
     output_csv = (
-        output_dir
-        / f"{MODEL_CFG.artifact_prefix}_difficulty_results_{timestamp}.csv"
+        output_dir / f"{MODEL_CFG.artifact_prefix}_difficulty_results_{timestamp}.csv"
     )
     pd.DataFrame(rows).to_csv(output_csv, index=False)
 

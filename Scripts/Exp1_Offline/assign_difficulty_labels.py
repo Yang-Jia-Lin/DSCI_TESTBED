@@ -4,12 +4,11 @@ import argparse
 import sys
 from pathlib import Path
 
+from Src.Models.model_config import RESNET50 as MODEL_CFG
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
-
-from Src.Models.model_config import RESNET50 as MODEL_CFG
 
 
 def assign_difficulty(confidence: float, easy_min: float, hard_max: float) -> str:
@@ -62,7 +61,14 @@ def main():
     input_path = Path(args.input_path)
     output_path = Path(args.output_path)
     df = pd.read_csv(input_path)
-    required = {"image_id", "true_label", "pred_label", "correct", "confidence", "entropy"}
+    required = {
+        "image_id",
+        "true_label",
+        "pred_label",
+        "correct",
+        "confidence",
+        "entropy",
+    }
     missing = required - set(df.columns)
     if missing:
         raise ValueError(f"{input_path} is missing required columns: {sorted(missing)}")

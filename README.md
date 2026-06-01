@@ -57,7 +57,7 @@ DSCI_testbed/
 |       |-- resnet50_cifar10_difficulty_labeled.csv
 |       `-- resnet50_cifar10_confidence_stats.json
 |-- Scripts/
-|   |-- Exp0_Offline/
+|   |-- Exp1_Offline/
 |   |-- Exp0_Motivation/
 |   |-- Exp1_Testbed/
 |   |-- Exp2_Baseline/
@@ -93,7 +93,7 @@ DSCI_testbed/
 | --- | --- |
 | 完整模型权重 | `Data/Weights/resnet50_cifar10_multi_ee.pth` |
 | 离线 CSV lookup table | `Data/OfflineTables/` |
-| 离线实验脚本 | `Scripts/Exp0_Offline/` |
+| 离线实验脚本 | `Scripts/Exp1_Offline/` |
 | 脚本实验输出 | `Scripts/Results/` |
 | Algorithm API 最新 DSCI 决策缓存 | `Src/Algorithm/Interface/SolutionCache/latest_solution.npz` |
 | Algorithm API 最新缓存元数据 | `Src/Algorithm/Interface/SolutionCache/latest_solution_meta.json` |
@@ -104,14 +104,14 @@ DSCI_testbed/
 
 ## Offline 模块
 
-`Scripts/Exp0_Offline/` 存放重复 testbed 或仿真实验之前需要先运行的离线预处理步骤。可复用输出统一放在 `Data/OfflineTables/`。
+`Scripts/Exp1_Offline/` 存放重复 testbed 或仿真实验之前需要先运行的离线预处理步骤。可复用输出统一放在 `Data/OfflineTables/`。
 
 ### 1. 生成早退 lookup table
 
 只有在 CIFAR-10 测试集、模型权重或阈值网格变化时才需要重新运行：
 
 ```powershell
-python Scripts\Exp0_Offline\resnet50_thred_curve.py `
+python Scripts\Exp1_Offline\resnet50_thred_curve.py `
   --model_path Data\Weights\resnet50_cifar10_multi_ee.pth `
   --data_root Data\CIFAR10 `
   --output_dir Data\OfflineTables `
@@ -132,7 +132,7 @@ python Scripts\Exp0_Offline\resnet50_thred_curve.py `
 使用完整 ResNet50 对 CIFAR-10 test set 跑一次 final head，记录每个样本的置信度和熵：
 
 ```powershell
-python Scripts\Exp0_Offline\profile_difficulty.py `
+python Scripts\Exp1_Offline\profile_difficulty.py `
   --model_path Data\Weights\resnet50_cifar10_multi_ee.pth `
   --data_root Data\CIFAR10 `
   --output_dir Data\OfflineTables
@@ -150,7 +150,7 @@ python Scripts\Exp0_Offline\profile_difficulty.py `
 根据 profiling 统计结果选择阈值，然后生成可复用的 labeled table：
 
 ```powershell
-python Scripts\Exp0_Offline\assign_difficulty_labels.py `
+python Scripts\Exp1_Offline\assign_difficulty_labels.py `
   --input_path Data\OfflineTables\resnet50_cifar10_difficulty_raw.csv `
   --output_path Data\OfflineTables\resnet50_cifar10_difficulty_labeled.csv `
   --easy_min 0.90 `
@@ -164,12 +164,12 @@ python Scripts\Exp0_Offline\assign_difficulty_labels.py `
 运行本地早退测试，并按 easy、medium、hard 汇总 accuracy、local exit rate 和 avg exit layer：
 
 ```powershell
-python Scripts\Exp0_Offline\test_with_difficulty.py `
+python Scripts\Exp1_Offline\test_with_difficulty.py `
   --model_path Data\Weights\resnet50_cifar10_multi_ee.pth `
   --table_path Data\OfflineTables\resnet50_cifar10_difficulty_labeled.csv `
   --data_root Data\CIFAR10 `
   --partition_idx 3 `
-  --output_dir Scripts\Results\Exp0_Offline `
+  --output_dir Scripts\Results\Exp1_Offline `
   --exit_threshold_57 0.80 `
   --exit_threshold_103 0.80
 ```
@@ -178,7 +178,7 @@ python Scripts\Exp0_Offline\test_with_difficulty.py `
 
 | 文件 | 作用 |
 | --- | --- |
-| `Scripts/Results/Exp0_Offline/resnet50_cifar10_difficulty_results_YYYYMMDDHHMMSS.csv` | 逐样本预测、置信度、难度标签、退出层和是否传到 Cloud |
+| `Scripts/Results/Exp1_Offline/resnet50_cifar10_difficulty_results_YYYYMMDDHHMMSS.csv` | 逐样本预测、置信度、难度标签、退出层和是否传到 Cloud |
 
 可以用 `--difficulty easy`、`--difficulty medium`、`--difficulty hard` 或
 `--difficulty easy medium` 只测试部分难度。只有当 `Data/CIFAR10/` 下没有数据集文件时才使用
