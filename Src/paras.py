@@ -11,20 +11,20 @@ from Src.Deploy.deploy_config import DEFAULT as TESTBED_CFG
 from Src.Models.model_config import RESNET50 as MODEL_CFG
 from Src.Models.model_config import ModelConfig
 
-BASE_DRIVE = Path(__file__).resolve().parents[2]
+BASE_DRIVE = Path(__file__).resolve().parents[1]
 DATA_DIR = BASE_DRIVE / "Data"
 OFFLINE_TABLE_DIR = DATA_DIR / "OfflineTables"
 RESULT_DIR = BASE_DRIVE / "Scripts" / "Results"
 
 # --- Train Data Path ---
-DATA_ROOT = DATA_DIR / "CIFAR10"
+DATA_ROOT = DATA_DIR / MODEL_CFG.dataset_name
 WEIGHTS_DIR = MODEL_CFG.weights_dir
 
 # --- Model Profile Path ---
 MODEL_NAME = MODEL_CFG.name
-RATE_CSV_PATH = MODEL_CFG.rate_csv
-ACC_CSV_PATH = MODEL_CFG.acc_csv
-LAYER_CSV_PATH = MODEL_CFG.layer_stats_csv
+RATE_CSV_PATH = MODEL_CFG.resolve_rate_csv()
+ACC_CSV_PATH = MODEL_CFG.resolve_acc_csv()
+LAYER_CSV_PATH = MODEL_CFG.resolve_layer_stats_csv()
 
 # --- Result Path ---
 RESULT_TESTBED_PATH = RESULT_DIR / "Exp1_Testbed"
@@ -48,6 +48,7 @@ COLORS = {
     "purple": "#9467bd",
     "red": "#d62728",
     "blue": "#1f77b4",
+    "black": "#000000",
 }
 
 # --- Default Parameters ---
@@ -215,7 +216,7 @@ class Paras:
             minimum=0.1,
         )
 
-        layer_df = pd.read_csv(model_cfg.layer_stats_csv)
+        layer_df = pd.read_csv(model_cfg.resolve_layer_stats_csv())
         layer_bytes = layer_df["num_bytes"].astype(int).tolist()
         layer_flops = layer_df["approx_flops"].astype(int).tolist()
 

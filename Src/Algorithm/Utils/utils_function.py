@@ -7,9 +7,14 @@ import subprocess
 import json
 import numpy as np
 import torch
-from torch.utils.data import DataLoader, Dataset, random_split
+from torch.utils.data import DataLoader, random_split
 import torchvision
 from torchvision import transforms
+
+from Src.Deploy.Shared.dataloader import (
+    CIFAR10TestDataset,
+    build_cifar10_test_transform,
+)
 
 
 class NumpyEncoder(json.JSONEncoder):
@@ -24,20 +29,6 @@ class NumpyEncoder(json.JSONEncoder):
         elif isinstance(obj, np.ndarray):
             return obj.tolist()
         return super(NumpyEncoder, self).default(obj)
-
-
-class _ImageLabelOnlyDataset(Dataset):
-    """Adapt metadata-rich datasets to the standard (image, label) contract."""
-
-    def __init__(self, dataset):
-        self.dataset = dataset
-
-    def __len__(self):
-        return len(self.dataset)
-
-    def __getitem__(self, idx):
-        sample = self.dataset[idx]
-        return sample[0], sample[1]
 
 
 def open_file(file_path):
@@ -88,32 +79,20 @@ def get_data_loaders(
         transforms.ToTensor(),
         transforms.Normalize([0.4914,0.4822,0.4465], [0.2023,0.1994,0.2010]),
     ])
-    transform_test = transforms.Compose([
-        transforms.Resize((227, 227)),
-        transforms.ToTensor(),
-        transforms.Normalize([0.4914,0.4822,0.4465], [0.2023,0.1994,0.2010]),
-    ])
+    transform_test = build_cifar10_test_transform()
 
     # 2. 载入 Dataset
     train_dataset = torchvision.datasets.CIFAR10(root=root, train=True, download=download, transform=transform_train)
-    if test_difficulty_table_path is None and test_difficulty is None:
-        test_dataset = torchvision.datasets.CIFAR10(root=root, train=False, download=download, transform=transform_test)
-    else:
-        if test_difficulty_table_path is None:
-            raise ValueError("test_difficulty_table_path is required when test_difficulty is set.")
-        from Src.Algorithm.Utils.difficulty_dataset import DifficultyAwareDataset
-
-        test_dataset = DifficultyAwareDataset(
-            data_root=root,
-            difficulty_table_path=test_difficulty_table_path,
-            difficulty=test_difficulty,
-            train=False,
-            transform=transform_test,
-            download=download,
-            include_image_id=include_image_id,
-        )
-        if not include_difficulty_metadata:
-            test_dataset = _ImageLabelOnlyDataset(test_dataset)
+    test_dataset = CIFAR10TestDataset(
+        data_root=root,
+        difficulty_table_path=test_difficulty_table_path,
+        difficulty=test_difficulty,
+        train=False,
+        transform=transform_test,
+        download=download,
+        include_difficulty_metadata=include_difficulty_metadata,
+        include_image_id=include_image_id,
+    )
 
     # 3. 划分 train/valid
     num_train = len(train_dataset)
@@ -148,36 +127,19 @@ def get_test_data_loaders(
     返回 test_loader
     """
     # 1. 定义 transform
-    transform_test = transforms.Compose([
-        transforms.Resize((227, 227)),
-        transforms.ToTensor(),
-        transforms.Normalize([0.4914,0.4822,0.4465], [0.2023,0.1994,0.2010]),
-    ])
+    transform_test = build_cifar10_test_transform()
 
     # 2. 载入 Dataset
-    if difficulty_table_path is None and difficulty is None:
-        test_dataset = torchvision.datasets.CIFAR10(
-            root=root,
-            train=False,
-            download=download,
-            transform=transform_test,
-        )
-    else:
-        if difficulty_table_path is None:
-            raise ValueError("difficulty_table_path is required when difficulty is set.")
-        from Src.Algorithm.Utils.difficulty_dataset import DifficultyAwareDataset
-
-        test_dataset = DifficultyAwareDataset(
-            data_root=root,
-            difficulty_table_path=difficulty_table_path,
-            difficulty=difficulty,
-            train=False,
-            transform=transform_test,
-            download=download,
-            include_image_id=include_image_id,
-        )
-        if not include_difficulty_metadata:
-            test_dataset = _ImageLabelOnlyDataset(test_dataset)
+    test_dataset = CIFAR10TestDataset(
+        data_root=root,
+        difficulty_table_path=difficulty_table_path,
+        difficulty=difficulty,
+        train=False,
+        transform=transform_test,
+        download=download,
+        include_difficulty_metadata=include_difficulty_metadata,
+        include_image_id=include_image_id,
+    )
 
     # 3. DataLoader
     test_loader = DataLoader(test_dataset,  batch_size=batch_size, shuffle=False,

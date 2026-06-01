@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 
 from Src.Algorithm.Utils.plot_utils import save_fig_for_ieee, set_ieee_style
+from Src.Models.model_config import RESNET50 as MODEL_CFG
 from Src.paras import COLORS, OFFLINE_TABLE_DIR, RESULT_EE_MODEL_PATH
 
 
@@ -111,7 +112,7 @@ def plot_expectation_vs_threshold(
 
 
 if __name__ == "__main__":
-    rate_csv = OFFLINE_TABLE_DIR / "Resnet50_rates.csv"
-    acc_csv = OFFLINE_TABLE_DIR / "Resnet50_accs.csv"
+    rate_csv = MODEL_CFG.resolve_rate_csv()
+    acc_csv = MODEL_CFG.resolve_acc_csv()
     save_dir = Path(RESULT_EE_MODEL_PATH)
     plot_expectation_vs_threshold(rate_csv, acc_csv, save_dir)

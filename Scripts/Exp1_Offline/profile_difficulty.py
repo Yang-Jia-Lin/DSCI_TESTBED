@@ -5,6 +5,7 @@ import json
 import sys
 from pathlib import Path
 
+from Src.Models.model_config import RESNET50 as MODEL_CFG
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
@@ -13,17 +14,20 @@ if str(PROJECT_ROOT) not in sys.path:
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Profile CIFAR-10 sample difficulty with the final ResNet50 head."
+        description=(
+            f"Profile {MODEL_CFG.dataset_name} sample difficulty with the final "
+            f"{MODEL_CFG.name} head."
+        )
     )
     parser.add_argument(
         "--model_path",
-        default=str(PROJECT_ROOT / "Data" / "Weights" / "full_model.pth"),
+        default=str(MODEL_CFG.resolve_weight_path()),
         help="Path to the MultiEEResNet50 state_dict.",
     )
     parser.add_argument(
         "--data_root",
-        default=str(PROJECT_ROOT / "Data" / "CIFAR10"),
-        help="Root passed to torchvision.datasets.CIFAR10.",
+        default=str(MODEL_CFG.data_dir / MODEL_CFG.dataset_name),
+        help="CIFAR-10 root, either Data/CIFAR10 or Data/CIFAR10/cifar-10-batches-py.",
     )
     parser.add_argument(
         "--output_dir",
@@ -88,8 +92,8 @@ def write_outputs(rows, confidences, correct_flags, output_dir, easy_min, hard_m
     import pandas as pd
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    raw_csv = output_dir / "cifar10_difficulty_table.csv"
-    stats_json = output_dir / "cifar10_confidence_stats.json"
+    raw_csv = output_dir / f"{MODEL_CFG.artifact_prefix}_difficulty_raw.csv"
+    stats_json = output_dir / f"{MODEL_CFG.artifact_prefix}_confidence_stats.json"
 
     df = pd.DataFrame(rows)
     df.to_csv(raw_csv, index=False)
@@ -144,20 +148,23 @@ def main():
 
     import torch
     import torch.nn.functional as F
-    import torchvision
     from torch.utils.data import DataLoader
     from tqdm import tqdm
 
-    from Src.Algorithm.Utils.difficulty_dataset import build_cifar10_test_transform
+    from Src.Deploy.Shared.dataloader import (
+        CIFAR10TestDataset,
+        build_cifar10_test_transform,
+    )
 
     device = resolve_device(args.device)
     model = load_model(Path(args.model_path), device)
     transform = build_cifar10_test_transform()
-    dataset = torchvision.datasets.CIFAR10(
-        root=args.data_root,
+    dataset = CIFAR10TestDataset(
+        data_root=args.data_root,
         train=False,
         download=args.download,
         transform=transform,
+        include_image_id=True,
     )
     loader = DataLoader(
         dataset,
@@ -170,10 +177,11 @@ def main():
     rows = []
     confidences = []
     correct_flags = []
-    seen = 0
 
     with torch.no_grad():
-        for images, labels in tqdm(loader, desc="Profiling CIFAR-10", ncols=80):
+        for images, labels, image_ids in tqdm(
+            loader, desc=f"Profiling {MODEL_CFG.dataset_name}", ncols=80
+        ):
             images = images.to(device, non_blocking=True)
             labels = labels.to(device, non_blocking=True)
             logits = model(images, stage="final")
@@ -189,7 +197,7 @@ def main():
                 correct = bool(predicted == true_label)
                 rows.append(
                     {
-                        "image_id": seen + offset,
+                        "image_id": int(image_ids[offset].item()),
                         "true_label": true_label,
                         "pred_label": predicted,
                         "correct": correct,
@@ -199,7 +207,6 @@ def main():
                 )
                 confidences.append(confidence)
                 correct_flags.append(correct)
-            seen += batch_size
 
     write_outputs(
         rows=rows,

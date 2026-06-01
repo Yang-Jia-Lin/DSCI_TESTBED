@@ -106,6 +106,6 @@ def run_ablation(PPO_path: Path, save_dir: Path):
 
 
 if __name__ == "__main__":
-    data_dir = RESULT_DIR / "Optimize" / "PPO" / "PPO_20260128_005931"
+    data_dir = RESULT_DIR / "Optimize" / "DSCI_20260202_040737"
     save_dir = Path(RESULT_ABLATION_PATH)
     run_ablation(data_dir, save_dir)

@@ -9,8 +9,9 @@ import torch
 import torch.nn.functional as F
 
 from Src.Algorithm.Utils.utils_function import get_device, get_test_data_loaders
+from Src.Models.model_config import RESNET50 as MODEL_CFG
 from Src.Models.ModelNet.Resnet50 import Bottleneck, MultiEEResNet50
-from Src.paras import DATA_ROOT, WEIGHTS_DIR
+from Src.paras import DATA_ROOT
 
 
 def main():
@@ -32,7 +33,7 @@ def main():
         num_classes=num_classes,
         include_top=include_top,
     ).to(device)
-    model_path = Path(WEIGHTS_DIR) / "ResNet50_multi_EE_model.pth"
+    model_path = MODEL_CFG.resolve_weight_path()
 
     # 4) Load weights
     try:

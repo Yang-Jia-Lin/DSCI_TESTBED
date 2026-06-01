@@ -6,6 +6,8 @@ import warnings
 from datetime import datetime
 from pathlib import Path
 
+from Src.Models.model_config import RESNET50 as MODEL_CFG
+
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
@@ -14,24 +16,24 @@ if str(PROJECT_ROOT) not in sys.path:
 def parse_args():
     parser = argparse.ArgumentParser(
         description=(
-            "Generate ResNet50 early-exit rate/accuracy lookup tables for "
+            f"Generate {MODEL_CFG.name} early-exit rate/accuracy lookup tables for "
             "Data/OfflineTables."
         )
     )
     parser.add_argument(
         "--model_path",
-        default=str(PROJECT_ROOT / "Data" / "Weights" / "full_model.pth"),
+        default=str(MODEL_CFG.resolve_weight_path()),
         help="Path to the MultiEEResNet50 state_dict.",
     )
     parser.add_argument(
         "--data_root",
-        default=str(PROJECT_ROOT / "Data" / "CIFAR10"),
-        help="Root passed to torchvision.datasets.CIFAR10.",
+        default=str(MODEL_CFG.data_dir / MODEL_CFG.dataset_name),
+        help="CIFAR-10 root, either Data/CIFAR10 or Data/CIFAR10/cifar-10-batches-py.",
     )
     parser.add_argument(
         "--output_dir",
         default=str(PROJECT_ROOT / "Data" / "OfflineTables"),
-        help="Directory for Resnet50_rates.csv and Resnet50_accs.csv.",
+        help=(f"Directory for {MODEL_CFG.rate_csv.name} and {MODEL_CFG.acc_csv.name}."),
     )
     parser.add_argument("--batch_size", type=int, default=128)
     parser.add_argument("--num_workers", type=int, default=4)
@@ -52,7 +54,10 @@ def parse_args():
     parser.add_argument(
         "--overwrite",
         action="store_true",
-        help="Overwrite existing Resnet50_rates.csv and Resnet50_accs.csv.",
+        help=(
+            f"Overwrite existing {MODEL_CFG.rate_csv.name} and "
+            f"{MODEL_CFG.acc_csv.name}."
+        ),
     )
     parser.add_argument(
         "--timestamped_copy",
@@ -108,8 +113,8 @@ def load_model(model_path, device):
 
 def save_tables(rates, accs, output_dir, overwrite, timestamped_copy):
     output_dir.mkdir(parents=True, exist_ok=True)
-    rates_path = output_dir / "Resnet50_rates.csv"
-    accs_path = output_dir / "Resnet50_accs.csv"
+    rates_path = output_dir / MODEL_CFG.rate_csv.name
+    accs_path = output_dir / MODEL_CFG.acc_csv.name
 
     existing = [path for path in (rates_path, accs_path) if path.exists()]
     if existing and not overwrite:
@@ -125,8 +130,8 @@ def save_tables(rates, accs, output_dir, overwrite, timestamped_copy):
 
     if timestamped_copy:
         stamp = datetime.now().strftime("%Y%m%d%H%M%S")
-        rates_copy = output_dir / f"Resnet50_rates_{stamp}.csv"
-        accs_copy = output_dir / f"Resnet50_accs_{stamp}.csv"
+        rates_copy = output_dir / f"{MODEL_CFG.artifact_prefix}_rates_{stamp}.csv"
+        accs_copy = output_dir / f"{MODEL_CFG.artifact_prefix}_accs_{stamp}.csv"
         rates.to_csv(rates_copy, index=False)
         accs.to_csv(accs_copy, index=False)
         saved.extend([rates_copy, accs_copy])
@@ -142,18 +147,20 @@ def main():
     import pandas as pd
     import torch
     import torch.nn.functional as F
-    import torchvision
     from torch.utils.data import DataLoader
     from tqdm import tqdm
 
-    from Src.Algorithm.Utils.difficulty_dataset import build_cifar10_test_transform
+    from Src.Deploy.Shared.dataloader import (
+        CIFAR10TestDataset,
+        build_cifar10_test_transform,
+    )
 
     device = resolve_device(args.device)
     if device.type == "cpu":
         warnings.filterwarnings("ignore", message=".*pin_memory.*")
 
-    dataset = torchvision.datasets.CIFAR10(
-        root=args.data_root,
+    dataset = CIFAR10TestDataset(
+        data_root=args.data_root,
         train=False,
         download=args.download,
         transform=build_cifar10_test_transform(),
@@ -179,7 +186,7 @@ def main():
     all_true = []
 
     print(
-        f"Running inference on {len(dataset)} CIFAR-10 test samples "
+        f"Running inference on {len(dataset)} {MODEL_CFG.dataset_name} test samples "
         f"(once, then sweep {len(thresholds)} thresholds)."
     )
     with torch.no_grad():

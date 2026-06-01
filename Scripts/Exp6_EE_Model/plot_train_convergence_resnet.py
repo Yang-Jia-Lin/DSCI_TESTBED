@@ -65,6 +65,6 @@ def plot_training_convergence(
 
 
 if __name__ == "__main__":
-    csv_file = OFFLINE_TABLE_DIR / "ResNet50_trainlog_0508_0137.csv"
+    csv_file = OFFLINE_TABLE_DIR / "resnet50_cifar10_trainlog_0508_0137.csv"
     save_dir = Path(RESULT_EE_MODEL_PATH)
     plot_training_convergence(csv_file, save_dir)

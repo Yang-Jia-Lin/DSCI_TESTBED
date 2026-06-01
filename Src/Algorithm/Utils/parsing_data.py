@@ -18,7 +18,9 @@ def _resolve_rate_acc_paths(
     acc_path: str | Path | None = None,
 ) -> tuple[Path, Path]:
     cfg = getattr(paras, "model_cfg", None) or RESNET50
-    return Path(rate_path or cfg.rate_csv), Path(acc_path or cfg.acc_csv)
+    return Path(rate_path or cfg.resolve_rate_csv()), Path(
+        acc_path or cfg.resolve_acc_csv()
+    )
 
 
 def parsing_rate_and_acc(
