@@ -10,6 +10,7 @@ import torch.nn as nn
 
 from Src.Algorithm.Utils.log_function import save_model_weights, save_train_log
 from Src.Algorithm.Utils.utils_function import get_data_loaders, get_device
+from Src.Models.model_config import RESNET50 as MODEL_CFG
 from Src.Models.ModelNet.Resnet50 import Bottleneck, MultiEEResNet50, freeze_layers
 from Src.paras import DATA_ROOT, RESULT_EE_MODEL_PATH, WEIGHTS_DIR
 
@@ -190,9 +191,13 @@ if __name__ == "__main__":
     print("\nFinished Training!")
 
     # 6) 保存模型 ---------------------------------------------------------------
-    save_path = save_model_weights(model, "ResNet50_multi_EE", Path(WEIGHTS_DIR))
+    save_path = save_model_weights(
+        model, f"{MODEL_CFG.artifact_prefix}_multi_ee", Path(WEIGHTS_DIR)
+    )
     print(f"model saved → {save_path}")
 
     # 7) 保存日志 ---------------------------------------------------------------
-    log_path = save_train_log(log, "ResNet50_multi_EE", Path(RESULT_EE_MODEL_PATH))
+    log_path = save_train_log(
+        log, f"{MODEL_CFG.artifact_prefix}_multi_ee", Path(RESULT_EE_MODEL_PATH)
+    )
     print(f"log saved   → {log_path}")

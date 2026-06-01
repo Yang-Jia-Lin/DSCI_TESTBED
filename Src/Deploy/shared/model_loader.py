@@ -1,11 +1,6 @@
-from pathlib import Path
+from Src.Models.model_config import RESNET50 as MODEL_CFG
 
-import torch
-
-from Src.Models.ModelNet.Resnet50 import Bottleneck, MultiEEResNet50
-
-BASE_DIR = Path(__file__).resolve().parents[3]
-FULL_MODEL_PATH = BASE_DIR / "Data" / "Weights" / "full_model.pth"
+FULL_MODEL_PATH = MODEL_CFG.resolve_weight_path()
 
 EXIT_LAYER_BY_STAGE = {
     2: 57,
@@ -19,10 +14,16 @@ _MODEL = None
 def load_full_model():
     global _MODEL
     if _MODEL is None:
+        import torch
+
+        from Src.Models.ModelNet.Resnet50 import Bottleneck, MultiEEResNet50
+
         model = MultiEEResNet50(
             Bottleneck, [3, 4, 6, 3], num_classes=10, include_top=True
         )
-        state_dict = torch.load(FULL_MODEL_PATH, map_location="cpu", weights_only=True)
+        state_dict = torch.load(
+            MODEL_CFG.resolve_weight_path(), map_location="cpu", weights_only=True
+        )
         model.load_state_dict(state_dict)
         model.eval()
         _MODEL = model

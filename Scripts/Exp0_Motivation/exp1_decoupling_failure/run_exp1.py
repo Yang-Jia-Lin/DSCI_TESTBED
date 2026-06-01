@@ -74,7 +74,7 @@ def main() -> None:
     final_layer = model_info["final_layer"]
 
     if model_info["rates_from_csv"]:
-        log.info("[Exp1] 早退率来自 Data/OfflineTables/Resnet50_rates.csv（阈值线性插值）")
+        log.info("[Exp1] 早退率来自 Data/OfflineTables/resnet50_cifar10_rates.csv（阈值线性插值）")
     else:
         log.info("[Exp1] 早退率由 Beta 分布合成（CSV 不可用）")
 

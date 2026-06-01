@@ -48,15 +48,14 @@ DSCI_testbed/
 |-- Data/
 |   |-- CIFAR10/
 |   |-- Weights/
-|   |   |-- full_model.pth
+|   |   |-- resnet50_cifar10_multi_ee.pth
 |   |-- OfflineTables/
-|       |-- Resnet50_rates.csv
-|       |-- Resnet50_accs.csv
-|       |-- Resnet50_layer_stats.csv
-|       |-- cifar10_difficulty_table.csv
-|       |-- cifar10_difficulty_table_labeled.csv
-|       |-- cifar10_confidence_stats.json
-|       `-- results_cifar10_YYYYMMDDHHMMSS.csv
+|       |-- resnet50_cifar10_rates.csv
+|       |-- resnet50_cifar10_accs.csv
+|       |-- resnet50_cifar10_layer_stats.csv
+|       |-- resnet50_cifar10_difficulty_raw.csv
+|       |-- resnet50_cifar10_difficulty_labeled.csv
+|       `-- resnet50_cifar10_confidence_stats.json
 |-- Scripts/
 |   |-- Exp0_Offline/
 |   |-- Exp0_Motivation/
@@ -92,7 +91,7 @@ DSCI_testbed/
 
 | 用途 | 路径 |
 | --- | --- |
-| 完整模型权重 | `Data/Weights/full_model.pth` |
+| 完整模型权重 | `Data/Weights/resnet50_cifar10_multi_ee.pth` |
 | 离线 CSV lookup table | `Data/OfflineTables/` |
 | 离线实验脚本 | `Scripts/Exp0_Offline/` |
 | 脚本实验输出 | `Scripts/Results/` |
@@ -113,7 +112,7 @@ DSCI_testbed/
 
 ```powershell
 python Scripts\Exp0_Offline\resnet50_thred_curve.py `
-  --model_path Data\Weights\full_model.pth `
+  --model_path Data\Weights\resnet50_cifar10_multi_ee.pth `
   --data_root Data\CIFAR10 `
   --output_dir Data\OfflineTables `
   --overwrite
@@ -123,10 +122,10 @@ python Scripts\Exp0_Offline\resnet50_thred_curve.py `
 
 | 文件 | 作用 |
 | --- | --- |
-| `Data/OfflineTables/Resnet50_rates.csv` | 阈值到 exit1、exit2 早退率的 lookup table，供 `Paras()` 使用 |
-| `Data/OfflineTables/Resnet50_accs.csv` | 阈值到 exit1、exit2、整体精度的 lookup table |
+| `Data/OfflineTables/resnet50_cifar10_rates.csv` | 阈值到 exit1、exit2 早退率的 lookup table，供 `Paras()` 使用 |
+| `Data/OfflineTables/resnet50_cifar10_accs.csv` | 阈值到 exit1、exit2、整体精度的 lookup table |
 
-脚本默认不会覆盖已有 canonical 表。若要刷新 `Resnet50_rates.csv` 和 `Resnet50_accs.csv`，必须显式传入 `--overwrite`。如果还需要保留带时间戳的审计副本，可以额外加 `--timestamped_copy`。
+脚本默认不会覆盖已有 canonical 表。若要刷新 `resnet50_cifar10_rates.csv` 和 `resnet50_cifar10_accs.csv`，必须显式传入 `--overwrite`。如果还需要保留带时间戳的审计副本，可以额外加 `--timestamped_copy`。
 
 ### 2. CIFAR-10 样本难度 profiling
 
@@ -134,7 +133,7 @@ python Scripts\Exp0_Offline\resnet50_thred_curve.py `
 
 ```powershell
 python Scripts\Exp0_Offline\profile_difficulty.py `
-  --model_path Data\Weights\full_model.pth `
+  --model_path Data\Weights\resnet50_cifar10_multi_ee.pth `
   --data_root Data\CIFAR10 `
   --output_dir Data\OfflineTables
 ```
@@ -143,8 +142,8 @@ python Scripts\Exp0_Offline\profile_difficulty.py `
 
 | 文件 | 作用 |
 | --- | --- |
-| `Data/OfflineTables/cifar10_difficulty_table.csv` | 原始逐样本记录，包括 `image_id`、标签、预测、置信度和熵 |
-| `Data/OfflineTables/cifar10_confidence_stats.json` | 置信度分位数和建议阈值 |
+| `Data/OfflineTables/resnet50_cifar10_difficulty_raw.csv` | 原始逐样本记录，包括 `image_id`、标签、预测、置信度和熵 |
+| `Data/OfflineTables/resnet50_cifar10_confidence_stats.json` | 置信度分位数和建议阈值 |
 
 ### 3. 分配难度标签
 
@@ -152,13 +151,13 @@ python Scripts\Exp0_Offline\profile_difficulty.py `
 
 ```powershell
 python Scripts\Exp0_Offline\assign_difficulty_labels.py `
-  --input_path Data\OfflineTables\cifar10_difficulty_table.csv `
-  --output_path Data\OfflineTables\cifar10_difficulty_table_labeled.csv `
+  --input_path Data\OfflineTables\resnet50_cifar10_difficulty_raw.csv `
+  --output_path Data\OfflineTables\resnet50_cifar10_difficulty_labeled.csv `
   --easy_min 0.90 `
   --hard_max 0.60
 ```
 
-`Data/OfflineTables/cifar10_difficulty_table_labeled.csv` 是后续难度感知实验的唯一数据源。不要在每次实验前重新 profiling，直接复用这个 labeled CSV。
+`Data/OfflineTables/resnet50_cifar10_difficulty_labeled.csv` 是后续难度感知实验的唯一数据源。不要在每次实验前重新 profiling，直接复用这个 labeled CSV。
 
 ### 4. 按难度测试早退表现
 
@@ -166,11 +165,11 @@ python Scripts\Exp0_Offline\assign_difficulty_labels.py `
 
 ```powershell
 python Scripts\Exp0_Offline\test_with_difficulty.py `
-  --model_path Data\Weights\full_model.pth `
-  --table_path Data\OfflineTables\cifar10_difficulty_table_labeled.csv `
+  --model_path Data\Weights\resnet50_cifar10_multi_ee.pth `
+  --table_path Data\OfflineTables\resnet50_cifar10_difficulty_labeled.csv `
   --data_root Data\CIFAR10 `
   --partition_idx 3 `
-  --output_dir Data\OfflineTables `
+  --output_dir Scripts\Results\Exp0_Offline `
   --exit_threshold_57 0.80 `
   --exit_threshold_103 0.80
 ```
@@ -179,7 +178,7 @@ python Scripts\Exp0_Offline\test_with_difficulty.py `
 
 | 文件 | 作用 |
 | --- | --- |
-| `Data/OfflineTables/results_cifar10_YYYYMMDDHHMMSS.csv` | 逐样本预测、置信度、难度标签、退出层和是否传到 Cloud |
+| `Scripts/Results/Exp0_Offline/resnet50_cifar10_difficulty_results_YYYYMMDDHHMMSS.csv` | 逐样本预测、置信度、难度标签、退出层和是否传到 Cloud |
 
 可以用 `--difficulty easy`、`--difficulty medium`、`--difficulty hard` 或
 `--difficulty easy medium` 只测试部分难度。只有当 `Data/CIFAR10/` 下没有数据集文件时才使用
@@ -207,7 +206,7 @@ for images, labels in test_loader:
 test_loader = get_test_data_loaders(
     root="Data/CIFAR10",
     batch_size=128,
-    difficulty_table_path="Data/OfflineTables/cifar10_difficulty_table_labeled.csv",
+    difficulty_table_path="Data/OfflineTables/resnet50_cifar10_difficulty_labeled.csv",
     difficulty="easy",
 )
 
@@ -223,7 +222,7 @@ for images, labels in test_loader:
 test_loader = get_test_data_loaders(
     root="Data/CIFAR10",
     batch_size=128,
-    difficulty_table_path="Data/OfflineTables/cifar10_difficulty_table_labeled.csv",
+    difficulty_table_path="Data/OfflineTables/resnet50_cifar10_difficulty_labeled.csv",
     difficulty="easy",
     include_difficulty_metadata=True,
     include_image_id=True,
@@ -243,12 +242,12 @@ train_loader, valid_loader, test_loader = get_data_loaders(
     batch_size=128,
     valid_size=0.1,
     random_seed=42,
-    test_difficulty_table_path="Data/OfflineTables/cifar10_difficulty_table_labeled.csv",
+    test_difficulty_table_path="Data/OfflineTables/resnet50_cifar10_difficulty_labeled.csv",
     test_difficulty="hard",
 )
 ```
 
-难度筛选的原理是：`cifar10_difficulty_table_labeled.csv` 保存每个 CIFAR-10 test 样本的 `image_id` 和 `difficulty`。dataloader 先按 `difficulty` 过滤 CSV 行，再用 `image_id` 去索引原始 CIFAR-10 test set。它不会复制数据集，只是改变 test set 的采样索引。
+难度筛选的原理是：`resnet50_cifar10_difficulty_labeled.csv` 保存每个 CIFAR-10 test 样本的 `image_id` 和 `difficulty`。dataloader 先按 `difficulty` 过滤 CSV 行，再用 `image_id` 去索引原始 CIFAR-10 test set。它不会复制数据集，只是改变 test set 的采样索引。
 
 ### 6. 部署侧数据加载和 ONNX/MNN 说明
 
@@ -258,14 +257,14 @@ train_loader, valid_loader, test_loader = get_data_loaders(
 
 ```text
 Data/CIFAR10/cifar-10-batches-py/test_batch
-Data/Weights/full_model.pth
+Data/Weights/resnet50_cifar10_multi_ee.pth
 Data/OfflineTables/*.csv
 ```
 
 难度感知 dataloader 属于 PyTorch/torchvision 实验路径，依赖 `Src/Algorithm/Utils/difficulty_dataset.py`、`pandas` 和 `torchvision`。如果部署侧也想按 easy/hard 过滤样本，有两种做法：
 
 1. 把 `Src/Algorithm/Utils/difficulty_dataset.py` 和 `utils_function.py` 一起打包到设备，并安装对应依赖。
-2. 在 `run_device.py` 的 `cifar10_test_loader()` 里读取 `cifar10_difficulty_table_labeled.csv`，按 `image_id` 过滤原始 `test_batch`。这种方式更适合没有完整 PyTorch/torchvision 环境的轻量部署。
+2. 在 `run_device.py` 的 `cifar10_test_loader()` 里读取 `resnet50_cifar10_difficulty_labeled.csv`，按 `image_id` 过滤原始 `test_batch`。这种方式更适合没有完整 PyTorch/torchvision 环境的轻量部署。
 
 更换推理后端为 ONNX 或 MNN 后，难度表本身仍然可用，因为它只依赖 `image_id`、`difficulty` 和 CIFAR-10 样本顺序。需要注意的是，当前 `DifficultyAwareDataset` 返回的是 PyTorch tensor；ONNX Runtime 通常需要 NumPy array，MNN 通常需要按其 runtime 输入格式转换。也就是说，筛选逻辑可以复用，但最后一段 `tensor -> runtime input` 的转换需要按 ONNX/MNN 后端单独适配。
 
@@ -431,7 +430,7 @@ Device                         Edge                          Cloud
 MultiEEResNet50(Bottleneck, [3, 4, 6, 3], num_classes=10, include_top=True)
 ```
 
-权重从 `Data/Weights/full_model.pth` 以 `state_dict` 形式加载。运行时使用 `forward_partial(x, start, end)` 执行指定阶段。
+权重从 `Data/Weights/resnet50_cifar10_multi_ee.pth` 以 `state_dict` 形式加载。运行时使用 `forward_partial(x, start, end)` 执行指定阶段。
 
 | Stage | 含义 |
 | --- | --- |
@@ -449,7 +448,7 @@ MultiEEResNet50(Bottleneck, [3, 4, 6, 3], num_classes=10, include_top=True)
   - `Src/Deploy/deploy_config.py` 中的 IP 和端口。
   - `Src/Deploy/Shared/bandwidth_iperf.py` 中的 `IPERF_EXE`。
   - PyTorch、ONNX 或 MNN 运行时是否可用。
-  - `Data/Weights/full_model.pth` 是否存在。
+  - `Data/Weights/resnet50_cifar10_multi_ee.pth` 是否存在。
   - `Data/OfflineTables/` 下 CSV 文件是否齐全。
 
 ## 验证

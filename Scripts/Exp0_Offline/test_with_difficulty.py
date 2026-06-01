@@ -10,6 +10,8 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from Src.Models.model_config import RESNET50 as MODEL_CFG
+
 EXIT1_LAYER = 57
 EXIT2_LAYER = 103
 FINAL_LAYER = 128
@@ -21,7 +23,7 @@ def parse_args():
     )
     parser.add_argument(
         "--model_path",
-        default=str(PROJECT_ROOT / "Data" / "Weights" / "full_model.pth"),
+        default=str(MODEL_CFG.resolve_weight_path()),
         help="Path to the MultiEEResNet50 state_dict.",
     )
     parser.add_argument(
@@ -30,13 +32,13 @@ def parse_args():
             PROJECT_ROOT
             / "Data"
             / "OfflineTables"
-            / "cifar10_difficulty_table_labeled.csv"
+            / f"{MODEL_CFG.artifact_prefix}_difficulty_labeled.csv"
         ),
         help="Labeled difficulty CSV from assign_difficulty_labels.py.",
     )
     parser.add_argument(
         "--data_root",
-        default=str(PROJECT_ROOT / "Data" / "CIFAR10"),
+        default=str(MODEL_CFG.data_dir / MODEL_CFG.dataset_name),
         help="Root passed to torchvision.datasets.CIFAR10.",
     )
     parser.add_argument(
@@ -50,8 +52,11 @@ def parse_args():
     )
     parser.add_argument(
         "--output_dir",
-        default=str(PROJECT_ROOT / "Data" / "OfflineTables"),
-        help="Directory for results_cifar10_{timestamp}.csv.",
+        default=str(PROJECT_ROOT / "Scripts" / "Results" / "Exp0_Offline"),
+        help=(
+            "Directory for "
+            f"{MODEL_CFG.artifact_prefix}_difficulty_results_{{timestamp}}.csv."
+        ),
     )
     parser.add_argument("--exit_threshold_57", type=float, default=0.80)
     parser.add_argument("--exit_threshold_103", type=float, default=0.80)
@@ -322,7 +327,10 @@ def main():
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-    output_csv = output_dir / f"results_cifar10_{timestamp}.csv"
+    output_csv = (
+        output_dir
+        / f"{MODEL_CFG.artifact_prefix}_difficulty_results_{timestamp}.csv"
+    )
     pd.DataFrame(rows).to_csv(output_csv, index=False)
 
     print_summary(rows, args.partition_idx, partition_stage)

@@ -44,7 +44,7 @@ class DifficultyAwareDataset(Dataset):
     Example:
         easy_set = DifficultyAwareDataset(
             data_root="Data/CIFAR10",
-            difficulty_table_path="Data/OfflineTables/cifar10_difficulty_table_labeled.csv",
+            difficulty_table_path="Data/OfflineTables/resnet50_cifar10_difficulty_labeled.csv",
             difficulty="easy",
         )
         loader = DataLoader(easy_set, batch_size=64, shuffle=False)

@@ -10,19 +10,24 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from Src.Models.model_config import RESNET50 as MODEL_CFG
+
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Profile CIFAR-10 sample difficulty with the final ResNet50 head."
+        description=(
+            f"Profile {MODEL_CFG.dataset_name} sample difficulty with the final "
+            f"{MODEL_CFG.name} head."
+        )
     )
     parser.add_argument(
         "--model_path",
-        default=str(PROJECT_ROOT / "Data" / "Weights" / "full_model.pth"),
+        default=str(MODEL_CFG.resolve_weight_path()),
         help="Path to the MultiEEResNet50 state_dict.",
     )
     parser.add_argument(
         "--data_root",
-        default=str(PROJECT_ROOT / "Data" / "CIFAR10"),
+        default=str(MODEL_CFG.data_dir / MODEL_CFG.dataset_name),
         help="Root passed to torchvision.datasets.CIFAR10.",
     )
     parser.add_argument(
@@ -88,8 +93,8 @@ def write_outputs(rows, confidences, correct_flags, output_dir, easy_min, hard_m
     import pandas as pd
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    raw_csv = output_dir / "cifar10_difficulty_table.csv"
-    stats_json = output_dir / "cifar10_confidence_stats.json"
+    raw_csv = output_dir / f"{MODEL_CFG.artifact_prefix}_difficulty_raw.csv"
+    stats_json = output_dir / f"{MODEL_CFG.artifact_prefix}_confidence_stats.json"
 
     df = pd.DataFrame(rows)
     df.to_csv(raw_csv, index=False)
@@ -173,7 +178,9 @@ def main():
     seen = 0
 
     with torch.no_grad():
-        for images, labels in tqdm(loader, desc="Profiling CIFAR-10", ncols=80):
+        for images, labels in tqdm(
+            loader, desc=f"Profiling {MODEL_CFG.dataset_name}", ncols=80
+        ):
             images = images.to(device, non_blocking=True)
             labels = labels.to(device, non_blocking=True)
             logits = model(images, stage="final")

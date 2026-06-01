@@ -1,10 +1,15 @@
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from Src.Models.model_config import RESNET50 as MODEL_CFG
 
 
 def assign_difficulty(confidence: float, easy_min: float, hard_max: float) -> str:
@@ -17,11 +22,16 @@ def assign_difficulty(confidence: float, easy_min: float, hard_max: float) -> st
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Assign easy/medium/hard labels to CIFAR-10 profiling rows."
+        description=(
+            f"Assign easy/medium/hard labels to {MODEL_CFG.artifact_prefix} "
+            "profiling rows."
+        )
     )
     parser.add_argument(
         "--input_path",
-        default=str(PROJECT_ROOT / "Data" / "OfflineTables" / "cifar10_difficulty_table.csv"),
+        default=str(
+            MODEL_CFG.profile_dir / f"{MODEL_CFG.artifact_prefix}_difficulty_raw.csv"
+        ),
         help="Raw profiling CSV from profile_difficulty.py.",
     )
     parser.add_argument(
@@ -30,7 +40,7 @@ def parse_args():
             PROJECT_ROOT
             / "Data"
             / "OfflineTables"
-            / "cifar10_difficulty_table_labeled.csv"
+            / f"{MODEL_CFG.artifact_prefix}_difficulty_labeled.csv"
         ),
         help="Labeled difficulty CSV used by downstream experiments.",
     )
