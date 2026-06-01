@@ -27,7 +27,7 @@ def parse_args():
     parser.add_argument(
         "--data_root",
         default=str(MODEL_CFG.data_dir / MODEL_CFG.dataset_name),
-        help="Root passed to torchvision.datasets.CIFAR10.",
+        help="CIFAR-10 root, either Data/CIFAR10 or Data/CIFAR10/cifar-10-batches-py.",
     )
     parser.add_argument(
         "--output_dir",
@@ -148,20 +148,23 @@ def main():
 
     import torch
     import torch.nn.functional as F
-    import torchvision
     from torch.utils.data import DataLoader
     from tqdm import tqdm
 
-    from Src.Algorithm.Utils.difficulty_dataset import build_cifar10_test_transform
+    from Src.Deploy.Shared.dataloader import (
+        CIFAR10TestDataset,
+        build_cifar10_test_transform,
+    )
 
     device = resolve_device(args.device)
     model = load_model(Path(args.model_path), device)
     transform = build_cifar10_test_transform()
-    dataset = torchvision.datasets.CIFAR10(
-        root=args.data_root,
+    dataset = CIFAR10TestDataset(
+        data_root=args.data_root,
         train=False,
         download=args.download,
         transform=transform,
+        include_image_id=True,
     )
     loader = DataLoader(
         dataset,
@@ -174,10 +177,9 @@ def main():
     rows = []
     confidences = []
     correct_flags = []
-    seen = 0
 
     with torch.no_grad():
-        for images, labels in tqdm(
+        for images, labels, image_ids in tqdm(
             loader, desc=f"Profiling {MODEL_CFG.dataset_name}", ncols=80
         ):
             images = images.to(device, non_blocking=True)
@@ -195,7 +197,7 @@ def main():
                 correct = bool(predicted == true_label)
                 rows.append(
                     {
-                        "image_id": seen + offset,
+                        "image_id": int(image_ids[offset].item()),
                         "true_label": true_label,
                         "pred_label": predicted,
                         "correct": correct,
@@ -205,7 +207,6 @@ def main():
                 )
                 confidences.append(confidence)
                 correct_flags.append(correct)
-            seen += batch_size
 
     write_outputs(
         rows=rows,

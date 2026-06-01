@@ -106,6 +106,12 @@ DSCI_testbed/
 
 `Scripts/Exp1_Offline/` 存放重复 testbed 或仿真实验之前需要先运行的离线预处理步骤。可复用输出统一放在 `Data/OfflineTables/`。
 
+检查 canonical 离线表是否都在 `Data/OfflineTables/` 且符合 `{model_slug}_{dataset_slug}_{artifact}` 命名：
+
+```powershell
+python Scripts\Exp1_Offline\audit_offline_tables.py
+```
+
 ### 1. 生成早退 lookup table
 
 只有在 CIFAR-10 测试集、模型权重或阈值网格变化时才需要重新运行：
@@ -249,24 +255,31 @@ train_loader, valid_loader, test_loader = get_data_loaders(
 
 难度筛选的原理是：`resnet50_cifar10_difficulty_labeled.csv` 保存每个 CIFAR-10 test 样本的 `image_id` 和 `difficulty`。dataloader 先按 `difficulty` 过滤 CSV 行，再用 `image_id` 去索引原始 CIFAR-10 test set。它不会复制数据集，只是改变 test set 的采样索引。
 
-### 6. 部署侧数据加载和 ONNX/MNN 说明
+### 6. 部署侧共享 dataloader 和 ONNX/MNN 说明
 
-当前 `Src/Deploy/Device/run_device.py` 没有调用 `Src.Algorithm.Utils.get_test_data_loaders()`。为了让 Device 节点更容易独立拷贝到其他设备，它在文件内定义了 `cifar10_test_loader()`，直接读取 `Data/CIFAR10/cifar-10-batches-py/test_batch`，用 pickle 解出图片和标签，再做 resize、normalize 后逐张返回。
+`Src/Deploy/Shared/dataloader.py` 是 CIFAR-10 test 和难度筛选的唯一实现。Deploy 侧的 `run_device.py`、算法侧的 `get_test_data_loaders()` / `get_data_loaders()`、以及 `Scripts/Exp1_Offline/` 的离线脚本都复用同一条路径。
 
-因此，如果只拷贝 `Src/Deploy` 到设备上，当前部署测试仍然可以拿到 CIFAR-10 测试样本，但前提是设备上同时有：
+该 loader 支持两种数据根目录：
 
 ```text
-Data/CIFAR10/cifar-10-batches-py/test_batch
-Data/Weights/resnet50_cifar10_multi_ee.pth
-Data/OfflineTables/*.csv
+Data/CIFAR10
+Data/CIFAR10/cifar-10-batches-py
 ```
 
-难度感知 dataloader 属于 PyTorch/torchvision 实验路径，依赖 `Src/Algorithm/Utils/difficulty_dataset.py`、`pandas` 和 `torchvision`。如果部署侧也想按 easy/hard 过滤样本，有两种做法：
+默认样本格式保持部署兼容：`cifar10_test_loader()` 逐张返回 `(tensor, label)`，其中 tensor 为 `(1, 3, 227, 227)`，已按 CIFAR-10 mean/std 归一化。需要难度筛选时：
 
-1. 把 `Src/Algorithm/Utils/difficulty_dataset.py` 和 `utils_function.py` 一起打包到设备，并安装对应依赖。
-2. 在 `run_device.py` 的 `cifar10_test_loader()` 里读取 `resnet50_cifar10_difficulty_labeled.csv`，按 `image_id` 过滤原始 `test_batch`。这种方式更适合没有完整 PyTorch/torchvision 环境的轻量部署。
+```powershell
+python -m Src.Deploy.Device.run_device --difficulty hard --test-samples 100
+```
 
-更换推理后端为 ONNX 或 MNN 后，难度表本身仍然可用，因为它只依赖 `image_id`、`difficulty` 和 CIFAR-10 样本顺序。需要注意的是，当前 `DifficultyAwareDataset` 返回的是 PyTorch tensor；ONNX Runtime 通常需要 NumPy array，MNN 通常需要按其 runtime 输入格式转换。也就是说，筛选逻辑可以复用，但最后一段 `tensor -> runtime input` 的转换需要按 ONNX/MNN 后端单独适配。
+不显式传 `--difficulty-table` 时，`--difficulty` 会默认读取 `Data/OfflineTables/resnet50_cifar10_difficulty_labeled.csv`。如果只想记录难度 metadata 但不过滤样本，可以传：
+
+```powershell
+python -m Src.Deploy.Device.run_device `
+  --difficulty-table Data\OfflineTables\resnet50_cifar10_difficulty_labeled.csv
+```
+
+更换推理后端为 ONNX 或 MNN 后，难度表仍然可用，因为它只依赖 `image_id`、`difficulty` 和 CIFAR-10 test 样本顺序。需要单独适配的是最后一步 `tensor -> runtime input` 转换。
 
 ## 为什么必须启动 iperf3
 

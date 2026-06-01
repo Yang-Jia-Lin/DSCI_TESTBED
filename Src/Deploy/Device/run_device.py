@@ -1,6 +1,6 @@
-﻿import csv
+﻿import argparse
+import csv
 import json
-import pickle
 import time
 from datetime import datetime
 from pathlib import Path
@@ -8,14 +8,16 @@ from pathlib import Path
 import numpy as np
 import requests
 import torch
-import torch.nn.functional as F
 
-# from torchvision import transforms
-# from torchvision.datasets import CIFAR10
 from Src.Deploy.Device.comm import send_tensor
 from Src.Deploy.deploy_config import DEFAULT as TESTBED_CFG
 from Src.Deploy.Shared.bandwidth_iperf import measure_bandwidth_iperf
 from Src.Deploy.Shared.cpu_monitor import get_cpu_available_cores
+from Src.Deploy.Shared.dataloader import (
+    VALID_DIFFICULTIES,
+    default_difficulty_table_path,
+    iter_cifar10_test_samples,
+)
 from Src.Deploy.Shared.state_reporter import report_status
 from Src.Deploy.Shared.model_loader import (
     load_full_model,
@@ -24,6 +26,7 @@ from Src.Deploy.Shared.model_loader import (
 )
 
 TEST_SAMPLES = 100
+DEFAULT_DATA_ROOT = Path("Data") / "CIFAR10" / "cifar-10-batches-py"
 RESULTS_DIR = Path(__file__).resolve().parent / "Results"
 CSV_OUTPUT = RESULTS_DIR / f"test_results_{datetime.now().strftime('%Y%m%d%H%M%S')}.csv"
 
@@ -49,32 +52,82 @@ def convert_to_jsonable(obj):
         return obj
 
 
-def normalize(tensor, mean, std):
-    mean = torch.tensor(mean, dtype=tensor.dtype, device=tensor.device).view(
-        1, -1, 1, 1
+def parse_args(argv=None):
+    parser = argparse.ArgumentParser(description="Run device-side batch inference.")
+    parser.add_argument(
+        "--difficulty",
+        nargs="+",
+        choices=sorted(VALID_DIFFICULTIES),
+        default=None,
+        help="Optional CIFAR-10 difficulty subset to test.",
     )
-    std = torch.tensor(std, dtype=tensor.dtype, device=tensor.device).view(1, -1, 1, 1)
-    return (tensor - mean) / std
+    parser.add_argument(
+        "--difficulty-table",
+        default=None,
+        help=(
+            "Difficulty CSV path. Defaults to the canonical OfflineTables file "
+            "when --difficulty is set."
+        ),
+    )
+    parser.add_argument(
+        "--test-samples",
+        type=int,
+        default=TEST_SAMPLES,
+        help="Number of test samples to run.",
+    )
+    parser.add_argument(
+        "--data-root",
+        default=str(DEFAULT_DATA_ROOT),
+        help="CIFAR-10 root, either Data/CIFAR10 or Data/CIFAR10/cifar-10-batches-py.",
+    )
+    args = parser.parse_args(argv)
+    if args.test_samples <= 0:
+        raise ValueError(f"--test-samples must be positive, got {args.test_samples}")
+    return args
 
 
-def cifar10_test_loader(data_dir="Data/CIFAR10/cifar-10-batches-py"):
-    """逐张返回测试图片和标签，图片形状 (1, 3, 224, 224)，已归一化"""
+def resolve_difficulty_table(args):
+    if args.difficulty_table:
+        return Path(args.difficulty_table)
+    if args.difficulty:
+        return default_difficulty_table_path()
+    return None
 
-    def load_cifar10_batch(file_path):
-        with open(file_path, "rb") as f:
-            batch = pickle.load(f, encoding="bytes")
-        images = batch[b"data"].reshape(-1, 3, 32, 32).astype(np.float32) / 255.0
-        labels = np.array(batch[b"labels"])
-        return images, labels
 
-    images, labels = load_cifar10_batch(f"{data_dir}/test_batch")
-    for img, label in zip(images, labels):
-        tensor = torch.from_numpy(img).unsqueeze(0)  # (1, 3, 32, 32)
-        tensor = F.interpolate(
-            tensor, size=(224, 224), mode="bilinear", align_corners=False
-        )
-        tensor = normalize(tensor, [0.4914, 0.4822, 0.4465], [0.2023, 0.1994, 0.2010])
-        yield tensor, label
+def cifar10_test_loader(
+    data_dir="Data/CIFAR10/cifar-10-batches-py",
+    difficulty_table_path=None,
+    difficulty=None,
+    include_difficulty_metadata=False,
+    include_image_id=False,
+):
+    """Yield deploy-compatible CIFAR-10 samples with tensors shaped (1, 3, 227, 227)."""
+
+    return iter_cifar10_test_samples(
+        data_root=data_dir,
+        difficulty_table_path=difficulty_table_path,
+        difficulty=difficulty,
+        include_difficulty_metadata=include_difficulty_metadata,
+        include_image_id=include_image_id,
+    )
+
+
+def unpack_loader_sample(sample):
+    image = sample[0]
+    label = int(sample[1])
+    metadata = {"image_id": "", "difficulty": "", "profile_confidence": ""}
+
+    if len(sample) == 3:
+        metadata["image_id"] = int(sample[2])
+    elif len(sample) >= 5:
+        metadata["difficulty"] = str(sample[2])
+        metadata["profile_confidence"] = float(sample[3])
+        metadata["image_id"] = int(sample[4])
+    elif len(sample) == 4:
+        metadata["difficulty"] = str(sample[2])
+        metadata["profile_confidence"] = float(sample[3])
+
+    return image, label, metadata
 
 
 def print_summary_statistics(results):
@@ -257,7 +310,10 @@ def run_single_inference(input_tensor, label, decision, bw_d2e, bw_e2c, cpu_avai
 # ==================== 主函数 ====================
 
 
-def main():
+def main(argv=None):
+    args = parse_args(argv)
+    difficulty_table = resolve_difficulty_table(args)
+
     print("=== Batch test started ===")
 
     print("Collecting current state...")
@@ -291,19 +347,29 @@ def main():
     print("Received decision:", json.dumps(decision, indent=2, ensure_ascii=False))
 
     print("Loading CIFAR-10 test set...")
-    test_loader = cifar10_test_loader("Data/CIFAR10/cifar-10-batches-py")
-    print(f"Testing {TEST_SAMPLES} images.")
+    test_loader = cifar10_test_loader(
+        args.data_root,
+        difficulty_table_path=difficulty_table,
+        difficulty=args.difficulty,
+        include_difficulty_metadata=(difficulty_table is not None),
+        include_image_id=True,
+    )
+    if difficulty_table is not None:
+        print(f"Difficulty table: {difficulty_table}")
+        print(f"Difficulty filter: {args.difficulty or 'all'}")
+    print(f"Testing {args.test_samples} images.")
 
     results = []
-    for i in range(TEST_SAMPLES):
+    for i in range(args.test_samples):
         try:
-            image, label = next(test_loader)
+            image, label, sample_metadata = unpack_loader_sample(next(test_loader))
         except StopIteration:
             print(f"数据集已用完，实际测试了 {i} 张")
             break
 
-        input_tensor = image  # 已经是 (1, 3, 224, 224)
-        print(f"\n[{i + 1}/{TEST_SAMPLES}] image={i}, label={label}")
+        input_tensor = image  # (1, 3, 227, 227), normalized
+        image_id = sample_metadata.get("image_id", i)
+        print(f"\n[{i + 1}/{args.test_samples}] image={image_id}, label={label}")
 
         try:
             res = run_single_inference(
@@ -314,6 +380,7 @@ def main():
                 raise TypeError(
                     f"Unexpected inference result type: {type(res).__name__}"
                 )
+            res.update(sample_metadata)
             results.append(res)
             print(
                 f"  decision: p1={res.get('partition_s1', 'N/A')}, p2={res.get('partition_s2', 'N/A')}, "
@@ -354,11 +421,16 @@ def main():
                 .get("103"),
                 "decision_source": decision.get("decision_source", "unknown"),
             }
+            fail_result.update(sample_metadata)
             results.append(fail_result)
 
     print(f"\nAll images processed; saving results to {CSV_OUTPUT} ...")
     if results:
-        keys = results[0].keys()
+        keys = []
+        for row in results:
+            for key in row.keys():
+                if key not in keys:
+                    keys.append(key)
         CSV_OUTPUT.parent.mkdir(parents=True, exist_ok=True)
         with open(CSV_OUTPUT, "w", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(f, fieldnames=keys)

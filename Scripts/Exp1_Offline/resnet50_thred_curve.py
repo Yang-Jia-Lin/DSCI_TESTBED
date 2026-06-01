@@ -28,7 +28,7 @@ def parse_args():
     parser.add_argument(
         "--data_root",
         default=str(MODEL_CFG.data_dir / MODEL_CFG.dataset_name),
-        help="Root passed to torchvision.datasets.CIFAR10.",
+        help="CIFAR-10 root, either Data/CIFAR10 or Data/CIFAR10/cifar-10-batches-py.",
     )
     parser.add_argument(
         "--output_dir",
@@ -147,18 +147,20 @@ def main():
     import pandas as pd
     import torch
     import torch.nn.functional as F
-    import torchvision
     from torch.utils.data import DataLoader
     from tqdm import tqdm
 
-    from Src.Algorithm.Utils.difficulty_dataset import build_cifar10_test_transform
+    from Src.Deploy.Shared.dataloader import (
+        CIFAR10TestDataset,
+        build_cifar10_test_transform,
+    )
 
     device = resolve_device(args.device)
     if device.type == "cpu":
         warnings.filterwarnings("ignore", message=".*pin_memory.*")
 
-    dataset = torchvision.datasets.CIFAR10(
-        root=args.data_root,
+    dataset = CIFAR10TestDataset(
+        data_root=args.data_root,
         train=False,
         download=args.download,
         transform=build_cifar10_test_transform(),

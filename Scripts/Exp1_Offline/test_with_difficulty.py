@@ -39,7 +39,7 @@ def parse_args():
     parser.add_argument(
         "--data_root",
         default=str(MODEL_CFG.data_dir / MODEL_CFG.dataset_name),
-        help="Root passed to torchvision.datasets.CIFAR10.",
+        help="CIFAR-10 root, either Data/CIFAR10 or Data/CIFAR10/cifar-10-batches-py.",
     )
     parser.add_argument(
         "--partition_idx",
@@ -246,7 +246,7 @@ def main():
     from torch.utils.data import DataLoader
     from tqdm import tqdm
 
-    from Src.Algorithm.Utils.difficulty_dataset import (
+    from Src.Deploy.Shared.dataloader import (
         DifficultyAwareDataset,
         build_cifar10_test_transform,
     )
