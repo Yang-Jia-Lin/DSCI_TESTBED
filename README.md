@@ -185,6 +185,90 @@ python Scripts\Exp0_Offline\test_with_difficulty.py `
 `--difficulty easy medium` 只测试部分难度。只有当 `Data/CIFAR10/` 下没有数据集文件时才使用
 `--download`。
 
+### 5. 在其他脚本中复用难度 dataloader
+
+常规 PyTorch 实验脚本仍然可以使用原来的 `get_test_data_loaders()`。默认不传难度参数时，行为和原来一致，每个 batch 仍然是 `(images, labels)`：
+
+```python
+from Src.Algorithm.Utils.utils_function import get_test_data_loaders
+
+test_loader = get_test_data_loaders(
+    root="Data/CIFAR10",
+    batch_size=128,
+)
+
+for images, labels in test_loader:
+    ...
+```
+
+如果要测试简单样本，只在构造 dataloader 时增加难度表路径和 `difficulty`，循环代码仍然可以保持 `(images, labels)` 不变：
+
+```python
+test_loader = get_test_data_loaders(
+    root="Data/CIFAR10",
+    batch_size=128,
+    difficulty_table_path="Data/OfflineTables/cifar10_difficulty_table_labeled.csv",
+    difficulty="easy",
+)
+
+for images, labels in test_loader:
+    ...
+```
+
+困难样本只需要把 `difficulty` 改为 `"hard"`；多个难度可以写成 `["easy", "medium"]`；不筛选则不传 `difficulty_table_path` 和 `difficulty`。
+
+如果新脚本需要读取难度标签、profiling 置信度或原始 `image_id`，显式打开 metadata：
+
+```python
+test_loader = get_test_data_loaders(
+    root="Data/CIFAR10",
+    batch_size=128,
+    difficulty_table_path="Data/OfflineTables/cifar10_difficulty_table_labeled.csv",
+    difficulty="easy",
+    include_difficulty_metadata=True,
+    include_image_id=True,
+)
+
+for images, labels, difficulties, confidences, image_ids in test_loader:
+    ...
+```
+
+`get_data_loaders()` 也支持同样逻辑，但只作用于它返回的 `test_loader`，训练集和验证集不变：
+
+```python
+from Src.Algorithm.Utils.utils_function import get_data_loaders
+
+train_loader, valid_loader, test_loader = get_data_loaders(
+    root="Data/CIFAR10",
+    batch_size=128,
+    valid_size=0.1,
+    random_seed=42,
+    test_difficulty_table_path="Data/OfflineTables/cifar10_difficulty_table_labeled.csv",
+    test_difficulty="hard",
+)
+```
+
+难度筛选的原理是：`cifar10_difficulty_table_labeled.csv` 保存每个 CIFAR-10 test 样本的 `image_id` 和 `difficulty`。dataloader 先按 `difficulty` 过滤 CSV 行，再用 `image_id` 去索引原始 CIFAR-10 test set。它不会复制数据集，只是改变 test set 的采样索引。
+
+### 6. 部署侧数据加载和 ONNX/MNN 说明
+
+当前 `Src/Deploy/Device/run_device.py` 没有调用 `Src.Algorithm.Utils.get_test_data_loaders()`。为了让 Device 节点更容易独立拷贝到其他设备，它在文件内定义了 `cifar10_test_loader()`，直接读取 `Data/CIFAR10/cifar-10-batches-py/test_batch`，用 pickle 解出图片和标签，再做 resize、normalize 后逐张返回。
+
+因此，如果只拷贝 `Src/Deploy` 到设备上，当前部署测试仍然可以拿到 CIFAR-10 测试样本，但前提是设备上同时有：
+
+```text
+Data/CIFAR10/cifar-10-batches-py/test_batch
+Data/Weights/full_model.pth
+Data/OfflineTables/*.csv
+```
+
+难度感知 dataloader 属于 PyTorch/torchvision 实验路径，依赖 `Src/Algorithm/Utils/difficulty_dataset.py`、`pandas` 和 `torchvision`。如果部署侧也想按 easy/hard 过滤样本，有两种做法：
+
+1. 把 `Src/Algorithm/Utils/difficulty_dataset.py` 和 `utils_function.py` 一起打包到设备，并安装对应依赖。
+2. 在 `run_device.py` 的 `cifar10_test_loader()` 里读取 `cifar10_difficulty_table_labeled.csv`，按 `image_id` 过滤原始 `test_batch`。这种方式更适合没有完整 PyTorch/torchvision 环境的轻量部署。
+
+更换推理后端为 ONNX 或 MNN 后，难度表本身仍然可用，因为它只依赖 `image_id`、`difficulty` 和 CIFAR-10 样本顺序。需要注意的是，当前 `DifficultyAwareDataset` 返回的是 PyTorch tensor；ONNX Runtime 通常需要 NumPy array，MNN 通常需要按其 runtime 输入格式转换。也就是说，筛选逻辑可以复用，但最后一段 `tensor -> runtime input` 的转换需要按 ONNX/MNN 后端单独适配。
+
 ## 为什么必须启动 iperf3
 
 iperf3 用于实时测量节点间带宽。测得的 `BW_d2e` 和 `BW_e2c` 会直接传给 Algorithm API，用于计算最优切分点。如果 iperf3 没有启动，`measure_bandwidth_iperf` 会返回 `0.0`，算法会基于错误带宽做决策，导致不合理的推理切分。
