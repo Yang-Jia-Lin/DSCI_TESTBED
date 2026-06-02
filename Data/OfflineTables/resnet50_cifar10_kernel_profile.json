@@ -1,0 +1,740 @@
+{
+  "predictor": "cortexA76cpu_tflite21",
+  "input_shape": [
+    1,
+    3,
+    32,
+    32
+  ],
+  "timestamp": "2026-06-02T11:38:28.418597",
+  "backbone_total_ms": 19.779373219108546,
+  "branch2_total_ms": 0.17318449189189145,
+  "branch3_total_ms": 0.26135827972972947,
+  "total_mapped_ms": 20.213915990730165,
+  "kernels": [
+    {
+      "idx": 0,
+      "op": "conv-relu",
+      "name": "conv-relu#0",
+      "cin": 3,
+      "cout": 64,
+      "inputh": 32,
+      "latency_ms": 0.331638
+    },
+    {
+      "idx": 1,
+      "op": "maxpool",
+      "name": "maxpool#1",
+      "cin": 64,
+      "cout": 64,
+      "inputh": 16,
+      "latency_ms": 0.013178
+    },
+    {
+      "idx": 2,
+      "op": "conv",
+      "name": "conv#2",
+      "cin": 64,
+      "cout": 256,
+      "inputh": 8,
+      "latency_ms": 0.11498
+    },
+    {
+      "idx": 3,
+      "op": "conv-relu",
+      "name": "conv-relu#3",
+      "cin": 64,
+      "cout": 64,
+      "inputh": 8,
+      "latency_ms": 0.033194
+    },
+    {
+      "idx": 4,
+      "op": "conv-relu",
+      "name": "conv-relu#4",
+      "cin": 64,
+      "cout": 64,
+      "inputh": 8,
+      "latency_ms": 0.27644
+    },
+    {
+      "idx": 5,
+      "op": "conv",
+      "name": "conv#5",
+      "cin": 64,
+      "cout": 256,
+      "inputh": 8,
+      "latency_ms": 0.11498
+    },
+    {
+      "idx": 6,
+      "op": "add-relu",
+      "name": "add-relu#6",
+      "cin": 256,
+      "cout": 256,
+      "inputh": 8,
+      "latency_ms": 0.004009
+    },
+    {
+      "idx": 7,
+      "op": "conv-relu",
+      "name": "conv-relu#7",
+      "cin": 256,
+      "cout": 64,
+      "inputh": 8,
+      "latency_ms": 0.121328
+    },
+    {
+      "idx": 8,
+      "op": "conv-relu",
+      "name": "conv-relu#8",
+      "cin": 64,
+      "cout": 64,
+      "inputh": 8,
+      "latency_ms": 0.27644
+    },
+    {
+      "idx": 9,
+      "op": "conv",
+      "name": "conv#9",
+      "cin": 64,
+      "cout": 256,
+      "inputh": 8,
+      "latency_ms": 0.11498
+    },
+    {
+      "idx": 10,
+      "op": "add-relu",
+      "name": "add-relu#10",
+      "cin": 256,
+      "cout": 256,
+      "inputh": 8,
+      "latency_ms": 0.004009
+    },
+    {
+      "idx": 11,
+      "op": "conv-relu",
+      "name": "conv-relu#11",
+      "cin": 256,
+      "cout": 64,
+      "inputh": 8,
+      "latency_ms": 0.121328
+    },
+    {
+      "idx": 12,
+      "op": "conv-relu",
+      "name": "conv-relu#12",
+      "cin": 64,
+      "cout": 64,
+      "inputh": 8,
+      "latency_ms": 0.27644
+    },
+    {
+      "idx": 13,
+      "op": "conv",
+      "name": "conv#13",
+      "cin": 64,
+      "cout": 256,
+      "inputh": 8,
+      "latency_ms": 0.11498
+    },
+    {
+      "idx": 14,
+      "op": "add-relu",
+      "name": "add-relu#14",
+      "cin": 256,
+      "cout": 256,
+      "inputh": 8,
+      "latency_ms": 0.004009
+    },
+    {
+      "idx": 15,
+      "op": "conv",
+      "name": "conv#15",
+      "cin": 256,
+      "cout": 512,
+      "inputh": 8,
+      "latency_ms": 0.296917
+    },
+    {
+      "idx": 16,
+      "op": "conv-relu",
+      "name": "conv-relu#16",
+      "cin": 256,
+      "cout": 128,
+      "inputh": 8,
+      "latency_ms": 0.224522
+    },
+    {
+      "idx": 17,
+      "op": "conv-relu",
+      "name": "conv-relu#17",
+      "cin": 128,
+      "cout": 128,
+      "inputh": 8,
+      "latency_ms": 0.382816
+    },
+    {
+      "idx": 18,
+      "op": "conv",
+      "name": "conv#18",
+      "cin": 128,
+      "cout": 512,
+      "inputh": 4,
+      "latency_ms": 0.161924
+    },
+    {
+      "idx": 19,
+      "op": "add-relu",
+      "name": "add-relu#19",
+      "cin": 512,
+      "cout": 512,
+      "inputh": 4,
+      "latency_ms": 0.008018
+    },
+    {
+      "idx": 20,
+      "op": "conv-relu",
+      "name": "conv-relu#20",
+      "cin": 512,
+      "cout": 128,
+      "inputh": 4,
+      "latency_ms": 0.173546
+    },
+    {
+      "idx": 21,
+      "op": "conv-relu",
+      "name": "conv-relu#21",
+      "cin": 128,
+      "cout": 128,
+      "inputh": 4,
+      "latency_ms": 0.391746
+    },
+    {
+      "idx": 22,
+      "op": "conv",
+      "name": "conv#22",
+      "cin": 128,
+      "cout": 512,
+      "inputh": 4,
+      "latency_ms": 0.161924
+    },
+    {
+      "idx": 23,
+      "op": "add-relu",
+      "name": "add-relu#23",
+      "cin": 512,
+      "cout": 512,
+      "inputh": 4,
+      "latency_ms": 0.008018
+    },
+    {
+      "idx": 24,
+      "op": "conv-relu",
+      "name": "conv-relu#24",
+      "cin": 512,
+      "cout": 128,
+      "inputh": 4,
+      "latency_ms": 0.173546
+    },
+    {
+      "idx": 25,
+      "op": "conv-relu",
+      "name": "conv-relu#25",
+      "cin": 128,
+      "cout": 128,
+      "inputh": 4,
+      "latency_ms": 0.391746
+    },
+    {
+      "idx": 26,
+      "op": "conv",
+      "name": "conv#26",
+      "cin": 128,
+      "cout": 512,
+      "inputh": 4,
+      "latency_ms": 0.161924
+    },
+    {
+      "idx": 27,
+      "op": "add-relu",
+      "name": "add-relu#27",
+      "cin": 512,
+      "cout": 512,
+      "inputh": 4,
+      "latency_ms": 0.008018
+    },
+    {
+      "idx": 28,
+      "op": "conv-relu",
+      "name": "conv-relu#28",
+      "cin": 512,
+      "cout": 128,
+      "inputh": 4,
+      "latency_ms": 0.173546
+    },
+    {
+      "idx": 29,
+      "op": "conv-relu",
+      "name": "conv-relu#29",
+      "cin": 128,
+      "cout": 128,
+      "inputh": 4,
+      "latency_ms": 0.391746
+    },
+    {
+      "idx": 30,
+      "op": "conv",
+      "name": "conv#30",
+      "cin": 128,
+      "cout": 512,
+      "inputh": 4,
+      "latency_ms": 0.161924
+    },
+    {
+      "idx": 31,
+      "op": "add-relu",
+      "name": "add-relu#31",
+      "cin": 512,
+      "cout": 512,
+      "inputh": 4,
+      "latency_ms": 0.008018
+    },
+    {
+      "idx": 32,
+      "op": "conv",
+      "name": "conv#32",
+      "cin": 512,
+      "cout": 1024,
+      "inputh": 4,
+      "latency_ms": 0.698581
+    },
+    {
+      "idx": 33,
+      "op": "conv-relu",
+      "name": "conv-relu#33",
+      "cin": 512,
+      "cout": 256,
+      "inputh": 4,
+      "latency_ms": 0.314591
+    },
+    {
+      "idx": 34,
+      "op": "conv-relu",
+      "name": "conv-relu#34",
+      "cin": 256,
+      "cout": 256,
+      "inputh": 4,
+      "latency_ms": 0.860027
+    },
+    {
+      "idx": 35,
+      "op": "conv",
+      "name": "conv#35",
+      "cin": 256,
+      "cout": 1024,
+      "inputh": 2,
+      "latency_ms": 0.259435
+    },
+    {
+      "idx": 36,
+      "op": "add-relu",
+      "name": "add-relu#36",
+      "cin": 1024,
+      "cout": 1024,
+      "inputh": 2,
+      "latency_ms": 0.016063
+    },
+    {
+      "idx": 37,
+      "op": "conv-relu",
+      "name": "conv-relu#37",
+      "cin": 1024,
+      "cout": 256,
+      "inputh": 2,
+      "latency_ms": 0.255693
+    },
+    {
+      "idx": 38,
+      "op": "conv-relu",
+      "name": "conv-relu#38",
+      "cin": 256,
+      "cout": 256,
+      "inputh": 2,
+      "latency_ms": 0.6728
+    },
+    {
+      "idx": 39,
+      "op": "conv",
+      "name": "conv#39",
+      "cin": 256,
+      "cout": 1024,
+      "inputh": 2,
+      "latency_ms": 0.259435
+    },
+    {
+      "idx": 40,
+      "op": "add-relu",
+      "name": "add-relu#40",
+      "cin": 1024,
+      "cout": 1024,
+      "inputh": 2,
+      "latency_ms": 0.016063
+    },
+    {
+      "idx": 41,
+      "op": "conv-relu",
+      "name": "conv-relu#41",
+      "cin": 1024,
+      "cout": 256,
+      "inputh": 2,
+      "latency_ms": 0.255693
+    },
+    {
+      "idx": 42,
+      "op": "conv-relu",
+      "name": "conv-relu#42",
+      "cin": 256,
+      "cout": 256,
+      "inputh": 2,
+      "latency_ms": 0.6728
+    },
+    {
+      "idx": 43,
+      "op": "conv",
+      "name": "conv#43",
+      "cin": 256,
+      "cout": 1024,
+      "inputh": 2,
+      "latency_ms": 0.259435
+    },
+    {
+      "idx": 44,
+      "op": "add-relu",
+      "name": "add-relu#44",
+      "cin": 1024,
+      "cout": 1024,
+      "inputh": 2,
+      "latency_ms": 0.016063
+    },
+    {
+      "idx": 45,
+      "op": "conv-relu",
+      "name": "conv-relu#45",
+      "cin": 1024,
+      "cout": 256,
+      "inputh": 2,
+      "latency_ms": 0.255693
+    },
+    {
+      "idx": 46,
+      "op": "conv-relu",
+      "name": "conv-relu#46",
+      "cin": 256,
+      "cout": 256,
+      "inputh": 2,
+      "latency_ms": 0.6728
+    },
+    {
+      "idx": 47,
+      "op": "conv",
+      "name": "conv#47",
+      "cin": 256,
+      "cout": 1024,
+      "inputh": 2,
+      "latency_ms": 0.259435
+    },
+    {
+      "idx": 48,
+      "op": "add-relu",
+      "name": "add-relu#48",
+      "cin": 1024,
+      "cout": 1024,
+      "inputh": 2,
+      "latency_ms": 0.016063
+    },
+    {
+      "idx": 49,
+      "op": "conv-relu",
+      "name": "conv-relu#49",
+      "cin": 1024,
+      "cout": 256,
+      "inputh": 2,
+      "latency_ms": 0.255693
+    },
+    {
+      "idx": 50,
+      "op": "conv-relu",
+      "name": "conv-relu#50",
+      "cin": 256,
+      "cout": 256,
+      "inputh": 2,
+      "latency_ms": 0.6728
+    },
+    {
+      "idx": 51,
+      "op": "conv",
+      "name": "conv#51",
+      "cin": 256,
+      "cout": 1024,
+      "inputh": 2,
+      "latency_ms": 0.259435
+    },
+    {
+      "idx": 52,
+      "op": "add-relu",
+      "name": "add-relu#52",
+      "cin": 1024,
+      "cout": 1024,
+      "inputh": 2,
+      "latency_ms": 0.016063
+    },
+    {
+      "idx": 53,
+      "op": "conv-relu",
+      "name": "conv-relu#53",
+      "cin": 1024,
+      "cout": 256,
+      "inputh": 2,
+      "latency_ms": 0.255693
+    },
+    {
+      "idx": 54,
+      "op": "conv-relu",
+      "name": "conv-relu#54",
+      "cin": 256,
+      "cout": 256,
+      "inputh": 2,
+      "latency_ms": 0.6728
+    },
+    {
+      "idx": 55,
+      "op": "conv",
+      "name": "conv#55",
+      "cin": 256,
+      "cout": 1024,
+      "inputh": 2,
+      "latency_ms": 0.259435
+    },
+    {
+      "idx": 56,
+      "op": "add-relu",
+      "name": "add-relu#56",
+      "cin": 1024,
+      "cout": 1024,
+      "inputh": 2,
+      "latency_ms": 0.016063
+    },
+    {
+      "idx": 57,
+      "op": "conv",
+      "name": "conv#57",
+      "cin": 1024,
+      "cout": 2048,
+      "inputh": 2,
+      "latency_ms": 0.78279
+    },
+    {
+      "idx": 58,
+      "op": "conv-relu",
+      "name": "conv-relu#58",
+      "cin": 1024,
+      "cout": 512,
+      "inputh": 2,
+      "latency_ms": 0.512644
+    },
+    {
+      "idx": 59,
+      "op": "conv-relu",
+      "name": "conv-relu#59",
+      "cin": 512,
+      "cout": 512,
+      "inputh": 2,
+      "latency_ms": 1.07214
+    },
+    {
+      "idx": 60,
+      "op": "conv",
+      "name": "conv#60",
+      "cin": 512,
+      "cout": 2048,
+      "inputh": 1,
+      "latency_ms": 0.318396
+    },
+    {
+      "idx": 61,
+      "op": "add-relu",
+      "name": "add-relu#61",
+      "cin": 2048,
+      "cout": 2048,
+      "inputh": 1,
+      "latency_ms": 0.035337
+    },
+    {
+      "idx": 62,
+      "op": "conv-relu",
+      "name": "conv-relu#62",
+      "cin": 2048,
+      "cout": 512,
+      "inputh": 1,
+      "latency_ms": 0.322423
+    },
+    {
+      "idx": 63,
+      "op": "conv-relu",
+      "name": "conv-relu#63",
+      "cin": 512,
+      "cout": 512,
+      "inputh": 1,
+      "latency_ms": 0.870678
+    },
+    {
+      "idx": 64,
+      "op": "conv",
+      "name": "conv#64",
+      "cin": 512,
+      "cout": 2048,
+      "inputh": 1,
+      "latency_ms": 0.318396
+    },
+    {
+      "idx": 65,
+      "op": "add-relu",
+      "name": "add-relu#65",
+      "cin": 2048,
+      "cout": 2048,
+      "inputh": 1,
+      "latency_ms": 0.035337
+    },
+    {
+      "idx": 66,
+      "op": "conv-relu",
+      "name": "conv-relu#66",
+      "cin": 2048,
+      "cout": 512,
+      "inputh": 1,
+      "latency_ms": 0.322423
+    },
+    {
+      "idx": 67,
+      "op": "conv-relu",
+      "name": "conv-relu#67",
+      "cin": 512,
+      "cout": 512,
+      "inputh": 1,
+      "latency_ms": 0.870678
+    },
+    {
+      "idx": 68,
+      "op": "conv",
+      "name": "conv#68",
+      "cin": 512,
+      "cout": 2048,
+      "inputh": 1,
+      "latency_ms": 0.318396
+    },
+    {
+      "idx": 69,
+      "op": "add-relu",
+      "name": "add-relu#69",
+      "cin": 2048,
+      "cout": 2048,
+      "inputh": 1,
+      "latency_ms": 0.035337
+    },
+    {
+      "idx": 70,
+      "op": "gap",
+      "name": "gap#70",
+      "cin": 2048,
+      "cout": 2048,
+      "inputh": 1,
+      "latency_ms": 0.28494
+    },
+    {
+      "idx": 71,
+      "op": "fc",
+      "name": "fc#71",
+      "cin": 2048,
+      "cout": 10,
+      "inputh": null,
+      "latency_ms": 0.308975
+    }
+  ],
+  "layer_latencies": {
+    "conv1": 0.331638,
+    "maxpool": 0.013178,
+    "layer1.0.downsample.0": 0.11498,
+    "layer1.0.conv1": 0.033194,
+    "layer1.0.relu": 0.004009,
+    "layer1.0.conv2": 0.27644,
+    "layer1.0.conv3": 0.11498,
+    "layer1.1.conv1": 0.121328,
+    "layer1.1.relu": 0.004009,
+    "layer1.1.conv2": 0.27644,
+    "layer1.1.conv3": 0.11498,
+    "layer1.2.conv1": 0.121328,
+    "layer1.2.relu": 0.004009,
+    "layer1.2.conv2": 0.27644,
+    "layer1.2.conv3": 0.11498,
+    "layer2.0.downsample.0": 0.296917,
+    "layer2.0.conv1": 0.224522,
+    "layer2.0.relu": 0.008018,
+    "layer2.0.conv2": 0.382816,
+    "layer2.0.conv3": 0.161924,
+    "layer2.1.conv1": 0.173546,
+    "layer2.1.relu": 0.008018,
+    "layer2.1.conv2": 0.391746,
+    "layer2.1.conv3": 0.161924,
+    "layer2.2.conv1": 0.173546,
+    "layer2.2.relu": 0.008018,
+    "layer2.2.conv2": 0.391746,
+    "layer2.2.conv3": 0.161924,
+    "layer2.3.conv1": 0.173546,
+    "layer2.3.relu": 0.008018,
+    "layer2.3.conv2": 0.391746,
+    "layer2.3.conv3": 0.161924,
+    "avgpool": 0.086592,
+    "fc2": 0.086592,
+    "layer3.0.downsample.0": 0.698581,
+    "layer3.0.conv1": 0.314591,
+    "layer3.0.relu": 0.016063,
+    "layer3.0.conv2": 0.860027,
+    "layer3.0.conv3": 0.259435,
+    "layer3.1.conv1": 0.255693,
+    "layer3.1.relu": 0.016063,
+    "layer3.1.conv2": 0.6728,
+    "layer3.1.conv3": 0.259435,
+    "layer3.2.conv1": 0.255693,
+    "layer3.2.relu": 0.016063,
+    "layer3.2.conv2": 0.6728,
+    "layer3.2.conv3": 0.259435,
+    "layer3.3.conv1": 0.255693,
+    "layer3.3.relu": 0.016063,
+    "layer3.3.conv2": 0.6728,
+    "layer3.3.conv3": 0.259435,
+    "layer3.4.conv1": 0.255693,
+    "layer3.4.relu": 0.016063,
+    "layer3.4.conv2": 0.6728,
+    "layer3.4.conv3": 0.259435,
+    "layer3.5.conv1": 0.255693,
+    "layer3.5.relu": 0.016063,
+    "layer3.5.conv2": 0.6728,
+    "layer3.5.conv3": 0.259435,
+    "fc3": 0.261358,
+    "layer4.0.downsample.0": 0.78279,
+    "layer4.0.conv1": 0.512644,
+    "layer4.0.relu": 0.035337,
+    "layer4.0.conv2": 1.07214,
+    "layer4.0.conv3": 0.318396,
+    "layer4.1.conv1": 0.322423,
+    "layer4.1.relu": 0.035337,
+    "layer4.1.conv2": 0.870678,
+    "layer4.1.conv3": 0.318396,
+    "layer4.2.conv1": 0.322423,
+    "layer4.2.relu": 0.035337,
+    "layer4.2.conv2": 0.870678,
+    "layer4.2.conv3": 0.318396,
+    "fc": 0.593914
+  }
+}

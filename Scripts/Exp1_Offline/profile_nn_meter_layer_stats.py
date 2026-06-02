@@ -1,7 +1,7 @@
 """
 Scripts/Exp1_Offline/profile_nn_meter_layer_stats.py
 
-nn-Meter 离线 Profiling 脚本 — 数据驱动映射
+nn-Meter 离线 Profiling 脚本 — 通过预导出 ONNX 绕过 torch converter 兼容性问题
 
 Usage:
   cd DSCI_testbed
@@ -12,7 +12,9 @@ Usage:
 import argparse
 import json
 import logging
+import os
 import shutil
+import tempfile
 from collections import OrderedDict
 from datetime import datetime
 from pathlib import Path
@@ -23,7 +25,7 @@ import torch
 import torch.nn as nn
 
 from nn_meter import load_latency_predictor
-from nn_meter.ir_converter import model_to_graph
+from nn_meter.ir_converter import model_file_to_graph
 from nn_meter.predictor.prediction.extract_feature import get_predict_features
 from nn_meter.predictor.prediction.predict_by_kernel import merge_conv_kernels
 from nn_meter.predictor.prediction.utils import get_kernel_name
@@ -62,6 +64,56 @@ def predict_per_kernel(predictors, kernel_units):
             "latency_ms": lat,
         })
     return results
+
+
+# ================================================================
+#  模型导出与 profiling
+# ================================================================
+def export_and_profile(model, input_shape, predictor):
+    """
+    手动导出 ONNX → onnxsim → nn-Meter ONNX mode profile。
+    绕过 nn-Meter 的内部 torch converter（与 PyTorch 2.9 不兼容）。
+    """
+    import onnx
+    from onnxsim import simplify
+
+    tmpdir = tempfile.mkdtemp()
+    onnx_path = os.path.join(tmpdir, "model.onnx")
+
+    try:
+        # Step 1: 手动导出 ONNX（使用 dynamo_export 的 legacy 模式）
+        dummy_input = torch.randn(*input_shape)
+        torch.onnx.export(
+            model, dummy_input, onnx_path,
+            opset_version=11,
+            input_names=["input"],
+            output_names=["output"],
+            dynamic_axes=None,
+            dynamo=False,  # Force legacy TorchScript-based exporter
+        )
+
+        # Step 2: 简化 ONNX
+        onnx_model = onnx.load(onnx_path)
+        onnx_simp, check = simplify(onnx_model)
+        if check:
+            onnx.save(onnx_simp, onnx_path)
+
+        # Step 3: 用 nn-Meter 的 ONNX mode 加载
+        graph = model_file_to_graph(onnx_path, "onnx")
+
+        # Step 4: kernel detection + prediction
+        predictor.kd.load_graph(graph)
+        kernel_units = predictor.kd.get_kernels()
+        kernel_lats = predict_per_kernel(predictor.kernel_predictors, kernel_units)
+
+        # 也获取总时延
+        from nn_meter.predictor.prediction.predict_by_kernel import nn_predict
+        total_lat = nn_predict(predictor.kernel_predictors, kernel_units)
+
+        return kernel_lats, total_lat
+
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=True)
 
 
 # ================================================================
@@ -106,30 +158,9 @@ class EarlyExitBranch3(nn.Module):
 
 
 # ================================================================
-#  Kernel → DSCI Layer 映射（数据驱动）
+#  Kernel → DSCI Layer 映射
 # ================================================================
 def map_kernels_to_dsci_layers(kernel_lats, csv_layer_names):
-    """
-    数据驱动映射：遍历 nn-Meter 的 kernel 列表，按 ResNet50 Bottleneck
-    结构顺序与 CSV 层名对应。
-
-    nn-Meter 对 ResNet50 Bottleneck 的 kernel 模式（32x32 输入下观察到的）：
-      Stem:
-        [0] conv-bn-relu  → conv1 (+bn1,relu fused)
-        [1] maxpool       → maxpool
-
-      每个 Bottleneck Block:
-        如果有 downsample:
-          [k] conv-bn-relu  → downsample.0 (+downsample.1 fused)
-        [k+1] conv-bn-relu  → conv1 (+bn1 fused)
-        [k+2] conv-bn-relu  → conv2 (+bn2 fused, 含relu)
-        [k+3] conv-bn       → conv3 (+bn3 fused, 无relu)
-        [k+4] add-relu      → relu (residual add+relu)
-
-      Tail:
-        [n-2] global-avgpool → (不在 CSV 主层中，合并到 fc)
-        [n-1] fc             → fc
-    """
     latency_map = OrderedDict((ln, 0.0) for ln in csv_layer_names)
     k_idx = 0
 
@@ -142,37 +173,28 @@ def map_kernels_to_dsci_layers(kernel_lats, csv_layer_names):
         return 0.0
 
     # Stem
-    latency_map["conv1"] = safe_get_lat()          # conv-bn-relu → conv1(+bn1+relu)
+    latency_map["conv1"] = safe_get_lat()          # conv-bn-relu
     latency_map["maxpool"] = safe_get_lat()          # maxpool
 
-    # Helper for one Bottleneck
     def map_block(prefix, has_ds):
         if has_ds:
-            latency_map[f"{prefix}.downsample.0"] = safe_get_lat()  # conv-bn-relu
-        latency_map[f"{prefix}.conv1"] = safe_get_lat()              # conv-bn-relu (1x1)
-        latency_map[f"{prefix}.conv2"] = safe_get_lat()              # conv-bn-relu (3x3)
-        latency_map[f"{prefix}.conv3"] = safe_get_lat()              # conv-bn     (1x1)
-        latency_map[f"{prefix}.relu"] = safe_get_lat()               # add-relu
+            latency_map[f"{prefix}.downsample.0"] = safe_get_lat()
+        latency_map[f"{prefix}.conv1"] = safe_get_lat()
+        latency_map[f"{prefix}.conv2"] = safe_get_lat()
+        latency_map[f"{prefix}.conv3"] = safe_get_lat()
+        latency_map[f"{prefix}.relu"] = safe_get_lat()     # add-relu
 
-    # Layer1: [3, ...], first has downsample
     for i in range(3):
         map_block(f"layer1.{i}", has_ds=(i == 0))
-
-    # Layer2: [_, 4, ...], first has downsample
     for i in range(4):
         map_block(f"layer2.{i}", has_ds=(i == 0))
-
-    # Layer3: [_, _, 6, ...], first has downsample
     for i in range(6):
         map_block(f"layer3.{i}", has_ds=(i == 0))
-
-    # Layer4: [_, _, _, 3], first has downsample
     for i in range(3):
         map_block(f"layer4.{i}", has_ds=(i == 0))
 
-    # Tail: global-avgpool + fc
-    avgpool_lat = safe_get_lat()  # global-avgpool
-    fc_lat = safe_get_lat()       # fc
+    avgpool_lat = safe_get_lat()
+    fc_lat = safe_get_lat()
     latency_map["fc"] = avgpool_lat + fc_lat
 
     return latency_map, k_idx
@@ -196,31 +218,22 @@ def main():
     print(f"Predictor:   {args.predictor}")
     print(f"Input shape: {input_shape}")
 
-    # Step 1: Load predictor
     predictor = load_latency_predictor(args.predictor)
 
-    # Step 2: Create model
     full_model = MultiEEResNet50(Bottleneck, [3, 4, 6, 3], num_classes=10)
     full_model.eval()
 
-    # Step 3: Profile backbone
+    # Profile backbone
     print("\nProfiling backbone...")
     backbone = MainBackbone(full_model)
     backbone.eval()
-    graph = model_to_graph(backbone, "torch", input_shape=input_shape)
-    predictor.kd.load_graph(graph)
-    kernel_units = predictor.kd.get_kernels()
-    backbone_kernels = predict_per_kernel(predictor.kernel_predictors, kernel_units)
-
-    total_backbone = sum(k["latency_ms"] for k in backbone_kernels)
+    backbone_kernels, total_backbone = export_and_profile(backbone, input_shape, predictor)
     print(f"  {len(backbone_kernels)} kernels, total {total_backbone:.4f} ms")
-
-    # Print kernel list
     for k in backbone_kernels:
         print(f"  [{k['kernel_idx']:3d}] {k['op']:<30s}  {k['latency_ms']:.4f} ms  "
               f"cin={k['cin']} cout={k['cout']} inputh={k['inputh']}")
 
-    # Step 4: Profile early exit branches
+    # Profile early exit branches
     print("\nProfiling early exit branches...")
     with torch.no_grad():
         dummy = torch.randn(*input_shape)
@@ -231,12 +244,17 @@ def main():
         branch2_shape = tuple(x2.shape)
         branch3_shape = tuple(x3.shape)
 
-    branch2_lat = predictor.predict(EarlyExitBranch2(full_model).eval(), "torch", input_shape=branch2_shape)
-    branch3_lat = predictor.predict(EarlyExitBranch3(full_model).eval(), "torch", input_shape=branch3_shape)
+    b2 = EarlyExitBranch2(full_model)
+    b2.eval()
+    _, branch2_lat = export_and_profile(b2, branch2_shape, predictor)
     print(f"  Branch2 ({branch2_shape}): {branch2_lat:.4f} ms")
+
+    b3 = EarlyExitBranch3(full_model)
+    b3.eval()
+    _, branch3_lat = export_and_profile(b3, branch3_shape, predictor)
     print(f"  Branch3 ({branch3_shape}): {branch3_lat:.4f} ms")
 
-    # Step 5: Read CSV
+    # Read CSV
     csv_path = output_dir / "resnet50_cifar10_layer_stats.csv"
     df = pd.read_csv(csv_path, skipinitialspace=True)
     df.columns = df.columns.str.strip()
@@ -244,11 +262,11 @@ def main():
     layer_names = df["layer"].tolist()
     print(f"\nCSV has {len(layer_names)} layers")
 
-    # Step 6: Map kernels
+    # Map kernels
     latency_map, consumed = map_kernels_to_dsci_layers(backbone_kernels, layer_names)
     print(f"Consumed {consumed}/{len(backbone_kernels)} kernels")
 
-    # Add early exit branches
+    # Early exit branches
     if "avgpool" in latency_map:
         latency_map["avgpool"] = branch2_lat * 0.5
     if "fc2" in latency_map:
@@ -256,7 +274,7 @@ def main():
     if "fc3" in latency_map:
         latency_map["fc3"] = branch3_lat
 
-    # Step 7: Build latency column
+    # Build latency column
     nn_lat_col = [latency_map.get(ln, 0.0) for ln in layer_names]
     df["nn_meter_latency_ms"] = nn_lat_col
 
@@ -265,7 +283,7 @@ def main():
     print(f"\nTotal mapped latency: {total_mapped:.4f} ms")
     print(f"Non-zero layers: {nonzero}/{len(nn_lat_col)}")
 
-    # Step 8: Save
+    # Save
     if csv_path.exists() and not args.overwrite:
         backup = csv_path.with_suffix(f".backup_{datetime.now():%Y%m%d%H%M%S}.csv")
         shutil.copy2(csv_path, backup)
@@ -274,7 +292,7 @@ def main():
     df.to_csv(csv_path, index=False)
     print(f"Saved: {csv_path}")
 
-    # Step 9: Audit JSON
+    # Audit JSON
     audit_path = output_dir / "resnet50_cifar10_kernel_profile.json"
     audit = {
         "predictor": args.predictor,
@@ -295,7 +313,7 @@ def main():
         json.dump(audit, f, indent=2, ensure_ascii=False)
     print(f"Saved audit: {audit_path}")
 
-    # Step 10: Comparison table
+    # Comparison table
     print(f"\n{'='*80}")
     print(f"{'Layer':<25s} {'FLOPs':>12s} {'nn-Meter(ms)':>14s}")
     print(f"{'='*80}")
@@ -303,10 +321,10 @@ def main():
         ln = row["layer"]
         flops = int(row["approx_flops"])
         nn_lat = row["nn_meter_latency_ms"]
-        marker = "" if nn_lat > 0 else "  (fused→0)"
+        marker = "" if nn_lat > 0 else "  (fused->0)"
         print(f"{ln:<25s} {flops:>12d} {nn_lat:>14.4f}{marker}")
 
-    print(f"\n✅ Done.")
+    print(f"\nDone.")
 
 
 if __name__ == "__main__":
