@@ -3,7 +3,7 @@ import json
 import subprocess
 
 # 请确保这个路径指向你的 iperf3.exe（根据实际情况调整）
-IPERF_EXE = r"S:\\Tools\\Iperf\\iperf3.exe"
+IPERF_EXE = "iperf3"
 # 如果你放在了其他位置，例如 C:\iperf3\iperf3.exe，就改成那个路径。
 
 
