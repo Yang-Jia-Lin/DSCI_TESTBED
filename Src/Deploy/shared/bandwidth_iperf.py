@@ -9,7 +9,8 @@ IPERF_EXE = "iperf3"
 
 def measure_bandwidth_iperf(server_ip, port=5001, duration=2):
     """使用 iperf3 客户端测量到指定服务端的上行带宽 (Mbps)"""
-    cmd = [IPERF_EXE, "-c", server_ip, "-p", str(port), "-t", str(duration), "-J"]
+    cmd = [IPERF_EXE, "-c", server_ip, "-p",
+           str(port), "-t", str(duration), "-J"]
     try:
         result = subprocess.run(
             cmd, capture_output=True, text=True, timeout=duration + 5
