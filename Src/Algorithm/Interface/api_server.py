@@ -120,6 +120,7 @@ def build_service_from_env(
     deterministic: bool = True,
     buffer_size: int | None = None,
     fixed_split: tuple[int, int] | None = None,
+    fixed_threshold: float | None = None,
 ) -> AlgoService:
     cfg = AlgoServiceConfig(
         checkpoint_path=checkpoint,
@@ -127,6 +128,7 @@ def build_service_from_env(
         auto_train=auto_train,
         deterministic=deterministic,
         fixed_split=fixed_split,
+        fixed_threshold=fixed_threshold,
     )
     if buffer_size is not None:
         cfg.buffer_size = int(buffer_size)
@@ -149,6 +151,15 @@ if __name__ == "__main__":
             "request, for example: --fixed-split 0 1"
         ),
     )
+    parser.add_argument(
+        "--fixed-threshold",
+        type=float,
+        metavar="VALUE",
+        help=(
+            "Set every early-exit threshold in Y to this value for every "
+            "decision request, for example: --fixed-threshold 0.7"
+        ),
+    )
     parser.add_argument("--no-auto-train", action="store_true")
     parser.add_argument("--debug", action="store_true")
     args = parser.parse_args()
@@ -156,6 +167,7 @@ if __name__ == "__main__":
     service = build_service_from_env(
         auto_train=not args.no_auto_train,
         fixed_split=tuple(args.fixed_split) if args.fixed_split else None,
+        fixed_threshold=args.fixed_threshold,
     )
     run_server(
         host=args.host,

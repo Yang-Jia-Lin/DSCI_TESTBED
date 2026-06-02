@@ -69,6 +69,7 @@ class AlgoServiceConfig:
     latest_meta_path: str | Path = LATEST_META_PATH
     max_cached_solutions: int = 3
     fixed_split: Any = None
+    fixed_threshold: Any = None
 
 
 @dataclass
@@ -106,6 +107,9 @@ class AlgoService:
         self.config.latest_solution_path = Path(self.config.latest_solution_path)
         self.config.latest_meta_path = Path(self.config.latest_meta_path)
         self.config.fixed_split = self._parse_fixed_split(self.config.fixed_split)
+        self.config.fixed_threshold = self._parse_fixed_threshold(
+            self.config.fixed_threshold
+        )
         self._load_latest_solution()
 
     def _ppo_params(self) -> dict:
@@ -272,6 +276,26 @@ class AlgoService:
         return s1, s2
 
     @staticmethod
+    def _parse_fixed_threshold(value: Any) -> float | None:
+        if value is None:
+            return None
+        if isinstance(value, dict):
+            value = value.get("value", value.get("threshold"))
+        threshold = float(value)
+        if not (0.0 <= threshold <= 1.0):
+            raise ValueError(
+                f"fixed_threshold requires 0.0 <= threshold <= 1.0, got {threshold}"
+            )
+        return threshold
+
+    def _fixed_threshold_for_state(self, state: dict) -> float | None:
+        if "fixed_threshold" in state:
+            return self._parse_fixed_threshold(state["fixed_threshold"])
+        if "exit_threshold" in state:
+            return self._parse_fixed_threshold(state["exit_threshold"])
+        return self.config.fixed_threshold
+
+    @staticmethod
     def _make_resource_vector(total: float, n: int, enabled: bool) -> np.ndarray:
         if not enabled or total <= 0:
             return np.zeros((n, 1), dtype=np.float32)
@@ -364,6 +388,33 @@ class AlgoService:
             state_signature=fixed_signature,
         )
 
+    def _with_fixed_threshold(
+        self,
+        solution: CachedSolution,
+        paras: Paras,
+        threshold: float,
+    ) -> CachedSolution:
+        Y = solution.Y.astype(np.float64, copy=True)
+        for layer in paras.E:
+            layer_idx = int(layer)
+            if 0 <= layer_idx < int(paras.m):
+                Y[:, layer_idx] = float(threshold)
+
+        F_e, F_c = self._allocate_resources_for_xy(solution.X, Y, paras)
+        obj = float(objective(solution.X, Y, F_e, F_c, paras))
+
+        threshold_signature = copy.deepcopy(solution.state_signature)
+        threshold_signature["fixed_threshold"] = float(threshold)
+        return CachedSolution(
+            X=solution.X.astype(np.float32, copy=True),
+            Y=Y,
+            F_e=F_e,
+            F_c=F_c,
+            objective=obj,
+            state_signature=threshold_signature,
+            created_at=solution.created_at,
+        )
+
     def _solution_for_response(
         self, paras: Paras, signature: dict[str, Any]
     ) -> CachedSolution:
@@ -414,6 +465,7 @@ class AlgoService:
         paras = to_paras(state)
         signature = self._state_signature(state, paras)
         fixed_split = self._fixed_split_for_state(state)
+        fixed_threshold = self._fixed_threshold_for_state(state)
         preset_mode = self._normalise_decision_mode(state)
 
         if fixed_split is not None:
@@ -436,6 +488,10 @@ class AlgoService:
             decision_source = (
                 f"preset:{placement}:{'early_exit' if early_exit else 'no_exit'}"
             )
+
+        if fixed_threshold is not None:
+            solution = self._with_fixed_threshold(solution, paras, fixed_threshold)
+            decision_source = f"{decision_source}:threshold:{fixed_threshold:g}"
 
         decision_id = state.get("round_id") or f"round_{int(time.time() * 1000)}"
         model_name = state.get("model_name")
@@ -601,6 +657,7 @@ class AlgoService:
                 "cached_state_signature": cached.state_signature if cached else None,
                 "cached_objective": float(cached.objective) if cached else None,
                 "fixed_split": self.config.fixed_split,
+                "fixed_threshold": self.config.fixed_threshold,
                 "last_error": self._last_error,
                 "update_epochs": self._update_epoch,
             }

@@ -1,6 +1,7 @@
 param(
     [switch]$NoAlgo,
-    [int[]]$FixedSplit
+    [int[]]$FixedSplit,
+    [double]$FixedThreshold = -1
 )
 
 $ErrorActionPreference = "Stop"
@@ -34,6 +35,12 @@ if (-not $NoAlgo) {
             throw "-FixedSplit expects exactly two integers, for example: -FixedSplit 0,1"
         }
         $AlgoArgs += @("--fixed-split", "$($FixedSplit[0])", "$($FixedSplit[1])")
+    }
+    if ($FixedThreshold -ge 0) {
+        if ($FixedThreshold -gt 1) {
+            throw "-FixedThreshold must be in [0, 1]."
+        }
+        $AlgoArgs += @("--fixed-threshold", "$FixedThreshold")
     }
 
     Start-LoggedProcess `

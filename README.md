@@ -18,6 +18,14 @@ Src\Deploy\Device\start_device.ps1
 Src\Deploy\Edge\start_edge.ps1 -NoAlgo
 ```
 
+Algorithm API test overrides can be passed through the Edge launcher:
+
+```powershell
+Src\Deploy\Edge\start_edge.ps1 -FixedSplit 0,1
+Src\Deploy\Edge\start_edge.ps1 -FixedSplit 0,1 -FixedThreshold 0.7
+Src\Deploy\Edge\start_edge.ps1 -FixedThreshold 0.7
+```
+
 停止脚本：
 
 ```powershell
@@ -37,6 +45,8 @@ python -m Src.Deploy.Cloud.run_cloud            # Cloud: 状态接口 + 特征�
 iperf3 -s -p 5001                               # Edge: Device -> Edge 带宽测量
 python -m Src.Deploy.Edge.run_edge              # Edge: 状态接口 + 特征接收服务
 python -m Src.Algorithm.Interface.api_server    # Algorithm API
+# Optional test override:
+# python -m Src.Algorithm.Interface.api_server --fixed-split 0 1 --fixed-threshold 0.7
 
 python -m Src.Deploy.Device.run_device          # Device
 ```
@@ -346,6 +356,31 @@ Algorithm API 可以运行在 Edge、Cloud 或任意 Device 可访问的机器�
 ```bash
 python -m Src.Algorithm.Interface.api_server
 ```
+
+Test override options:
+
+```bash
+# Force every decision to use partition_s1=0 and partition_s2=1.
+python -m Src.Algorithm.Interface.api_server --fixed-split 0 1
+
+# Force every early-exit threshold in Y, for example layers 57 and 103.
+python -m Src.Algorithm.Interface.api_server --fixed-threshold 0.7
+
+# Combine both overrides.
+python -m Src.Algorithm.Interface.api_server --fixed-split 0 1 --fixed-threshold 0.7
+```
+
+The same overrides can be supplied per request body without restarting the API:
+
+```json
+{
+  "fixed_split": [0, 1],
+  "fixed_threshold": 0.7
+}
+```
+
+When unset, the API keeps the old behavior: cached/default DSCI decisions and the
+existing `decision_mode` presets are used normally.
 
 使用端口：
 
