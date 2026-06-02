@@ -119,12 +119,14 @@ def build_service_from_env(
     auto_train: bool = True,
     deterministic: bool = True,
     buffer_size: int | None = None,
+    fixed_split: tuple[int, int] | None = None,
 ) -> AlgoService:
     cfg = AlgoServiceConfig(
         checkpoint_path=checkpoint,
         enable_training=enable_training,
         auto_train=auto_train,
         deterministic=deterministic,
+        fixed_split=fixed_split,
     )
     if buffer_size is not None:
         cfg.buffer_size = int(buffer_size)
@@ -132,5 +134,32 @@ def build_service_from_env(
 
 
 if __name__ == "__main__":
-    service = AlgoService()
-    run_server(service=service)
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Run the testbed algorithm API server.")
+    parser.add_argument("--host", default=TESTBED_CFG.listen_host)
+    parser.add_argument("--port", type=int, default=None)
+    parser.add_argument(
+        "--fixed-split",
+        nargs=2,
+        type=int,
+        metavar=("S1", "S2"),
+        help=(
+            "Return this fixed partition_s1/partition_s2 for every decision "
+            "request, for example: --fixed-split 0 1"
+        ),
+    )
+    parser.add_argument("--no-auto-train", action="store_true")
+    parser.add_argument("--debug", action="store_true")
+    args = parser.parse_args()
+
+    service = build_service_from_env(
+        auto_train=not args.no_auto_train,
+        fixed_split=tuple(args.fixed_split) if args.fixed_split else None,
+    )
+    run_server(
+        host=args.host,
+        port=args.port,
+        service=service,
+        debug=args.debug,
+    )

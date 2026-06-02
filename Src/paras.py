@@ -58,7 +58,20 @@ NUM_LAYERS = MODEL_CFG.num_layers
 EARLY_EXIT_LAYERS = list(MODEL_CFG.early_exit_layers)
 NUM_EXIT_LAYERS = len(EARLY_EXIT_LAYERS)
 
-df = pd.read_csv(LAYER_CSV_PATH)
+def _read_layer_stats_csv(path: Path) -> pd.DataFrame:
+    df = pd.read_csv(path, skipinitialspace=True)
+    df.columns = [str(col).strip() for col in df.columns]
+    required = {"num_bytes", "approx_flops"}
+    missing = sorted(required - set(df.columns))
+    if missing:
+        raise KeyError(
+            f"{path} is missing required columns: {missing}. "
+            f"Available columns: {list(df.columns)}"
+        )
+    return df
+
+
+df = _read_layer_stats_csv(LAYER_CSV_PATH)
 DATA_SIZE_LAYERS = df["num_bytes"].astype(int).tolist()
 COMPUTE_SIZE_LAYERS = df["approx_flops"].astype(int).tolist()
 
@@ -216,7 +229,7 @@ class Paras:
             minimum=0.1,
         )
 
-        layer_df = pd.read_csv(model_cfg.resolve_layer_stats_csv())
+        layer_df = _read_layer_stats_csv(model_cfg.resolve_layer_stats_csv())
         layer_bytes = layer_df["num_bytes"].astype(int).tolist()
         layer_flops = layer_df["approx_flops"].astype(int).tolist()
 

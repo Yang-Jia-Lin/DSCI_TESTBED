@@ -68,6 +68,7 @@ class AlgoServiceConfig:
     latest_solution_path: str | Path = LATEST_SOLUTION_PATH
     latest_meta_path: str | Path = LATEST_META_PATH
     max_cached_solutions: int = 3
+    fixed_split: Any = None
 
 
 @dataclass
@@ -104,6 +105,7 @@ class AlgoService:
     def __post_init__(self) -> None:
         self.config.latest_solution_path = Path(self.config.latest_solution_path)
         self.config.latest_meta_path = Path(self.config.latest_meta_path)
+        self.config.fixed_split = self._parse_fixed_split(self.config.fixed_split)
         self._load_latest_solution()
 
     def _ppo_params(self) -> dict:
@@ -220,6 +222,56 @@ class AlgoService:
         raise ValueError("decision_mode must be a string or object")
 
     @staticmethod
+    def _parse_fixed_split(value: Any) -> tuple[int, int] | None:
+        if value is None:
+            return None
+
+        if isinstance(value, str):
+            parts = [p for p in value.replace(",", " ").split() if p]
+            if len(parts) != 2:
+                raise ValueError("fixed_split string must contain exactly two integers")
+            return int(parts[0]), int(parts[1])
+
+        if isinstance(value, dict):
+            s1 = value.get("partition_s1", value.get("s1"))
+            s2 = value.get("partition_s2", value.get("s2"))
+            if s1 is None or s2 is None:
+                raise ValueError(
+                    "fixed_split object must contain partition_s1/partition_s2"
+                )
+            return int(s1), int(s2)
+
+        try:
+            parts = list(value)
+        except TypeError as exc:
+            raise ValueError(
+                "fixed_split must be a two-integer list, string, or object"
+            ) from exc
+
+        if len(parts) != 2:
+            raise ValueError("fixed_split must contain exactly two integers")
+        return int(parts[0]), int(parts[1])
+
+    def _fixed_split_for_state(self, state: dict) -> tuple[int, int] | None:
+        if "fixed_split" in state:
+            return self._parse_fixed_split(state["fixed_split"])
+        if "split_points" in state:
+            return self._parse_fixed_split(state["split_points"])
+        if "partition_s1" in state or "partition_s2" in state:
+            return self._parse_fixed_split(state)
+        return self.config.fixed_split
+
+    @staticmethod
+    def _validate_fixed_split(split: tuple[int, int], paras: Paras) -> tuple[int, int]:
+        s1, s2 = int(split[0]), int(split[1])
+        m = int(paras.m)
+        if not (0 <= s1 < s2 < m):
+            raise ValueError(
+                f"fixed_split requires 0 <= s1 < s2 < {m}, got ({s1}, {s2})"
+            )
+        return s1, s2
+
+    @staticmethod
     def _make_resource_vector(total: float, n: int, enabled: bool) -> np.ndarray:
         if not enabled or total <= 0:
             return np.zeros((n, 1), dtype=np.float32)
@@ -282,6 +334,36 @@ class AlgoService:
             state_signature=preset_signature,
         )
 
+    def _fixed_split_solution(
+        self,
+        paras: Paras,
+        signature: dict[str, Any],
+        s1: int,
+        s2: int,
+    ) -> CachedSolution:
+        n, m = int(paras.n), int(paras.m)
+        X = np.zeros((n, m), dtype=np.float32)
+        X[:, s1] = 1.0
+        X[:, s2] = 1.0
+
+        Y = np.ones((n, m), dtype=np.float32)
+        F_e, F_c = self._allocate_resources_for_xy(X, Y, paras)
+        obj = float(objective(X, Y, F_e, F_c, paras))
+
+        fixed_signature = copy.deepcopy(signature)
+        fixed_signature["fixed_split"] = {
+            "partition_s1": int(s1),
+            "partition_s2": int(s2),
+        }
+        return CachedSolution(
+            X=X,
+            Y=Y,
+            F_e=F_e,
+            F_c=F_c,
+            objective=obj,
+            state_signature=fixed_signature,
+        )
+
     def _solution_for_response(
         self, paras: Paras, signature: dict[str, Any]
     ) -> CachedSolution:
@@ -331,9 +413,14 @@ class AlgoService:
         """Return the current cached/default decision and train the next one in back."""
         paras = to_paras(state)
         signature = self._state_signature(state, paras)
+        fixed_split = self._fixed_split_for_state(state)
         preset_mode = self._normalise_decision_mode(state)
 
-        if preset_mode is None:
+        if fixed_split is not None:
+            s1, s2 = self._validate_fixed_split(fixed_split, paras)
+            solution = self._fixed_split_solution(paras, signature, s1, s2)
+            decision_source = f"fixed_split:{s1}:{s2}"
+        elif preset_mode is None:
             with self._lock:
                 cached = self._cached_solution
                 using_cache = cached is not None and self._arrays_compatible(
@@ -513,6 +600,7 @@ class AlgoService:
                 "has_cached_solution": cached is not None,
                 "cached_state_signature": cached.state_signature if cached else None,
                 "cached_objective": float(cached.objective) if cached else None,
+                "fixed_split": self.config.fixed_split,
                 "last_error": self._last_error,
                 "update_epochs": self._update_epoch,
             }

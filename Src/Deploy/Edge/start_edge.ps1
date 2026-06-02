@@ -1,5 +1,6 @@
 param(
-    [switch]$NoAlgo
+    [switch]$NoAlgo,
+    [int[]]$FixedSplit
 )
 
 $ErrorActionPreference = "Stop"
@@ -27,10 +28,18 @@ Start-LoggedProcess `
     -Ports @([int]$Config.edge_iperf_port)
 
 if (-not $NoAlgo) {
+    $AlgoArgs = @("-m", "Src.Algorithm.Interface.api_server")
+    if ($FixedSplit) {
+        if ($FixedSplit.Count -ne 2) {
+            throw "-FixedSplit expects exactly two integers, for example: -FixedSplit 0,1"
+        }
+        $AlgoArgs += @("--fixed-split", "$($FixedSplit[0])", "$($FixedSplit[1])")
+    }
+
     Start-LoggedProcess `
         -Name "algo_api" `
         -FilePath $Python `
-        -Arguments @("-m", "Src.Algorithm.Interface.api_server") `
+        -Arguments $AlgoArgs `
         -Ports @([int]$Config.algo_server_port)
 } else {
     Write-Host "[SKIP] algo_api: -NoAlgo was set."
