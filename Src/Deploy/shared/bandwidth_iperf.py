@@ -3,13 +3,14 @@ import json
 import subprocess
 
 # 请确保这个路径指向你的 iperf3.exe（根据实际情况调整）
-IPERF_EXE = r"S:\\Tools\\Iperf\\iperf3.exe"
+IPERF_EXE = "iperf3"
 # 如果你放在了其他位置，例如 C:\iperf3\iperf3.exe，就改成那个路径。
 
 
 def measure_bandwidth_iperf(server_ip, port=5001, duration=2):
     """使用 iperf3 客户端测量到指定服务端的上行带宽 (Mbps)"""
-    cmd = [IPERF_EXE, "-c", server_ip, "-p", str(port), "-t", str(duration), "-J"]
+    cmd = [IPERF_EXE, "-c", server_ip, "-p",
+           str(port), "-t", str(duration), "-J"]
     try:
         result = subprocess.run(
             cmd, capture_output=True, text=True, timeout=duration + 5
