@@ -76,13 +76,6 @@ df = _read_layer_stats_csv(LAYER_CSV_PATH)
 DATA_SIZE_LAYERS = df["num_bytes"].astype(int).tolist()
 COMPUTE_SIZE_LAYERS = df["approx_flops"].astype(int).tolist()
 
-# nn-Meter hardware-aware latency coefficients (ms per layer).
-# These replace FLOPs in the compute latency model: T = sum(C_nn_j / f)
-# Available only after running profile_nn_meter_layer_stats.py.
-if "nn_meter_latency_ms" in df.columns:
-    NN_METER_LATENCY_LAYERS = df["nn_meter_latency_ms"].astype(float).tolist()
-else:
-    NN_METER_LATENCY_LAYERS = None
 
 USER_FREQs = NUM_USERS * [2]
 EDGE_MAX_FREQ = ALGO_CFG.edge_max_freq
@@ -135,11 +128,6 @@ class Paras:
     E: list[int] = field(default_factory=lambda: list(EARLY_EXIT_LAYERS))
     D: list[int] = field(default_factory=lambda: list(DATA_SIZE_LAYERS))
     C: list[int] = field(default_factory=lambda: list(COMPUTE_SIZE_LAYERS))
-    C_nn: list[float] | None = field(
-        default_factory=lambda: (
-            list(NN_METER_LATENCY_LAYERS) if NN_METER_LATENCY_LAYERS else None
-        )
-    )
     F_u: np.ndarray = field(default_factory=lambda: np.array(USER_FREQs, dtype=float))
     H_u: np.ndarray | None = field(
         default_factory=lambda: np.array(CHANNEL_GAINS_USERS, dtype=float)
@@ -157,8 +145,6 @@ class Paras:
         self.E = list(self.E)
         self.D = list(self.D)
         self.C = list(self.C)
-        if self.C_nn is not None:
-            self.C_nn = list(self.C_nn)
         self.F_u = np.asarray(self.F_u, dtype=float).reshape(-1)
 
         if self.H_u is not None:
@@ -269,11 +255,6 @@ class Paras:
         layer_df = _read_layer_stats_csv(model_cfg.resolve_layer_stats_csv())
         layer_bytes = layer_df["num_bytes"].astype(int).tolist()
         layer_flops = layer_df["approx_flops"].astype(int).tolist()
-        layer_nn_lat = (
-            layer_df["nn_meter_latency_ms"].astype(float).tolist()
-            if "nn_meter_latency_ms" in layer_df.columns
-            else None
-        )
 
         return cls(
             n=len(users),
@@ -281,7 +262,6 @@ class Paras:
             E=list(model_cfg.early_exit_layers),
             D=layer_bytes,
             C=layer_flops,
-            C_nn=layer_nn_lat,
             f_e_max=f_e_max,
             f_c_max=f_c_max,
             b_c=bw_e2c,
