@@ -10,13 +10,14 @@ from Src.Deploy.Cloud.comm import receive_tensor
 from Src.Deploy.Cloud.resource_ctrl import get_max_cpu
 # 修改：导入云端 MNN 模型加载器
 from Src.Deploy.Shared.model_loader_mnn_cloud import load_cloud_model
+from Src.compute_profile import compute_profile_state
 
 status_app = Flask(__name__)
 
 
 @status_app.route("/status")
 def status():
-    return jsonify({"f_c_max": get_max_cpu()})
+    return jsonify(compute_profile_state("cloud", "mnn"))
 
 
 def run_feature_server():

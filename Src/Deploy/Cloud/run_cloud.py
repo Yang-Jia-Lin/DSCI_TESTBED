@@ -9,13 +9,14 @@ from Src.Deploy.deploy_config import DEFAULT as TESTBED_CFG
 from Src.Deploy.Cloud.comm import receive_tensor
 from Src.Deploy.Cloud.resource_ctrl import get_max_cpu
 from Src.Deploy.Shared.model_loader import load_full_model
+from Src.compute_profile import compute_profile_state
 
 status_app = Flask(__name__)
 
 
 @status_app.route("/status")
 def status():
-    return jsonify({"f_c_max": get_max_cpu()})
+    return jsonify(compute_profile_state("cloud", "pytorch"))
 
 
 def run_feature_server():

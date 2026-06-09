@@ -31,7 +31,7 @@ def plot_resource_trend(csv_path: Path, save_dir: Path):
     utility = np.asarray(df["total_utility"])
     label_map = {
         "H_u": "Channel Gain $H_u$",
-        "F_u": "User Computing Power $F_u$ (GHz)",
+        "F_u": "User Effective Throughput $F_u$ (FLOP/s)",
         "b_e": "Edge Bandwidth $B_e$ (MHz)",
         "b_c": "Cloud Bandwidth $B_c$ (MHz)",
         "BANDWIDTH_EDGE": "Bandwidth $B_e$ (MHz)",
@@ -99,11 +99,12 @@ if __name__ == "__main__":
     test_csv = test_dir / "test_dynamic_data.csv"
 
     # 模拟数据
-    f_u_range = np.arange(0.5, 8.5, 0.5)
+    f_u_range = np.arange(0.5e9, 8.5e9, 0.5e9)
+    f_u_gflops = f_u_range / 1e9
     n_steps = len(f_u_range)
-    avg_end_edge = 10 + 8 * f_u_range + np.random.normal(0, 2, n_steps)
-    avg_edge_cloud = 90 + 3 * f_u_range + np.random.normal(0, 2, n_steps)
-    total_utility = 500 + 200 * np.log1p(f_u_range)
+    avg_end_edge = 10 + 8 * f_u_gflops + np.random.normal(0, 2, n_steps)
+    avg_edge_cloud = 90 + 3 * f_u_gflops + np.random.normal(0, 2, n_steps)
+    total_utility = 500 + 200 * np.log1p(f_u_gflops)
     avg_end_edge = np.clip(avg_end_edge, 0, 120)
     avg_edge_cloud = np.clip(avg_edge_cloud, avg_end_edge + 5, 127)
     df = pd.DataFrame(

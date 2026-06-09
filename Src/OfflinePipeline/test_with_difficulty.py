@@ -52,7 +52,7 @@ def parse_args():
     )
     parser.add_argument(
         "--output_dir",
-        default=str(PROJECT_ROOT / "Scripts" / "Results" / "Exp0_Offline"),
+        default=str(PROJECT_ROOT / "Scripts" / "Results" / "OfflinePipeline"),
         help=(
             "Directory for "
             f"{MODEL_CFG.artifact_prefix}_difficulty_results_{{timestamp}}.csv."

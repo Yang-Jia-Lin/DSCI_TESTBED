@@ -76,7 +76,7 @@ def _compute_local_computation_delay(cut_points_i, P_i, C_i, f_u):
     if cut0 > m:
         cut0 = m
 
-    f_u = float(f_u) * 1e9
+    f_u = float(f_u)
     if f_u <= 0:
         return float("inf")
 
@@ -121,7 +121,7 @@ def _compute_edge_computation_delay(cut_points_i, P_i, C, f_e):
     if effective_cut1 <= cut0:
         return 0.0
 
-    f_e = float(f_e) * 1e9
+    f_e = float(f_e)
     if f_e <= 0:
         return float("inf")
 
@@ -153,7 +153,7 @@ def _compute_cloud_computation_delay(cut_points_i, P_i, C, f_c):
     if cut1 < 0:
         cut1 = 0
 
-    f_c = float(f_c) * 1e9
+    f_c = float(f_c)
     if f_c <= 0:
         return float("inf")
 
@@ -166,7 +166,9 @@ def _compute_cloud_computation_delay(cut_points_i, P_i, C, f_c):
 def compute_total_latency(X, P, F_e, F_c, paras):
     n = X.shape[0]
     m = X.shape[1]
-    C = paras.C
+    C_u = np.asarray(paras.C_u, dtype=np.float64)
+    C_e = np.asarray(paras.C_e, dtype=np.float64)
+    C_c = np.asarray(paras.C_c, dtype=np.float64)
     D = paras.D
     F_u = paras.F_u
 
@@ -185,7 +187,7 @@ def compute_total_latency(X, P, F_e, F_c, paras):
 
         # ---- Local computation ----
         if cut0 > 0:
-            T[i] += _compute_local_computation_delay((cut0, cut1), P_i, C, f_u)
+            T[i] += _compute_local_computation_delay((cut0, cut1), P_i, C_u[i], f_u)
 
         # 进入 edge 的概率（退出层 >= cut0）
         prob_reach_edge = float(sum(P_i[cut0:])) if 0 <= cut0 < m else 0.0
@@ -195,7 +197,7 @@ def compute_total_latency(X, P, F_e, F_c, paras):
             T[i] += prob_reach_edge * _compute_device_to_edge_delay(
                 float(D[cut0]), i, paras
             )
-            T[i] += _compute_edge_computation_delay((cut0, cut1), P_i, C, f_e)
+            T[i] += _compute_edge_computation_delay((cut0, cut1), P_i, C_e, f_e)
 
         # 进入 cloud 的概率（退出层 >= cut1），仅当 cut1 有效且存在 cloud 段
         prob_reach_cloud = float(sum(P_i[cut1:])) if 0 <= cut1 < m else 0.0
@@ -206,7 +208,7 @@ def compute_total_latency(X, P, F_e, F_c, paras):
             T[i] += prob_reach_cloud * _compute_edge_to_cloud_delay_for_paras(
                 d_i_2, paras
             )
-            T[i] += _compute_cloud_computation_delay((cut0, cut1), P_i, C, f_c)
+            T[i] += _compute_cloud_computation_delay((cut0, cut1), P_i, C_c, f_c)
 
     return T
 
@@ -214,7 +216,9 @@ def compute_total_latency(X, P, F_e, F_c, paras):
 def compute_5_latency(X, P, F_e, F_c, paras):
     n = X.shape[0]
     m = X.shape[1]
-    C = paras.C
+    C_u = np.asarray(paras.C_u, dtype=np.float64)
+    C_e = np.asarray(paras.C_e, dtype=np.float64)
+    C_c = np.asarray(paras.C_c, dtype=np.float64)
     D = paras.D
     F_u = paras.F_u
 
@@ -236,7 +240,7 @@ def compute_5_latency(X, P, F_e, F_c, paras):
 
         # ---- Local computation ----
         if cut0 > 0:
-            T1[i] = _compute_local_computation_delay((cut0, cut1), P_i, C, f_u)
+            T1[i] = _compute_local_computation_delay((cut0, cut1), P_i, C_u[i], f_u)
 
         # 进入 edge 的概率（退出层 >= cut0）
         prob_reach_edge = float(sum(P_i[cut0:])) if 0 <= cut0 < m else 0.0
@@ -246,7 +250,7 @@ def compute_5_latency(X, P, F_e, F_c, paras):
             T2[i] = prob_reach_edge * _compute_device_to_edge_delay(
                 float(D[cut0]), i, paras
             )
-            T3[i] = _compute_edge_computation_delay((cut0, cut1), P_i, C, f_e)
+            T3[i] = _compute_edge_computation_delay((cut0, cut1), P_i, C_e, f_e)
 
         # 进入 cloud 的概率（退出层 >= cut1），仅当 cut1 有效且存在 cloud 段
         prob_reach_cloud = float(sum(P_i[cut1:])) if 0 <= cut1 < m else 0.0
@@ -257,7 +261,7 @@ def compute_5_latency(X, P, F_e, F_c, paras):
             T4[i] = prob_reach_cloud * _compute_edge_to_cloud_delay_for_paras(
                 d_i_2, paras
             )
-            T5[i] = _compute_cloud_computation_delay((cut0, cut1), P_i, C, f_c)
+            T5[i] = _compute_cloud_computation_delay((cut0, cut1), P_i, C_c, f_c)
     return T1, T2, T3, T4, T5
 
 
@@ -277,13 +281,15 @@ def compute_user_latency(
     参数:
       - cut0, cut1: 由 compute_exit_points 得到的切分点（cut1 可能为 -1）
       - P_row: P[u]，长度 m
-      - F_e_u, F_c_u: 分配给该用户的 edge/cloud 频率 (GHz，与你的 compute_total_latency 一致)
+      - F_e_u, F_c_u: allocated edge/cloud effective throughput (FLOP/s)
     """
-    C = np.asarray(paras.C, dtype=np.float64)
+    C_u = np.asarray(paras.C_u, dtype=np.float64)
+    C_e = np.asarray(paras.C_e, dtype=np.float64)
+    C_c = np.asarray(paras.C_c, dtype=np.float64)
     D = np.asarray(paras.D, dtype=np.float64)
     F_u = np.asarray(paras.F_u, dtype=np.float64).reshape(-1)
 
-    m = len(C)
+    m = len(C_e)
 
     cut0 = int(cut0)
     cut1 = int(cut1)
@@ -298,7 +304,7 @@ def compute_user_latency(
 
     # ---- Local computation ----
     if cut0 > 0:
-        T += _compute_local_computation_delay((cut0, cut1), P_i, C, f_u)
+        T += _compute_local_computation_delay((cut0, cut1), P_i, C_u[u], f_u)
 
     # 进入 edge 的概率（退出层 >= cut0）
     prob_reach_edge = float(np.sum(P_i[cut0:])) if 0 <= cut0 < m else 0.0
@@ -306,7 +312,7 @@ def compute_user_latency(
     # ---- U->E transmission & Edge computation ----
     if 0 <= cut0 < m and prob_reach_edge > 0:
         T += prob_reach_edge * _compute_device_to_edge_delay(float(D[cut0]), u, paras)
-        T += _compute_edge_computation_delay((cut0, cut1), P_i, C, f_e)
+        T += _compute_edge_computation_delay((cut0, cut1), P_i, C_e, f_e)
 
     # 进入 cloud 的概率（退出层 >= cut1），仅当 cut1 有效且存在 cloud 段
     prob_reach_cloud = float(np.sum(P_i[cut1:])) if 0 <= cut1 < m else 0.0
@@ -316,7 +322,7 @@ def compute_user_latency(
         T += prob_reach_cloud * _compute_edge_to_cloud_delay_for_paras(
             float(D[cut1]), paras
         )
-        T += _compute_cloud_computation_delay((cut0, cut1), P_i, C, f_c)
+        T += _compute_cloud_computation_delay((cut0, cut1), P_i, C_c, f_c)
 
     return float(T)
 
@@ -364,7 +370,7 @@ if __name__ == "__main__":
     cut_tuple = (c0, c1)
 
     # A. Local
-    t_local = _compute_local_computation_delay(cut_tuple, P_i, paras.C, f_u)
+    t_local = _compute_local_computation_delay(cut_tuple, P_i, paras.C_u[0], f_u)
     if c0 > 0:
         print(f"1. Local Comp Layers [0, {c0}): \t{t_local:.12f} s")
     else:
@@ -389,7 +395,7 @@ if __name__ == "__main__":
 
     # C. Edge Comp
     if c0 < m:
-        t_edge = _compute_edge_computation_delay(cut_tuple, P_i, paras.C, f_e)
+        t_edge = _compute_edge_computation_delay(cut_tuple, P_i, paras.C_e, f_e)
         print(f"3. Edge Comp Layers [{c0}, {c1}): \t{t_edge:.12f} s")
     else:
         t_edge = 0.0
@@ -406,7 +412,7 @@ if __name__ == "__main__":
 
     # E. Cloud Comp
     if 0 < c1 < m:
-        t_cloud = _compute_cloud_computation_delay(cut_tuple, P_i, paras.C, f_c)
+        t_cloud = _compute_cloud_computation_delay(cut_tuple, P_i, paras.C_c, f_c)
         print(f"5. Cloud Comp Layers [{c1}, m): \t{t_cloud:.12f} s")
     else:
         t_cloud = 0.0
@@ -420,9 +426,9 @@ if __name__ == "__main__":
     print(f"\n{'=' * 20} User 0 Latency Details {'=' * 20}")
     # ---- 基础打印：算力资源 ----
     print("\n[Resources]")
-    print(f"  f_u = {f_u:.6f} GHz  ({f_u * 1e9:.3e} Hz)")
-    print(f"  f_e = {f_e:.6f} GHz  ({f_e * 1e9:.3e} Hz)")
-    print(f"  f_c = {f_c:.6f} GHz  ({f_c * 1e9:.3e} Hz)")
+    print(f"  f_u = {f_u:.6e} FLOP/s")
+    print(f"  f_e = {f_e:.6e} FLOP/s")
+    print(f"  f_c = {f_c:.6e} FLOP/s")
 
     # ---- 概率质量：到达切点概率 ----
     prob_reach_edge = float(np.sum(P_i[c0:])) if 0 <= c0 < m else 0.0
@@ -446,10 +452,10 @@ if __name__ == "__main__":
         print(f"  j={int(j):4d}  P_i[j]={float(P_i[j]):.6e}")
 
     # A. Local computation
-    t_local = _compute_local_computation_delay(cut_tuple, P_i, paras.C, f_u)
+    t_local = _compute_local_computation_delay(cut_tuple, P_i, paras.C_u[0], f_u)
     if c0 > 0:
         print(f"\n1. Local Comp Layers [0, {c0}):")
-        print(f"   - used f_u = {f_u:.6f} GHz")
+        print(f"   - used f_u = {f_u:.6e} FLOP/s")
         print(f"   - result   = {t_local:.12f} s")
     else:
         print("\n1. Local Comp (None):\n   - result   = 0 s")
@@ -483,9 +489,9 @@ if __name__ == "__main__":
 
     # C. Edge computation（只有可能到达 edge 才有意义；函数内部已按 P_i 做期望）
     if 0 <= c0 < m and prob_reach_edge > 0:
-        t_edge = _compute_edge_computation_delay(cut_tuple, P_i, paras.C, f_e)
+        t_edge = _compute_edge_computation_delay(cut_tuple, P_i, paras.C_e, f_e)
         print(f"\n3. Edge Comp Layers [{c0}, {c1}):")
-        print(f"   - used f_e = {f_e:.6f} GHz")
+        print(f"   - used f_e = {f_e:.6e} FLOP/s")
         print(f"   - result   = {t_edge:.12f} s")
     else:
         t_edge = 0.0
@@ -509,9 +515,9 @@ if __name__ == "__main__":
 
     # E. Cloud computation（只有可能到达 cloud 才有意义；函数内部已按 P_i 做期望）
     if 0 <= c1 < m and c1 != -1 and prob_reach_cloud > 0:
-        t_cloud = _compute_cloud_computation_delay(cut_tuple, P_i, paras.C, f_c)
+        t_cloud = _compute_cloud_computation_delay(cut_tuple, P_i, paras.C_c, f_c)
         print(f"\n5. Cloud Comp Layers [{c1}, m):")
-        print(f"   - used f_c = {f_c:.6f} GHz")
+        print(f"   - used f_c = {f_c:.6e} FLOP/s")
         print(f"   - result   = {t_cloud:.12f} s")
     else:
         t_cloud = 0.0

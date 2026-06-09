@@ -79,19 +79,27 @@ def _init_feasible_XY(paras):
     return X, Y
 
 
-def compute_iota_kappa(X, compute_sizes, exit_prob):
-    """计算拉格朗日参数 iota 和 kappa"""
+def compute_iota_kappa(X, edge_compute_sizes, cloud_compute_sizes, exit_prob):
+    """Compute expected edge/cloud work used by the closed-form allocation."""
     n, m = X.shape
-    c = np.asarray(compute_sizes)
+    c_e = np.asarray(edge_compute_sizes, dtype=np.float64)
+    c_c = np.asarray(cloud_compute_sizes, dtype=np.float64)
     iota = np.zeros(n)
     kappa = np.zeros(n)
     split_pts = split_points_matrix(X)
     for i in range(n):
         p1, p2 = split_pts[i]
-        for j in range(p1 + 1, p2 + 1):
-            iota[i] += exit_prob[i, j] * c[p1 + 1 : j + 1].sum()
-        for j in range(p2 + 1, m):
-            kappa[i] += exit_prob[i, j] * c[p2 + 1 : j + 1].sum()
+        effective_p2 = m if p2 == -1 else p2
+        for j in range(p1, effective_p2):
+            iota[i] += exit_prob[i, j] * c_e[p1 : j + 1].sum()
+        if effective_p2 < m:
+            iota[i] += (
+                exit_prob[i, effective_p2:].sum()
+                * c_e[p1:effective_p2].sum()
+            )
+        if 0 <= p2 < m:
+            for j in range(p2, m):
+                kappa[i] += exit_prob[i, j] * c_c[p2 : j + 1].sum()
     return iota, kappa
 
 
@@ -241,7 +249,9 @@ class PPOAgent:
             F_e, F_c = self.default_resources(self.paras)
 
         exit_prob = compute_layer_exit_probs(Y, self.paras)
-        iota, kappa = compute_iota_kappa(X, self.paras.C, exit_prob)
+        iota, kappa = compute_iota_kappa(
+            X, self.paras.C_e, self.paras.C_c, exit_prob
+        )
         new_f_e, new_f_c = allocate_resources(
             iota, kappa, self.paras.f_e_max, self.paras.f_c_max
         )

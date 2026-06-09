@@ -136,6 +136,7 @@ class AlgoService:
                     "user_id": int(user.get("user_id", i)),
                     "f_u": cls._round_float(f_u_values[i]),
                     "BW_d2e": cls._round_float(bw_d2e_values[i]),
+                    "compute_profile_id": user.get("compute_profile_id"),
                 }
             )
         return {
@@ -146,10 +147,18 @@ class AlgoService:
             },
             "num_users": int(paras.n),
             "users": users,
-            "edge": {"f_e_max": cls._round_float(paras.f_e_max)},
+            "edge": {
+                "f_e_max": cls._round_float(paras.f_e_max),
+                "compute_profile_id": (state.get("edge") or {}).get(
+                    "compute_profile_id"
+                ),
+            },
             "cloud": {
                 "f_c_max": cls._round_float(paras.f_c_max),
                 "BW_e2c": cls._round_float(paras.b_c),
+                "compute_profile_id": (state.get("cloud") or {}).get(
+                    "compute_profile_id"
+                ),
             },
         }
 
@@ -175,7 +184,7 @@ class AlgoService:
         X: np.ndarray, Y: np.ndarray, paras: Paras
     ) -> tuple[np.ndarray, np.ndarray]:
         exit_prob = compute_layer_exit_probs(Y, paras)
-        iota, kappa = compute_iota_kappa(X, paras.C, exit_prob)
+        iota, kappa = compute_iota_kappa(X, paras.C_e, paras.C_c, exit_prob)
         f_e, f_c = allocate_resources(iota, kappa, paras.f_e_max, paras.f_c_max)
         return (
             f_e.reshape(paras.n, 1).astype(np.float32),
@@ -680,11 +689,30 @@ if __name__ == "__main__":
         "round_id": "round_0001",
         "model_name": "Resnet50",
         "users": [
-            {"user_id": 0, "BW_d2e": 18.5, "f_u": 2.0},
-            {"user_id": 1, "BW_d2e": 12.0, "f_u": 1.8},
+            {
+                "user_id": 0,
+                "BW_d2e": 18.5,
+                "f_u": 2e9,
+                "compute_profile_id": "device-pytorch",
+            },
+            {
+                "user_id": 1,
+                "BW_d2e": 12.0,
+                "f_u": 2e9,
+                "compute_profile_id": "device-pytorch",
+            },
         ],
-        "edge": {"f_e_max": 20.0, "cpu_util": 0.6},
-        "cloud": {"BW_e2c": 120.0, "f_c_max": 50.0, "cpu_util": 0.4},
+        "edge": {
+            "f_e_max": 20e9,
+            "compute_profile_id": "edge-pytorch",
+            "cpu_util": 0.6,
+        },
+        "cloud": {
+            "BW_e2c": 120.0,
+            "f_c_max": 50e9,
+            "compute_profile_id": "cloud-pytorch",
+            "cpu_util": 0.4,
+        },
     }
 
     svc = AlgoService(config=AlgoServiceConfig(auto_train=False))

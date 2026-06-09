@@ -59,6 +59,10 @@ DSCI_testbed/
 |   |-- CIFAR10/
 |   |-- Weights/
 |   |   |-- resnet50_cifar10_multi_ee.pth
+|   |-- ComputeProfiles/
+|   |   `-- <profile_id>/
+|   |       |-- metadata.json
+|   |       `-- layers.csv
 |   |-- OfflineTables/
 |       |-- resnet50_cifar10_rates.csv
 |       |-- resnet50_cifar10_accs.csv
@@ -67,7 +71,6 @@ DSCI_testbed/
 |       |-- resnet50_cifar10_difficulty_labeled.csv
 |       `-- resnet50_cifar10_confidence_stats.json
 |-- Scripts/
-|   |-- Exp1_Offline/
 |   |-- Exp0_Motivation/
 |   |-- Exp1_Testbed/
 |   |-- Exp2_Baseline/
@@ -92,18 +95,20 @@ DSCI_testbed/
     |   |-- Edge/
     |   |-- Shared/
     |   `-- deploy_config.py
-    `-- Models/
+    |-- Models/
+    `-- OfflinePipeline/
 ```
 
-通用实验输出放在 `Scripts/Results/`。离线 lookup table 和 CIFAR-10 难度分层表放在 `Data/OfflineTables/`。Device 侧推理 CSV 输出放在 `Src/Deploy/Device/Results/`，文件名类似 `test_results_YYYYMMDDHHMMSS.csv`。
+通用实验输出放在 `Scripts/Results/`。设备计算 profile 放在 `Data/ComputeProfiles/`；离线 lookup table 和 CIFAR-10 难度分层表放在 `Data/OfflineTables/`。Device 侧推理 CSV 输出放在 `Src/Deploy/Device/Results/`。
 
 ## 关键路径
 
 | 用途 | 路径 |
 | --- | --- |
 | 完整模型权重 | `Data/Weights/resnet50_cifar10_multi_ee.pth` |
+| 真机计算 profile | `Data/ComputeProfiles/` |
 | 离线 CSV lookup table | `Data/OfflineTables/` |
-| 离线实验脚本 | `Scripts/Exp1_Offline/` |
+| 离线阶段模块 | `Src/OfflinePipeline/` |
 | 脚本实验输出 | `Scripts/Results/` |
 | Algorithm API 最新 DSCI 决策缓存 | `Src/Algorithm/Interface/SolutionCache/latest_solution.npz` |
 | Algorithm API 最新缓存元数据 | `Src/Algorithm/Interface/SolutionCache/latest_solution_meta.json` |
@@ -114,20 +119,58 @@ DSCI_testbed/
 
 ## Offline 模块
 
-`Scripts/Exp1_Offline/` 存放重复 testbed 或仿真实验之前需要先运行的离线预处理步骤。可复用输出统一放在 `Data/OfflineTables/`。
+`Src/OfflinePipeline/` 是在线 testbed 之前需要执行的统一离线阶段。模型权重、设备 profile 和 lookup table 都是可复用产物，不应在每轮在线决策前重新生成。
 
-检查 canonical 离线表是否都在 `Data/OfflineTables/` 且符合 `{model_slug}_{dataset_slug}_{artifact}` 命名：
+### 1. 训练主模型
+
+训练 backbone 和 final classifier：
 
 ```powershell
-python Scripts\Exp1_Offline\audit_offline_tables.py
+python -m Src.OfflinePipeline.train_model `
+  --output Data\Weights\resnet50_cifar10_backbone.pth
 ```
 
-### 1. 生成早退 lookup table
+### 2. 微调早退头
+
+加载主模型权重，冻结 backbone，分别微调 `fc2` 和 `fc3`：
+
+```powershell
+python -m Src.OfflinePipeline.finetune_exits `
+  --input Data\Weights\resnet50_cifar10_backbone.pth `
+  --output Data\Weights\resnet50_cifar10_multi_ee.pth
+```
+
+### 3. 生成设备计算 profile
+
+必须在实际运行推理的 Device、Edge 和 Cloud 上分别执行 profiling。Profile 仅适用于生成它时的设备、模型权重、推理后端和线程配置。
+
+PyTorch 示例：
+
+```powershell
+python -m Src.OfflinePipeline.profile_device device-pytorch `
+  --backend pytorch --device cpu --threads 4
+
+python -m Src.OfflinePipeline.validate_compute_profile device-pytorch `
+  --backend pytorch --model-name Resnet50
+```
+
+每套 profile 保存为 `Data/ComputeProfiles/<profile_id>/metadata.json` 和 `layers.csv`。将端、边、云生成的 profile 目录同步到 Algorithm API 机器的 `Data/ComputeProfiles/`。Profile ID 应视为不可变版本；设备配置或测量结果变化时使用新的 ID。运行时使用校准后的逐层等效计算量，`F_u`、`f_e_max`、`f_c_max` 的单位均为 `FLOP/s`，不再表示 GHz 或 CPU 核数。
+
+MNN 当前按真实 5-stage 测量结果分摊至 canonical 128 层。先将五个 stage 的实测秒数写入 JSON 数组，再执行：
+
+```powershell
+python -m Src.OfflinePipeline.profile_device device-mnn `
+  --backend mnn --mnn-stage-latencies-json device_stage_latencies.json
+```
+
+本次修改不改变现有切分点、5-stage 映射、`forward_partial` 或特征传输逻辑。
+
+### 4. 生成早退 lookup table
 
 只有在 CIFAR-10 测试集、模型权重或阈值网格变化时才需要重新运行：
 
 ```powershell
-python Scripts\Exp1_Offline\resnet50_thred_curve.py `
+python -m Src.OfflinePipeline.resnet50_thred_curve `
   --model_path Data\Weights\resnet50_cifar10_multi_ee.pth `
   --data_root Data\CIFAR10 `
   --output_dir Data\OfflineTables `
@@ -143,12 +186,12 @@ python Scripts\Exp1_Offline\resnet50_thred_curve.py `
 
 脚本默认不会覆盖已有 canonical 表。若要刷新 `resnet50_cifar10_rates.csv` 和 `resnet50_cifar10_accs.csv`，必须显式传入 `--overwrite`。如果还需要保留带时间戳的审计副本，可以额外加 `--timestamped_copy`。
 
-### 2. CIFAR-10 样本难度 profiling
+### 5. CIFAR-10 样本难度 profiling
 
 使用完整 ResNet50 对 CIFAR-10 test set 跑一次 final head，记录每个样本的置信度和熵：
 
 ```powershell
-python Scripts\Exp1_Offline\profile_difficulty.py `
+python -m Src.OfflinePipeline.profile_difficulty `
   --model_path Data\Weights\resnet50_cifar10_multi_ee.pth `
   --data_root Data\CIFAR10 `
   --output_dir Data\OfflineTables
@@ -161,12 +204,12 @@ python Scripts\Exp1_Offline\profile_difficulty.py `
 | `Data/OfflineTables/resnet50_cifar10_difficulty_raw.csv` | 原始逐样本记录，包括 `image_id`、标签、预测、置信度和熵 |
 | `Data/OfflineTables/resnet50_cifar10_confidence_stats.json` | 置信度分位数和建议阈值 |
 
-### 3. 分配难度标签
+### 6. 分配难度标签
 
 根据 profiling 统计结果选择阈值，然后生成可复用的 labeled table：
 
 ```powershell
-python Scripts\Exp1_Offline\assign_difficulty_labels.py `
+python -m Src.OfflinePipeline.assign_difficulty_labels `
   --input_path Data\OfflineTables\resnet50_cifar10_difficulty_raw.csv `
   --output_path Data\OfflineTables\resnet50_cifar10_difficulty_labeled.csv `
   --easy_min 0.90 `
@@ -175,17 +218,17 @@ python Scripts\Exp1_Offline\assign_difficulty_labels.py `
 
 `Data/OfflineTables/resnet50_cifar10_difficulty_labeled.csv` 是后续难度感知实验的唯一数据源。不要在每次实验前重新 profiling，直接复用这个 labeled CSV。
 
-### 4. 按难度测试早退表现
+### 7. 按难度测试早退表现
 
 运行本地早退测试，并按 easy、medium、hard 汇总 accuracy、local exit rate 和 avg exit layer：
 
 ```powershell
-python Scripts\Exp1_Offline\test_with_difficulty.py `
+python -m Src.OfflinePipeline.test_with_difficulty `
   --model_path Data\Weights\resnet50_cifar10_multi_ee.pth `
   --table_path Data\OfflineTables\resnet50_cifar10_difficulty_labeled.csv `
   --data_root Data\CIFAR10 `
   --partition_idx 3 `
-  --output_dir Scripts\Results\Exp1_Offline `
+  --output_dir Scripts\Results\OfflinePipeline `
   --exit_threshold_57 0.80 `
   --exit_threshold_103 0.80
 ```
@@ -194,13 +237,20 @@ python Scripts\Exp1_Offline\test_with_difficulty.py `
 
 | 文件 | 作用 |
 | --- | --- |
-| `Scripts/Results/Exp1_Offline/resnet50_cifar10_difficulty_results_YYYYMMDDHHMMSS.csv` | 逐样本预测、置信度、难度标签、退出层和是否传到 Cloud |
+| `Scripts/Results/OfflinePipeline/resnet50_cifar10_difficulty_results_YYYYMMDDHHMMSS.csv` | 逐样本预测、置信度、难度标签、退出层和是否传到 Cloud |
 
 可以用 `--difficulty easy`、`--difficulty medium`、`--difficulty hard` 或
 `--difficulty easy medium` 只测试部分难度。只有当 `Data/CIFAR10/` 下没有数据集文件时才使用
 `--download`。
 
-### 5. 在其他脚本中复用难度 dataloader
+### 8. 检查离线产物
+
+```powershell
+python -m Src.OfflinePipeline.audit_offline_tables
+python -m Src.OfflinePipeline.validate_compute_profile device-pytorch
+```
+
+### 9. 在其他脚本中复用难度 dataloader
 
 常规 PyTorch 实验脚本仍然可以使用原来的 `get_test_data_loaders()`。默认不传难度参数时，行为和原来一致，每个 batch 仍然是 `(images, labels)`：
 
@@ -267,7 +317,7 @@ train_loader, valid_loader, test_loader = get_data_loaders(
 
 ### 6. 部署侧共享 dataloader 和 ONNX/MNN 说明
 
-`Src/Deploy/Shared/dataloader.py` 是 CIFAR-10 test 和难度筛选的唯一实现。Deploy 侧的 `run_device.py`、算法侧的 `get_test_data_loaders()` / `get_data_loaders()`、以及 `Scripts/Exp1_Offline/` 的离线脚本都复用同一条路径。
+`Src/Deploy/Shared/dataloader.py` 是 CIFAR-10 test 和难度筛选的唯一实现。Deploy 侧、算法侧和 `Src/OfflinePipeline/` 都复用同一条路径。
 
 该 loader 支持两种数据根目录：
 
@@ -442,8 +492,8 @@ Windows 一键脚本对应的顺序是：
 | `32264` | Cloud | iperf3 server，Edge -> Cloud 带宽测量 |
 | `8000` | Algorithm API | 决策和健康检查 HTTP API |
 | `9001` | Edge | 接收 Device 发送的特征张量 |
-| `9002` | Edge | Edge 状态 HTTP API，返回 `f_e_max` 和 `BW_e2c` |
-| `32265` | Cloud | Cloud 状态 HTTP API |
+| `9002` | Edge | Edge 状态 HTTP API，返回 profile ID、`f_e_max` 和 `BW_e2c` |
+| `32265` | Cloud | Cloud 状态 HTTP API，返回 profile ID 和 `f_c_max` |
 | `32266` | Cloud | 接收 Edge 发送的特征张量 |
 
 ## 数据流
@@ -490,6 +540,16 @@ MultiEEResNet50(Bottleneck, [3, 4, 6, 3], num_classes=10, include_top=True)
 
 ## 部署注意事项
 
+- 启动节点前必须设置与实际后端对应的 profile ID。例如 PyTorch 路径使用：
+
+```powershell
+$env:DSCI_DEVICE_PYTORCH_COMPUTE_PROFILE_ID="device-pytorch"
+$env:DSCI_EDGE_PYTORCH_COMPUTE_PROFILE_ID="edge-pytorch"
+$env:DSCI_CLOUD_PYTORCH_COMPUTE_PROFILE_ID="cloud-pytorch"
+```
+
+- MNN 路径使用对应的 `DSCI_DEVICE_MNN_COMPUTE_PROFILE_ID`、`DSCI_EDGE_MNN_COMPUTE_PROFILE_ID` 和 `DSCI_CLOUD_MNN_COMPUTE_PROFILE_ID`。
+- 缺少 profile、profile 后端不匹配或 profile 层顺序错误时，节点或 Algorithm API 会明确失败，不会回退到 CPU 核数/GHz 模型。
 - Device 节点只需要模型推理、Algorithm API URL、Edge socket 连通性，以及 iperf/status 测量能力。
 - Algorithm API 可以运行在 PC、Edge 节点、Cloud 节点，或任何 Device 能访问的机器上。
 - Raspberry Pi 部署时，需要保持 `python -m ...` 模块命令一致，并检查以下内容：
@@ -497,11 +557,13 @@ MultiEEResNet50(Bottleneck, [3, 4, 6, 3], num_classes=10, include_top=True)
   - `Src/Deploy/Shared/bandwidth_iperf.py` 中的 `IPERF_EXE`。
   - PyTorch、ONNX 或 MNN 运行时是否可用。
   - `Data/Weights/resnet50_cifar10_multi_ee.pth` 是否存在。
+  - `Data/ComputeProfiles/` 下当前设备和后端的 profile 是否存在。
   - `Data/OfflineTables/` 下 CSV 文件是否齐全。
 
 ## 验证
 
 ```bash
-python -m compileall Src Scripts
+python -m compileall Src Scripts Tests
+python -m unittest Tests.test_compute_profile_latency -v
 curl http://127.0.0.1:8000/api/v1/health
 ```

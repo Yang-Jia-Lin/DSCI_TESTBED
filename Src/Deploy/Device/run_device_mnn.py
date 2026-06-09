@@ -15,7 +15,7 @@ import torch.nn.functional as F
 from Src.Deploy.Device.comm import send_tensor
 from Src.Deploy.deploy_config import DEFAULT as TESTBED_CFG
 from Src.Deploy.Shared.bandwidth_iperf import measure_bandwidth_iperf
-from Src.Deploy.Shared.cpu_monitor import get_cpu_available_cores
+from Src.compute_profile import compute_profile_state
 from Src.Deploy.Shared.state_reporter import report_status
 from Src.Deploy.Shared.model_loader_mnn import (
     load_full_model,
@@ -267,26 +267,33 @@ def main():
     print("=== Batch test started ===")
 
     print("Collecting current state...")
-    cpu_avail = get_cpu_available_cores()
+    device_status = compute_profile_state("device", "mnn")
     bw_d2e = measure_bandwidth_iperf(
         TESTBED_CFG.edge_host, TESTBED_CFG.edge_iperf_port
     )
-    try:
-        edge_status = requests.get(
-            f"http://{TESTBED_CFG.edge_host}:{TESTBED_CFG.edge_status_port}/status"
-        ).json()
-        cloud_status = requests.get(
-            f"http://{TESTBED_CFG.cloud_host}:{TESTBED_CFG.cloud_status_port}/status"
-        ).json()
-    except (requests.RequestException, ValueError, KeyError):
-        edge_status = {"f_e_max": 4.0, "BW_e2c": TESTBED_CFG.default_bw_e2c}
-        cloud_status = {"f_c_max": 8.0}
+    edge_response = requests.get(
+        f"http://{TESTBED_CFG.edge_host}:{TESTBED_CFG.edge_status_port}/status"
+    )
+    edge_response.raise_for_status()
+    edge_status = edge_response.json()
+    cloud_response = requests.get(
+        f"http://{TESTBED_CFG.cloud_host}:{TESTBED_CFG.cloud_status_port}/status"
+    )
+    cloud_response.raise_for_status()
+    cloud_status = cloud_response.json()
 
     algo_state = {
         "model_name": "Resnet50",
-        "edge": {"f_e_max": edge_status["f_e_max"]},
-        "cloud": {"f_c_max": cloud_status["f_c_max"], "BW_e2c": edge_status["BW_e2c"]},
-        "users": [{"f_u": cpu_avail, "BW_d2e": bw_d2e}],
+        "edge": {
+            "f_e_max": edge_status["f_e_max"],
+            "compute_profile_id": edge_status["compute_profile_id"],
+        },
+        "cloud": {
+            "f_c_max": cloud_status["f_c_max"],
+            "compute_profile_id": cloud_status["compute_profile_id"],
+            "BW_e2c": edge_status["BW_e2c"],
+        },
+        "users": [{**device_status, "BW_d2e": bw_d2e}],
     }
     print("Collected state:", algo_state)
 

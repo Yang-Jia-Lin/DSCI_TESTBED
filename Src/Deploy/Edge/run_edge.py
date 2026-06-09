@@ -9,6 +9,7 @@ from Src.Deploy.Edge.comm import receive_tensor, send_response
 from Src.Deploy.Edge.resource_ctrl import get_max_cpu
 from Src.Deploy.Shared.bandwidth_iperf import measure_bandwidth_iperf
 from Src.Deploy.Shared.model_loader import load_full_model, threshold_for_stage
+from Src.compute_profile import compute_profile_state
 
 # ── 配置 ──────────────────────────────────────────────────────────────────────
 # ─────────────────────────────────────────────────────────────────────────────
@@ -18,14 +19,11 @@ status_app = Flask(__name__)
 
 @status_app.route("/status")
 def status():
-    return jsonify(
-        {
-            "f_e_max": get_max_cpu(),
-            "BW_e2c": measure_bandwidth_iperf(
-                TESTBED_CFG.cloud_host, TESTBED_CFG.cloud_iperf_port
-            ),
-        }
+    state = compute_profile_state("edge", "pytorch")
+    state["BW_e2c"] = measure_bandwidth_iperf(
+        TESTBED_CFG.cloud_host, TESTBED_CFG.cloud_iperf_port
     )
+    return jsonify(state)
 
 
 def run_feature_server():

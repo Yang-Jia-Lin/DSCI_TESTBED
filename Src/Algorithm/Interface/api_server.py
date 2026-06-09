@@ -82,9 +82,13 @@ def _validate_state_payload(state: dict) -> None:
     for key in ("f_e_max",):
         if key not in edge:
             raise KeyError(f"edge.{key}")
+    if "compute_profile_id" not in edge:
+        raise KeyError("edge.compute_profile_id")
     for key in ("f_c_max", "BW_e2c"):
         if key not in cloud:
             raise KeyError(f"cloud.{key}")
+    if "compute_profile_id" not in cloud:
+        raise KeyError("cloud.compute_profile_id")
 
     for i, user in enumerate(state["users"]):
         if not isinstance(user, dict):
@@ -92,6 +96,8 @@ def _validate_state_payload(state: dict) -> None:
         for key in ("f_u", "BW_d2e"):
             if key not in user:
                 raise KeyError(f"users[{i}].{key}")
+        if "compute_profile_id" not in user:
+            raise KeyError(f"users[{i}].compute_profile_id")
 
     model_name = state.get("model_name")
     if model_name is not None:

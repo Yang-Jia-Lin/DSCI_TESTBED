@@ -113,7 +113,7 @@ def dynamic_without_data(n, F_u, H_u, sweep_var=None, sweep_range=None):
 if __name__ == "__main__":
     # 重新运行
     # n = 18
-    # F_u_list = [0.1] * 6 + [1.0] * 6 + [8.0] * 6
+    # F_u_list = [0.1e9] * 6 + [1.0e9] * 6 + [8.0e9] * 6
     # H_u_list = [2.0] * 18
     #
     # dynamic_without_data(

@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 
 from Src.Algorithm.algo_config import DEFAULT as ALGO_CFG
+from Src.compute_profile import load_compute_profile
 from Src.Deploy.deploy_config import DEFAULT as TESTBED_CFG
 from Src.Models.model_config import RESNET50 as MODEL_CFG
 from Src.Models.model_config import ModelConfig
@@ -77,7 +78,7 @@ DATA_SIZE_LAYERS = df["num_bytes"].astype(int).tolist()
 COMPUTE_SIZE_LAYERS = df["approx_flops"].astype(int).tolist()
 
 
-USER_FREQs = NUM_USERS * [2]
+USER_FREQs = NUM_USERS * [2e9]
 EDGE_MAX_FREQ = ALGO_CFG.edge_max_freq
 CLOUD_MAX_FREQ = ALGO_CFG.cloud_max_freq
 
@@ -98,7 +99,7 @@ NOISE_POWER = 8e-11
 #     f_c_max: float = float(CLOUD_MAX_FREQ)
 #     b_e: float = float(BANDWIDTH_EDGE)
 
-USER_FREQs = NUM_USERS * [2]
+USER_FREQs = NUM_USERS * [2e9]
 EDGE_MAX_FREQ = ALGO_CFG.edge_max_freq
 CLOUD_MAX_FREQ = ALGO_CFG.cloud_max_freq
 
@@ -127,7 +128,12 @@ class Paras:
     # Model and user vectors
     E: list[int] = field(default_factory=lambda: list(EARLY_EXIT_LAYERS))
     D: list[int] = field(default_factory=lambda: list(DATA_SIZE_LAYERS))
+    # Deprecated theoretical-FLOPs alias kept for existing simulation callers.
     C: list[int] = field(default_factory=lambda: list(COMPUTE_SIZE_LAYERS))
+    C_theoretical: list[float] | None = None
+    C_u: np.ndarray | None = None
+    C_e: np.ndarray | None = None
+    C_c: np.ndarray | None = None
     F_u: np.ndarray = field(default_factory=lambda: np.array(USER_FREQs, dtype=float))
     H_u: np.ndarray | None = field(
         default_factory=lambda: np.array(CHANNEL_GAINS_USERS, dtype=float)
@@ -144,8 +150,21 @@ class Paras:
 
         self.E = list(self.E)
         self.D = list(self.D)
-        self.C = list(self.C)
+        if self.C_theoretical is None:
+            self.C_theoretical = list(self.C)
+        self.C_theoretical = list(np.asarray(self.C_theoretical, dtype=float))
+        self.C = list(self.C_theoretical)
         self.F_u = np.asarray(self.F_u, dtype=float).reshape(-1)
+        if self.C_u is None:
+            self.C_u = np.tile(np.asarray(self.C_theoretical, dtype=float), (self.n, 1))
+        else:
+            self.C_u = np.asarray(self.C_u, dtype=float)
+        self.C_e = np.asarray(
+            self.C_theoretical if self.C_e is None else self.C_e, dtype=float
+        ).reshape(-1)
+        self.C_c = np.asarray(
+            self.C_theoretical if self.C_c is None else self.C_c, dtype=float
+        ).reshape(-1)
 
         if self.H_u is not None:
             self.H_u = np.asarray(self.H_u, dtype=float).reshape(-1)
@@ -169,6 +188,17 @@ class Paras:
             print(f"Warning: D length ({len(self.D)}) does not match m ({self.m}).")
         if len(self.C) != self.m:
             print(f"Warning: C length ({len(self.C)}) does not match m ({self.m}).")
+        if len(self.C_theoretical) != self.m:
+            print(
+                f"Warning: C_theoretical length ({len(self.C_theoretical)}) "
+                f"does not match m ({self.m})."
+            )
+        if self.C_u.shape != (self.n, self.m):
+            raise ValueError(f"C_u shape {self.C_u.shape} != ({self.n}, {self.m})")
+        if self.C_e.shape != (self.m,):
+            raise ValueError(f"C_e shape {self.C_e.shape} != ({self.m},)")
+        if self.C_c.shape != (self.m,):
+            raise ValueError(f"C_c shape {self.C_c.shape} != ({self.m},)")
 
     @classmethod
     def from_dict(cls, data: dict):
@@ -185,9 +215,13 @@ class Paras:
         Args:
             state: Measured state JSON with structure:
                 {
-                    "users": [{"f_u": float, "BW_d2e": float}, ...],
-                    "edge": {"f_e_max": float, "BW_d2e": float (optional)},
-                    "cloud": {"f_c_max": float, "BW_e2c": float}
+                    "users": [{
+                        "f_u": float, "BW_d2e": float, "compute_profile_id": str
+                    }, ...],
+                    "edge": {"f_e_max": float, "compute_profile_id": str},
+                    "cloud": {
+                        "f_c_max": float, "BW_e2c": float, "compute_profile_id": str
+                    }
                 }
             model_cfg: Model configuration (default: RESNET50)
             algo_cfg: Algorithm configuration (default: DEFAULT)
@@ -218,15 +252,6 @@ class Paras:
                 return safe
             return max(out, float(minimum))
 
-        f_u_values = [
-            positive_float(
-                u.get("f_u"),
-                USER_FREQs[min(i, len(USER_FREQs) - 1)] if USER_FREQs else 1.0,
-                f"users[{i}].f_u",
-                minimum=1e-3,
-            )
-            for i, u in enumerate(users)
-        ]
         bw_d2e_values = [
             positive_float(
                 u.get("BW_d2e"),
@@ -236,15 +261,6 @@ class Paras:
             )
             for i, u in enumerate(users)
         ]
-        f_e_max = positive_float(
-            edge.get("f_e_max"), algo_cfg.edge_max_freq, "edge.f_e_max", minimum=1e-3
-        )
-        f_c_max = positive_float(
-            cloud.get("f_c_max"),
-            algo_cfg.cloud_max_freq,
-            "cloud.f_c_max",
-            minimum=1e-3,
-        )
         bw_e2c = positive_float(
             cloud.get("BW_e2c"),
             TESTBED_CFG.default_bw_e2c,
@@ -255,6 +271,37 @@ class Paras:
         layer_df = _read_layer_stats_csv(model_cfg.resolve_layer_stats_csv())
         layer_bytes = layer_df["num_bytes"].astype(int).tolist()
         layer_flops = layer_df["approx_flops"].astype(int).tolist()
+        layer_names = layer_df["layer"].astype(str).tolist()
+
+        def load_state_profile(owner: dict, capacity_key: str, owner_name: str):
+            profile_id = owner.get("compute_profile_id")
+            if not profile_id:
+                raise KeyError(f"{owner_name}.compute_profile_id")
+            profile = load_compute_profile(
+                str(profile_id),
+                expected_layers=layer_names,
+                expected_theoretical_flops=layer_flops,
+                expected_model=model_cfg.name,
+            )
+            capacity = positive_float(
+                owner.get(capacity_key),
+                profile.theta,
+                f"{owner_name}.{capacity_key}",
+                minimum=1e-3,
+            )
+            if not np.isclose(capacity, profile.theta, rtol=1e-6, atol=1e-3):
+                raise ValueError(
+                    f"{owner_name}.{capacity_key}={capacity} does not match "
+                    f"profile theta={profile.theta}"
+                )
+            return profile
+
+        user_profiles = [
+            load_state_profile(user, "f_u", f"users[{i}]")
+            for i, user in enumerate(users)
+        ]
+        edge_profile = load_state_profile(edge, "f_e_max", "edge")
+        cloud_profile = load_state_profile(cloud, "f_c_max", "cloud")
 
         return cls(
             n=len(users),
@@ -262,12 +309,16 @@ class Paras:
             E=list(model_cfg.early_exit_layers),
             D=layer_bytes,
             C=layer_flops,
-            f_e_max=f_e_max,
-            f_c_max=f_c_max,
+            C_theoretical=layer_flops,
+            C_u=np.stack([profile.equivalent_flops for profile in user_profiles]),
+            C_e=edge_profile.equivalent_flops,
+            C_c=cloud_profile.equivalent_flops,
+            f_e_max=edge_profile.theta,
+            f_c_max=cloud_profile.theta,
             b_c=bw_e2c,
             alpha=float(algo_cfg.alpha),
             beta=float(algo_cfg.beta),
-            F_u=np.array(f_u_values, dtype=float),
+            F_u=np.array([profile.theta for profile in user_profiles], dtype=float),
             H_u=None,
             B_u=np.array(bw_d2e_values, dtype=float),
             model_cfg=model_cfg,

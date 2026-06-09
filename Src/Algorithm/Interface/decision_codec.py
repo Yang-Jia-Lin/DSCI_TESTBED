@@ -60,11 +60,15 @@ def validate_decision(
                     f"User {i}, layer {layer}: threshold {thr} not in [0, 1]"
                 )
 
-    if float(F_e_v.sum()) > float(paras.f_e_max) + _ALLOC_TOL:
+    edge_limit = float(paras.f_e_max)
+    cloud_limit = float(paras.f_c_max)
+    edge_tol = max(_ALLOC_TOL, abs(edge_limit) * _ALLOC_TOL)
+    cloud_tol = max(_ALLOC_TOL, abs(cloud_limit) * _ALLOC_TOL)
+    if float(F_e_v.sum()) > edge_limit + edge_tol:
         raise DecisionCodecError(
             f"sum(F_e)={float(F_e_v.sum()):.6f} exceeds f_e_max={paras.f_e_max}"
         )
-    if float(F_c_v.sum()) > float(paras.f_c_max) + _ALLOC_TOL:
+    if float(F_c_v.sum()) > cloud_limit + cloud_tol:
         raise DecisionCodecError(
             f"sum(F_c)={float(F_c_v.sum()):.6f} exceeds f_c_max={paras.f_c_max}"
         )
