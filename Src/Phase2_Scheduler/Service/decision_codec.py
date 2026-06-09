@@ -2,8 +2,8 @@
 
 import numpy as np
 
-from Src.Algorithm.Utils.parsing_data import split_points_matrix
-from Src.paras import Paras
+from Src.Phase2_Scheduler.Utils.parsing_data import split_points_matrix
+from Src.Phase2_Scheduler.paras import Paras
 
 _ALLOC_TOL = 1e-6
 

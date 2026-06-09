@@ -1,10 +1,10 @@
 Data/CIFAR10/
 Data/Model_Checkpoints
 Data/Weights
-Src/Algorithm/Interface/SolutionCache/*
-!Src/Algorithm/Interface/SolutionCache/.gitkeep
-Src/Deploy/Device/Results/*
-!Src/Deploy/Device/Results/.gitkeep
+Data/Runtime/SolutionCache/*
+!Data/Runtime/SolutionCache/.gitkeep
+Data/Runtime/DeviceResults/*
+!Data/Runtime/DeviceResults/.gitkeep
 *.pth
 *.pt
 *.h5

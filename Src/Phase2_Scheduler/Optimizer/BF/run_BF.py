@@ -4,9 +4,10 @@ Src/Optimizer/BF/run_BF.py
 
 from pathlib import Path
 
-from Src.Algorithm.Optimizer.BF.alg_BF import optimize_BF
-from Src.Algorithm.Utils.log_function import save_experiment_results
-from Src.paras import RESULT_BF_PATH, Paras
+from Src.Phase2_Scheduler.Optimizer.BF.alg_BF import optimize_BF
+from Src.Phase2_Scheduler.Utils.log_function import save_experiment_results
+from Src.Phase2_Scheduler.paras import Paras
+from Src.Shared.Config.paths import RESULT_BF_PATH
 
 paras = Paras()
 BF_hyperparams = {"max_iter": 5, "restarts": 2, "threshold_step": 0.05}

@@ -5,12 +5,12 @@ import time
 import torch
 from flask import Flask, jsonify
 
-from Src.Deploy.deploy_config import DEFAULT as TESTBED_CFG
-from Src.Deploy.Cloud.comm import receive_tensor
-from Src.Deploy.Cloud.resource_ctrl import get_max_cpu
+from Src.Shared.Config.deploy_config import DEFAULT as TESTBED_CFG
+from Src.Phase3_Runtime.Cloud.comm import receive_tensor
+from Src.Phase3_Runtime.Cloud.resource_ctrl import get_max_cpu
 # 修改：导入云端 MNN 模型加载器
-from Src.Deploy.Shared.model_loader_mnn_cloud import load_cloud_model
-from Src.compute_profile import compute_profile_state
+from Src.Phase3_Runtime.Shared.model_loader_mnn_cloud import load_cloud_model
+from Src.Shared.Profiles.compute_profile import compute_profile_state
 
 status_app = Flask(__name__)
 
@@ -57,9 +57,11 @@ def run_feature_server():
         }
         send_data = pickle.dumps(result)
         try:
-            conn.sendall(send_data)
+            if conn is not None:
+                conn.sendall(send_data)
         finally:
-            conn.close()
+            if conn is not None:
+                conn.close()
 
 
 if __name__ == "__main__":

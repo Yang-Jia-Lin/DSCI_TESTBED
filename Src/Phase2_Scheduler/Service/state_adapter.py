@@ -1,8 +1,8 @@
 """Convert measured testbed state JSON into ``Paras``."""
 
-from Src.Algorithm.algo_config import DEFAULT as DEFAULT_ALGO_CONFIG
-from Src.Models.model_config import get_model_config
-from Src.paras import Paras
+from Src.Phase2_Scheduler.algo_config import DEFAULT as DEFAULT_ALGO_CONFIG
+from Src.Shared.Config.model_config import get_model_config
+from Src.Phase2_Scheduler.paras import Paras
 
 
 def to_paras(state: dict, model_cfg=None, algo_cfg=None) -> Paras:

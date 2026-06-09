@@ -6,11 +6,11 @@ from typing import Any, Dict, List, Tuple
 
 import numpy as np
 
-from Src.Algorithm.Objective.compute_accuracy import compute_expected_accuracy
-from Src.Algorithm.Objective.compute_exit_points import compute_exit_points
-from Src.Algorithm.Objective.compute_latency import compute_user_latency
-from Src.Algorithm.Objective.compute_P import compute_layer_exit_probs
-from Src.paras import Paras
+from Src.Phase2_Scheduler.Objective.compute_accuracy import compute_expected_accuracy
+from Src.Phase2_Scheduler.Objective.compute_exit_points import compute_exit_points
+from Src.Phase2_Scheduler.Objective.compute_latency import compute_user_latency
+from Src.Phase2_Scheduler.Objective.compute_P import compute_layer_exit_probs
+from Src.Phase2_Scheduler.paras import Paras
 
 
 def _generate_all_valid_X_rows(m: int) -> np.ndarray:

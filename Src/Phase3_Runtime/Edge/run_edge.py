@@ -4,12 +4,12 @@ import time
 import torch
 from flask import Flask, jsonify
 
-from Src.Deploy.deploy_config import DEFAULT as TESTBED_CFG
-from Src.Deploy.Edge.comm import receive_tensor, send_response
-from Src.Deploy.Edge.resource_ctrl import get_max_cpu
-from Src.Deploy.Shared.bandwidth_iperf import measure_bandwidth_iperf
-from Src.Deploy.Shared.model_loader import load_full_model, threshold_for_stage
-from Src.compute_profile import compute_profile_state
+from Src.Shared.Config.deploy_config import DEFAULT as TESTBED_CFG
+from Src.Phase3_Runtime.Edge.comm import receive_tensor, send_response
+from Src.Phase3_Runtime.Edge.resource_ctrl import get_max_cpu
+from Src.Phase3_Runtime.Shared.bandwidth_iperf import measure_bandwidth_iperf
+from Src.Phase3_Runtime.Shared.model_loader import load_full_model, threshold_for_stage
+from Src.Shared.Profiles.compute_profile import compute_profile_state
 
 # ── 配置 ──────────────────────────────────────────────────────────────────────
 # ─────────────────────────────────────────────────────────────────────────────
@@ -73,7 +73,7 @@ def run_feature_server():
             conn.close()
             continue
 
-        from Src.Deploy.Device.comm import send_tensor as send_to_cloud
+        from Src.Phase3_Runtime.Device.comm import send_tensor as send_to_cloud
 
         cloud_payload = {"tensor": features, "meta": meta}
         t_fwd = time.perf_counter()

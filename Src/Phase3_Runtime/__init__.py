@@ -1,6 +1,6 @@
 """Deploy package configuration exports."""
 
-from Src.Deploy.deploy_config import (
+from Src.Shared.Config.deploy_config import (
     ALGO_HOST,
     ALGO_PORT,
     CLOUD_FEATURE_PORT,

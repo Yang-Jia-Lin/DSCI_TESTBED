@@ -6,12 +6,12 @@ import re
 import sys
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+from Src.Shared.Config.model_config import RESNET50 as MODEL_CFG
+from Src.Shared.Config.paths import RESNET50_PATHS as MODEL_PATHS
+
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
-
-from Src.Models.model_config import RESNET50 as MODEL_CFG
-
 
 NAMING_RE = re.compile(r"^[a-z0-9]+_[a-z0-9]+_.+\.(csv|json)$")
 REQUIRED_ARTIFACTS = ("rates", "accs", "layer_stats", "difficulty_labeled")
@@ -24,7 +24,7 @@ def parse_args():
     )
     parser.add_argument(
         "--offline-dir",
-        default=str(MODEL_CFG.profile_dir),
+        default=str(MODEL_PATHS.profile_dir),
         help="Canonical offline table directory.",
     )
     return parser.parse_args()
@@ -75,7 +75,9 @@ def audit_difficulty_table(offline_dir: Path) -> list[str]:
                 errors.append(f"image_id outside CIFAR-10 test range: {image_id}")
             difficulty = row["difficulty"]
             if difficulty not in VALID_DIFFICULTIES:
-                errors.append(f"Invalid difficulty label {difficulty!r} at image_id={image_id}")
+                errors.append(
+                    f"Invalid difficulty label {difficulty!r} at image_id={image_id}"
+                )
             else:
                 counts[difficulty] += 1
 
@@ -91,7 +93,9 @@ def main():
     args = parse_args()
     offline_dir = Path(args.offline_dir)
     if not offline_dir.exists():
-        raise FileNotFoundError(f"Offline table directory does not exist: {offline_dir}")
+        raise FileNotFoundError(
+            f"Offline table directory does not exist: {offline_dir}"
+        )
 
     errors = []
     errors.extend(audit_naming(offline_dir))

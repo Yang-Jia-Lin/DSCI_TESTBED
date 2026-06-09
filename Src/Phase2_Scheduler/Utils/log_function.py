@@ -6,16 +6,14 @@ import json
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Union
 
 import numpy as np
 import pandas as pd
-import torch
 
-from Scripts.Exp3_Dynamic.plot_decision import plot_X, plot_Y
-from Scripts.Exp4_DSCI_Convergency.plot_convergency import plot_convergence
-from Src.Algorithm.Utils.utils_function import NumpyEncoder, open_file
-from Src.paras import Paras
+from Src.Phase2_Scheduler.paras import Paras
+from Src.Phase2_Scheduler.Reporting.plot_convergence import plot_convergence
+from Src.Phase2_Scheduler.Reporting.plot_decision import plot_X, plot_Y
+from Src.Shared.Utils.utils_function import NumpyEncoder, open_file
 
 
 def save_experiment_results(
@@ -163,27 +161,6 @@ def load_and_analyze_results(exp_dir: Path, analysis=True):
     return X_opt, Y_opt, F_e, F_c, history, paras
 
 
-def save_model_weights(
-    model: torch.nn.Module, model_name: str, weights_dir: Path
-) -> Path:
-    weights_dir.mkdir(parents=True, exist_ok=True)
-    model_path = (
-        weights_dir / f"{model_name}_{datetime.now().strftime('%m%d_%H%M')}.pth"
-    )
-    torch.save(model.state_dict(), model_path)
-    return model_path
-
-
-def save_train_log(
-    log_data: Dict[str, Union[List[float], List[int]]], model_name: str, log_dir: Path
-) -> Path:
-    log_dir.mkdir(parents=True, exist_ok=True)
-    filename = f"training_log_{model_name}_{datetime.now().strftime('%m%d_%H%M')}.csv"
-    csv_path = log_dir / filename
-    pd.DataFrame(log_data).to_csv(csv_path, index=False)
-    return csv_path
-
-
 def save_thr_data(thr_data: pd.DataFrame, data_name: str, save_dir: Path) -> Path:
     save_dir.mkdir(parents=True, exist_ok=True)
     filename = f"{data_name}_{datetime.now().strftime('%m%d_%H%M')}.csv"
@@ -193,7 +170,7 @@ def save_thr_data(thr_data: pd.DataFrame, data_name: str, save_dir: Path) -> Pat
 
 
 if __name__ == "__main__":
-    from Src.paras import RESULT_DIR
+    from Src.Shared.Config.paths import RESULT_DIR
 
     target_path = RESULT_DIR / "Optimize" / "PPO" / "PPO_20260127_115650"
     load_and_analyze_results(target_path)

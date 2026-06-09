@@ -1,4 +1,9 @@
-"""Src/Configs/paras.py"""
+"""Validated input data for one Phase 2 scheduling problem.
+
+``Paras`` is intentionally owned by Phase 2 rather than ``Shared``. It adapts
+runtime state and offline tables into the exact arrays consumed by the
+objective and optimizers.
+"""
 
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -6,51 +11,13 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from Src.Algorithm.algo_config import DEFAULT as ALGO_CFG
-from Src.compute_profile import load_compute_profile
-from Src.Deploy.deploy_config import DEFAULT as TESTBED_CFG
-from Src.Models.model_config import RESNET50 as MODEL_CFG
-from Src.Models.model_config import ModelConfig
-
-BASE_DRIVE = Path(__file__).resolve().parents[1]
-DATA_DIR = BASE_DRIVE / "Data"
-OFFLINE_TABLE_DIR = DATA_DIR / "OfflineTables"
-RESULT_DIR = BASE_DRIVE / "Scripts" / "Results"
-
-# --- Train Data Path ---
-DATA_ROOT = DATA_DIR / MODEL_CFG.dataset_name
-WEIGHTS_DIR = MODEL_CFG.weights_dir
-
-# --- Model Profile Path ---
-MODEL_NAME = MODEL_CFG.name
-RATE_CSV_PATH = MODEL_CFG.resolve_rate_csv()
-ACC_CSV_PATH = MODEL_CFG.resolve_acc_csv()
-LAYER_CSV_PATH = MODEL_CFG.resolve_layer_stats_csv()
-
-# --- Result Path ---
-RESULT_TESTBED_PATH = RESULT_DIR / "Exp1_Testbed"
-RESULT_SOTA_PATH = RESULT_DIR / "Exp2_Baseline"
-RESULT_DYNAMIC_PATH = RESULT_DIR / "Exp3_Dynamic"
-RESULT_CONVERGENCE_PATH = RESULT_DIR / "Exp4_DSCI_Convergency"
-RESULT_DSCI_CONVERGENCY_PATH = RESULT_CONVERGENCE_PATH
-RESULT_ABLATION_PATH = RESULT_DIR / "Exp5_Ablation"
-RESULT_EE_MODEL_PATH = RESULT_DIR / "Exp6_EE_Model"
-
-# --- Optimize Path ---
-RESULT_GA_PATH = RESULT_DIR / "Optimize/GA"
-RESULT_PPO_PATH = RESULT_DIR / "Optimize/DSCI"
-RESULT_BF_PATH = RESULT_DIR / "Optimize/BF"
-RESULT_TEST_PATH = RESULT_DIR / "Test"
-
-COLORS = {
-    "grey": "#999999",
-    "brown": "#8D574B",
-    "green": "#2ca02c",
-    "purple": "#9467bd",
-    "red": "#d62728",
-    "blue": "#1f77b4",
-    "black": "#000000",
-}
+from Src.Phase2_Scheduler.algo_config import DEFAULT as ALGO_CFG
+from Src.Shared.Config.deploy_config import DEFAULT as TESTBED_CFG
+from Src.Shared.Config.model_config import RESNET50 as MODEL_CFG
+from Src.Shared.Config.model_config import ModelConfig
+from Src.Shared.Config.paths import RESNET50_PATHS as MODEL_PATHS
+from Src.Shared.Config.paths import ModelArtifactPaths
+from Src.Shared.Profiles.compute_profile import load_compute_profile
 
 # --- Default Parameters ---
 NUM_USERS = TESTBED_CFG.num_users
@@ -73,31 +40,10 @@ def _read_layer_stats_csv(path: Path) -> pd.DataFrame:
     return df
 
 
-df = _read_layer_stats_csv(LAYER_CSV_PATH)
+df = _read_layer_stats_csv(MODEL_PATHS.resolve_layer_stats_csv())
 DATA_SIZE_LAYERS = df["num_bytes"].astype(int).tolist()
 COMPUTE_SIZE_LAYERS = df["approx_flops"].astype(int).tolist()
 
-
-USER_FREQs = NUM_USERS * [2e9]
-EDGE_MAX_FREQ = ALGO_CFG.edge_max_freq
-CLOUD_MAX_FREQ = ALGO_CFG.cloud_max_freq
-
-# Simulation-only wireless channel defaults. Testbed runs should pass B_u.
-CHANNEL_GAINS_USERS = NUM_USERS * [2.0]
-BANDWIDTH_EDGE = TESTBED_CFG.default_bw_d2e
-BANDWIDTH_CLOUD = TESTBED_CFG.default_bw_e2c
-BASE_STATION_POWER = 1.0
-NOISE_POWER = 8e-11
-
-
-# @dataclass
-# class Paras:
-#     # Basic scalar parameters
-#     n: int = NUM_USERS
-#     m: int = NUM_LAYERS
-#     f_e_max: float = float(EDGE_MAX_FREQ)
-#     f_c_max: float = float(CLOUD_MAX_FREQ)
-#     b_e: float = float(BANDWIDTH_EDGE)
 
 USER_FREQs = NUM_USERS * [2e9]
 EDGE_MAX_FREQ = ALGO_CFG.edge_max_freq
@@ -129,7 +75,9 @@ class Paras:
     E: list[int] = field(default_factory=lambda: list(EARLY_EXIT_LAYERS))
     D: list[int] = field(default_factory=lambda: list(DATA_SIZE_LAYERS))
     # Deprecated theoretical-FLOPs alias kept for existing simulation callers.
-    C: list[int] = field(default_factory=lambda: list(COMPUTE_SIZE_LAYERS))
+    C: list[float] = field(
+        default_factory=lambda: [float(x) for x in COMPUTE_SIZE_LAYERS]
+    )
     C_theoretical: list[float] | None = None
     C_u: np.ndarray | None = None
     C_e: np.ndarray | None = None
@@ -152,7 +100,7 @@ class Paras:
         self.D = list(self.D)
         if self.C_theoretical is None:
             self.C_theoretical = list(self.C)
-        self.C_theoretical = list(np.asarray(self.C_theoretical, dtype=float))
+        self.C_theoretical = [float(value) for value in self.C_theoretical]
         self.C = list(self.C_theoretical)
         self.F_u = np.asarray(self.F_u, dtype=float).reshape(-1)
         if self.C_u is None:
@@ -171,13 +119,23 @@ class Paras:
         if self.B_u is not None:
             self.B_u = np.asarray(self.B_u, dtype=float).reshape(-1)
 
+        assert self.C_theoretical is not None
+        assert self.C_u is not None
+        assert self.C_e is not None
+        assert self.C_c is not None
+
         self._validate_runtime_shapes()
 
-        from Src.Algorithm.Utils.parsing_data import parsing_rate_and_acc
+        from Src.Phase2_Scheduler.Utils.parsing_data import parsing_rate_and_acc
 
         self.rates, self.accs = parsing_rate_and_acc(self)
 
     def _validate_runtime_shapes(self):
+        assert self.C_theoretical is not None
+        assert self.C_u is not None
+        assert self.C_e is not None
+        assert self.C_c is not None
+
         if len(self.F_u) != self.n:
             print(f"Warning: F_u length ({len(self.F_u)}) does not match n ({self.n}).")
         if self.H_u is not None and len(self.H_u) != self.n:
@@ -268,9 +226,10 @@ class Paras:
             minimum=0.1,
         )
 
-        layer_df = _read_layer_stats_csv(model_cfg.resolve_layer_stats_csv())
+        model_paths = ModelArtifactPaths(model_cfg)
+        layer_df = _read_layer_stats_csv(model_paths.resolve_layer_stats_csv())
         layer_bytes = layer_df["num_bytes"].astype(int).tolist()
-        layer_flops = layer_df["approx_flops"].astype(int).tolist()
+        layer_flops = layer_df["approx_flops"].astype(float).tolist()
         layer_names = layer_df["layer"].astype(str).tolist()
 
         def load_state_profile(owner: dict, capacity_key: str, owner_name: str):

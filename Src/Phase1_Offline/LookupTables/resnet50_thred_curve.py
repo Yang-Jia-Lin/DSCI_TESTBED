@@ -6,9 +6,10 @@ import warnings
 from datetime import datetime
 from pathlib import Path
 
-from Src.Models.model_config import RESNET50 as MODEL_CFG
+from Src.Shared.Config.model_config import RESNET50 as MODEL_CFG
+from Src.Shared.Config.paths import RESNET50_PATHS as MODEL_PATHS
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
@@ -22,18 +23,18 @@ def parse_args():
     )
     parser.add_argument(
         "--model_path",
-        default=str(MODEL_CFG.resolve_weight_path()),
+        default=str(MODEL_PATHS.resolve_weight_path()),
         help="Path to the MultiEEResNet50 state_dict.",
     )
     parser.add_argument(
         "--data_root",
-        default=str(MODEL_CFG.data_dir / MODEL_CFG.dataset_name),
+        default=str(MODEL_PATHS.data_dir / MODEL_CFG.dataset_name),
         help="CIFAR-10 root, either Data/CIFAR10 or Data/CIFAR10/cifar-10-batches-py.",
     )
     parser.add_argument(
         "--output_dir",
         default=str(PROJECT_ROOT / "Data" / "OfflineTables"),
-        help=(f"Directory for {MODEL_CFG.rate_csv.name} and {MODEL_CFG.acc_csv.name}."),
+        help=(f"Directory for {MODEL_PATHS.rate_csv.name} and {MODEL_PATHS.acc_csv.name}."),
     )
     parser.add_argument("--batch_size", type=int, default=128)
     parser.add_argument("--num_workers", type=int, default=4)
@@ -55,8 +56,8 @@ def parse_args():
         "--overwrite",
         action="store_true",
         help=(
-            f"Overwrite existing {MODEL_CFG.rate_csv.name} and "
-            f"{MODEL_CFG.acc_csv.name}."
+            f"Overwrite existing {MODEL_PATHS.rate_csv.name} and "
+            f"{MODEL_PATHS.acc_csv.name}."
         ),
     )
     parser.add_argument(
@@ -87,7 +88,7 @@ def resolve_device(choice):
 def load_model(model_path, device):
     import torch
 
-    from Src.Models.ModelNet.Resnet50 import Bottleneck, MultiEEResNet50
+    from Src.Shared.Models.ModelNet.Resnet50 import Bottleneck, MultiEEResNet50
 
     model = MultiEEResNet50(
         Bottleneck, [3, 4, 6, 3], num_classes=10, include_top=True
@@ -113,8 +114,8 @@ def load_model(model_path, device):
 
 def save_tables(rates, accs, output_dir, overwrite, timestamped_copy):
     output_dir.mkdir(parents=True, exist_ok=True)
-    rates_path = output_dir / MODEL_CFG.rate_csv.name
-    accs_path = output_dir / MODEL_CFG.acc_csv.name
+    rates_path = output_dir / MODEL_PATHS.rate_csv.name
+    accs_path = output_dir / MODEL_PATHS.acc_csv.name
 
     existing = [path for path in (rates_path, accs_path) if path.exists()]
     if existing and not overwrite:
@@ -150,7 +151,7 @@ def main():
     from torch.utils.data import DataLoader
     from tqdm import tqdm
 
-    from Src.Deploy.Shared.dataloader import (
+    from Src.Shared.Data.dataloader import (
         CIFAR10TestDataset,
         build_cifar10_test_transform,
     )

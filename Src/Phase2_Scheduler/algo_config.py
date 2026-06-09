@@ -1,4 +1,4 @@
-"""Algorithm defaults for DSCI."""
+"""Phase 2 objective weights and optimizer hyperparameter defaults."""
 
 from dataclasses import dataclass
 

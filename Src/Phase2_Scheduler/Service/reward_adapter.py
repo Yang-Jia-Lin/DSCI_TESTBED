@@ -6,8 +6,8 @@ from typing import Any
 import numpy as np
 import torch
 
-from Src.Algorithm.algo_config import DEFAULT as DEFAULT_ALGO_CONFIG
-from Src.paras import Paras
+from Src.Phase2_Scheduler.algo_config import DEFAULT as DEFAULT_ALGO_CONFIG
+from Src.Phase2_Scheduler.paras import Paras
 
 
 class RewardAdapterError(ValueError):

@@ -9,9 +9,10 @@ from typing import Any
 
 import numpy as np
 
-from Src.Algorithm.Optimizer.DSCI.agent import PPOAgent
-from Src.Algorithm.Utils.log_function import save_experiment_results
-from Src.paras import RESULT_PPO_PATH, Paras
+from Src.Phase2_Scheduler.Optimizer.DSCI.agent import PPOAgent
+from Src.Phase2_Scheduler.Utils.log_function import save_experiment_results
+from Src.Phase2_Scheduler.paras import Paras
+from Src.Shared.Config.paths import RESULT_PPO_PATH
 
 _DEFAULT_PPO_PARAMS: dict[str, Any] = {
     "gamma": 0.95,

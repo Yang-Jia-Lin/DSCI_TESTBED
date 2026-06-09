@@ -3,9 +3,9 @@
 Src/Objective/Objective.py
 """
 
-from Src.Algorithm.Objective.compute_accuracy import compute_expected_accuracy
-from Src.Algorithm.Objective.compute_latency import compute_total_latency
-from Src.Algorithm.Objective.compute_P import compute_layer_exit_probs
+from Src.Phase2_Scheduler.Objective.compute_accuracy import compute_expected_accuracy
+from Src.Phase2_Scheduler.Objective.compute_latency import compute_total_latency
+from Src.Phase2_Scheduler.Objective.compute_P import compute_layer_exit_probs
 
 
 def objective(X, Y, F_e, F_c, paras):
@@ -37,7 +37,7 @@ def get_lat_and_acc(X, Y, F_e, F_c, paras):
 if __name__ == "__main__":
     import numpy as np
 
-    from Src.paras import Paras
+    from Src.Phase2_Scheduler.paras import Paras
 
     print("\n" + "=" * 20 + " Objective Test " + "=" * 20)
 

@@ -6,18 +6,24 @@ import unittest
 from pathlib import Path
 
 import numpy as np
+from typing import cast
 import pandas as pd
 
-from Src.Algorithm.Objective.compute_latency import (
+from Src.Phase2_Scheduler.Objective.compute_latency import (
     compute_5_latency,
     compute_total_latency,
     compute_user_latency,
 )
-from Src.Algorithm.Interface.algo_service import AlgoService, AlgoServiceConfig
-from Src.Algorithm.Optimizer.DSCI.agent import compute_iota_kappa
-from Src.compute_profile import ComputeProfileError, load_compute_profile, write_compute_profile
-from Src.Models.model_config import RESNET50
-from Src.paras import Paras
+from Src.Phase2_Scheduler.Optimizer.DSCI.agent import compute_iota_kappa
+from Src.Phase2_Scheduler.paras import Paras
+from Src.Phase2_Scheduler.Service.algo_service import AlgoService, AlgoServiceConfig
+from Src.Shared.Config.model_config import RESNET50
+from Src.Shared.Config.paths import RESNET50_PATHS
+from Src.Shared.Profiles.compute_profile import (
+    ComputeProfileError,
+    load_compute_profile,
+    write_compute_profile,
+)
 
 
 class ComputeProfileLatencyTests(unittest.TestCase):
@@ -27,7 +33,9 @@ class ComputeProfileLatencyTests(unittest.TestCase):
         self.profile_root.mkdir(parents=True)
         self.previous_root = os.environ.get("DSCI_COMPUTE_PROFILE_ROOT")
         os.environ["DSCI_COMPUTE_PROFILE_ROOT"] = str(self.profile_root)
-        stats = pd.read_csv(RESNET50.resolve_layer_stats_csv(), skipinitialspace=True)
+        stats = pd.read_csv(
+            RESNET50_PATHS.resolve_layer_stats_csv(), skipinitialspace=True
+        )
         stats.columns = [str(column).strip() for column in stats.columns]
         self.names = stats["layer"].astype(str).tolist()
         self.flops = stats["approx_flops"].to_numpy(dtype=np.float64)
@@ -88,15 +96,21 @@ class ComputeProfileLatencyTests(unittest.TestCase):
             },
         }
         paras = Paras.from_state(state)
+        self.assertIsNotNone(paras.C_u)
+        assert paras.C_u is not None
         self.assertEqual(paras.C_u.shape, (2, 128))
         self.assertFalse(np.allclose(paras.C_u[0], paras.C_u[1]))
-        np.testing.assert_allclose(paras.C_e, edge.equivalent_flops)
-        np.testing.assert_allclose(paras.C_c, cloud.equivalent_flops)
+        self.assertIsNotNone(paras.C_e)
+        assert paras.C_e is not None
+        np.testing.assert_allclose(cast(np.ndarray, paras.C_e), edge.equivalent_flops)
+        self.assertIsNotNone(paras.C_c)
+        np.testing.assert_allclose(cast(np.ndarray, paras.C_c), cloud.equivalent_flops)
 
         service = AlgoService(
             AlgoServiceConfig(
                 auto_train=False,
                 fixed_split=(10, 20),
+                fixed_threshold=0.7,
                 latest_solution_path=self.profile_root / "latest_solution.npz",
                 latest_meta_path=self.profile_root / "latest_solution_meta.json",
             )
@@ -104,6 +118,12 @@ class ComputeProfileLatencyTests(unittest.TestCase):
         decision = service.make_decision(state)
         self.assertEqual(decision["users"][0]["partition_s1"], 10)
         self.assertEqual(decision["users"][0]["partition_s2"], 20)
+        self.assertTrue(
+            all(
+                threshold == 0.7
+                for threshold in decision["users"][0]["exit_thresholds"].values()
+            )
+        )
 
     def test_missing_profile_fails(self):
         with self.assertRaises((ComputeProfileError, KeyError)):

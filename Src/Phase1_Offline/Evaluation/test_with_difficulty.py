@@ -5,9 +5,10 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from Src.Models.model_config import RESNET50 as MODEL_CFG
+from Src.Shared.Config.model_config import RESNET50 as MODEL_CFG
+from Src.Shared.Config.paths import RESNET50_PATHS as MODEL_PATHS
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
@@ -23,7 +24,7 @@ def parse_args():
     )
     parser.add_argument(
         "--model_path",
-        default=str(MODEL_CFG.resolve_weight_path()),
+        default=str(MODEL_PATHS.resolve_weight_path()),
         help="Path to the MultiEEResNet50 state_dict.",
     )
     parser.add_argument(
@@ -38,7 +39,7 @@ def parse_args():
     )
     parser.add_argument(
         "--data_root",
-        default=str(MODEL_CFG.data_dir / MODEL_CFG.dataset_name),
+        default=str(MODEL_PATHS.data_dir / MODEL_CFG.dataset_name),
         help="CIFAR-10 root, either Data/CIFAR10 or Data/CIFAR10/cifar-10-batches-py.",
     )
     parser.add_argument(
@@ -123,7 +124,7 @@ def validate_thresholds(threshold_57: float, threshold_103: float):
 def load_model(model_path, device):
     import torch
 
-    from Src.Models.ModelNet.Resnet50 import Bottleneck, MultiEEResNet50
+    from Src.Shared.Models.ModelNet.Resnet50 import Bottleneck, MultiEEResNet50
 
     model = MultiEEResNet50(
         Bottleneck, [3, 4, 6, 3], num_classes=10, include_top=True
@@ -246,7 +247,7 @@ def main():
     from torch.utils.data import DataLoader
     from tqdm import tqdm
 
-    from Src.Deploy.Shared.dataloader import (
+    from Src.Shared.Data.dataloader import (
         DifficultyAwareDataset,
         build_cifar10_test_transform,
     )

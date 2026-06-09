@@ -5,11 +5,11 @@ import time
 import torch
 from flask import Flask, jsonify
 
-from Src.Deploy.deploy_config import DEFAULT as TESTBED_CFG
-from Src.Deploy.Cloud.comm import receive_tensor
-from Src.Deploy.Cloud.resource_ctrl import get_max_cpu
-from Src.Deploy.Shared.model_loader import load_full_model
-from Src.compute_profile import compute_profile_state
+from Src.Shared.Config.deploy_config import DEFAULT as TESTBED_CFG
+from Src.Phase3_Runtime.Cloud.comm import receive_tensor
+from Src.Phase3_Runtime.Cloud.resource_ctrl import get_max_cpu
+from Src.Phase3_Runtime.Shared.model_loader import load_full_model
+from Src.Shared.Profiles.compute_profile import compute_profile_state
 
 status_app = Flask(__name__)
 

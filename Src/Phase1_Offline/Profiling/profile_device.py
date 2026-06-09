@@ -13,9 +13,10 @@ import numpy as np
 import pandas as pd
 import torch
 
-from Src.compute_profile import write_compute_profile
-from Src.Models.ModelNet.Resnet50 import Bottleneck, MultiEEResNet50
-from Src.Models.model_config import RESNET50 as MODEL_CFG
+from Src.Shared.Profiles.compute_profile import write_compute_profile
+from Src.Shared.Models.ModelNet.Resnet50 import Bottleneck, MultiEEResNet50
+from Src.Shared.Config.model_config import RESNET50 as MODEL_CFG
+from Src.Shared.Config.paths import RESNET50_PATHS as MODEL_PATHS
 
 STAGE_ENDS = (3, 26, 56, 102, 127)
 
@@ -24,7 +25,7 @@ def parse_args(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("profile_id")
     parser.add_argument("--backend", choices=("pytorch", "mnn"), default="pytorch")
-    parser.add_argument("--weights", default=str(MODEL_CFG.resolve_weight_path()))
+    parser.add_argument("--weights", default=str(MODEL_PATHS.resolve_weight_path()))
     parser.add_argument("--device", default="cpu")
     parser.add_argument("--threads", type=int, default=1)
     parser.add_argument("--warmup", type=int, default=10)
@@ -121,7 +122,7 @@ def main(argv=None):
     args = parse_args(argv)
     if args.runs <= 0 or args.warmup < 0:
         raise ValueError("--runs must be positive and --warmup must be non-negative")
-    stats = pd.read_csv(MODEL_CFG.resolve_layer_stats_csv(), skipinitialspace=True)
+    stats = pd.read_csv(MODEL_PATHS.resolve_layer_stats_csv(), skipinitialspace=True)
     stats.columns = [str(col).strip() for col in stats.columns]
     if args.backend == "pytorch":
         raw, total, granularity = _profile_pytorch(args, stats)

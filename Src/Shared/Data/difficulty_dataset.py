@@ -1,6 +1,6 @@
 """Compatibility exports for difficulty-aware CIFAR-10 loading."""
 
-from Src.Deploy.Shared.dataloader import (
+from Src.Shared.Data.dataloader import (
     CIFAR10TestDataset,
     DifficultyAwareDataset,
     VALID_DIFFICULTIES,

@@ -11,7 +11,7 @@ from torch.utils.data import DataLoader, random_split
 import torchvision
 from torchvision import transforms
 
-from Src.Deploy.Shared.dataloader import (
+from Src.Shared.Data.dataloader import (
     CIFAR10TestDataset,
     build_cifar10_test_transform,
 )

@@ -8,8 +8,9 @@ from typing import Tuple
 import numpy as np
 import pandas as pd
 
-from Src.Models.model_config import RESNET50
-from Src.paras import Paras
+from Src.Shared.Config.model_config import RESNET50
+from Src.Shared.Config.paths import ModelArtifactPaths
+from Src.Phase2_Scheduler.paras import Paras
 
 
 def _resolve_rate_acc_paths(
@@ -18,8 +19,9 @@ def _resolve_rate_acc_paths(
     acc_path: str | Path | None = None,
 ) -> tuple[Path, Path]:
     cfg = getattr(paras, "model_cfg", None) or RESNET50
-    return Path(rate_path or cfg.resolve_rate_csv()), Path(
-        acc_path or cfg.resolve_acc_csv()
+    model_paths = ModelArtifactPaths(cfg)
+    return Path(rate_path or model_paths.resolve_rate_csv()), Path(
+        acc_path or model_paths.resolve_acc_csv()
     )
 
 

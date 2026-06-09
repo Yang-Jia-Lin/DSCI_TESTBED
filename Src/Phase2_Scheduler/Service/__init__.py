@@ -13,18 +13,18 @@ __all__ = [
 ]
 
 _LAZY_EXPORTS = {
-    "AlgoService": ("Src.Algorithm.Interface.algo_service", "AlgoService"),
-    "AlgoServiceConfig": ("Src.Algorithm.Interface.algo_service", "AlgoServiceConfig"),
+    "AlgoService": ("Src.Phase2_Scheduler.Service.algo_service", "AlgoService"),
+    "AlgoServiceConfig": ("Src.Phase2_Scheduler.Service.algo_service", "AlgoServiceConfig"),
     "compute_round_reward": (
-        "Src.Algorithm.Interface.reward_adapter",
+        "Src.Phase2_Scheduler.Service.reward_adapter",
         "compute_round_reward",
     ),
-    "create_app": ("Src.Algorithm.Interface.api_server", "create_app"),
-    "encode": ("Src.Algorithm.Interface.decision_codec", "encode"),
-    "infer_one_round": ("Src.Algorithm.Optimizer.DSCI.run_DSCI", "infer_one_round"),
-    "run_server": ("Src.Algorithm.Interface.api_server", "run_server"),
-    "to_paras": ("Src.Algorithm.Interface.state_adapter", "to_paras"),
-    "validate_decision": ("Src.Algorithm.Interface.decision_codec", "validate_decision"),
+    "create_app": ("Src.Phase2_Scheduler.Service.api_server", "create_app"),
+    "encode": ("Src.Phase2_Scheduler.Service.decision_codec", "encode"),
+    "infer_one_round": ("Src.Phase2_Scheduler.Optimizer.DSCI.run_DSCI", "infer_one_round"),
+    "run_server": ("Src.Phase2_Scheduler.Service.api_server", "run_server"),
+    "to_paras": ("Src.Phase2_Scheduler.Service.state_adapter", "to_paras"),
+    "validate_decision": ("Src.Phase2_Scheduler.Service.decision_codec", "validate_decision"),
 }
 
 

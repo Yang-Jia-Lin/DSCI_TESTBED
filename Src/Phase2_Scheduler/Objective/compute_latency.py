@@ -5,9 +5,9 @@ Src/Objective/compute_latency.py
 
 import numpy as np
 
-from Src.Algorithm.Objective.compute_exit_points import compute_exit_points
-from Src.Algorithm.Objective.compute_P import compute_layer_exit_probs
-from Src.paras import Paras
+from Src.Phase2_Scheduler.Objective.compute_exit_points import compute_exit_points
+from Src.Phase2_Scheduler.Objective.compute_P import compute_layer_exit_probs
+from Src.Phase2_Scheduler.paras import Paras
 
 
 def _compute_end_to_edge_delay(d_i, h_i, B_e, G, delta):
@@ -365,12 +365,13 @@ if __name__ == "__main__":
     f_e = F_e[0].item()
     f_c = F_c[0].item()
     f_u = float(paras.F_u[0])
+    C_u_i = paras.C_u[0] if paras.C_u is not None else np.zeros(m)
     h_i = float(paras.H_u[0]) if paras.H_u is not None else None
     b_u_i = float(paras.B_u[0]) if paras.B_u is not None else None
     cut_tuple = (c0, c1)
 
     # A. Local
-    t_local = _compute_local_computation_delay(cut_tuple, P_i, paras.C_u[0], f_u)
+    t_local = _compute_local_computation_delay(cut_tuple, P_i, C_u_i, f_u)
     if c0 > 0:
         print(f"1. Local Comp Layers [0, {c0}): \t{t_local:.12f} s")
     else:
@@ -452,7 +453,7 @@ if __name__ == "__main__":
         print(f"  j={int(j):4d}  P_i[j]={float(P_i[j]):.6e}")
 
     # A. Local computation
-    t_local = _compute_local_computation_delay(cut_tuple, P_i, paras.C_u[0], f_u)
+    t_local = _compute_local_computation_delay(cut_tuple, P_i, C_u_i, f_u)
     if c0 > 0:
         print(f"\n1. Local Comp Layers [0, {c0}):")
         print(f"   - used f_u = {f_u:.6e} FLOP/s")

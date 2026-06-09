@@ -4,13 +4,13 @@ import time
 import torch
 from flask import Flask, jsonify
 
-from Src.Deploy.deploy_config import DEFAULT as TESTBED_CFG
-from Src.Deploy.Edge.comm import receive_tensor, send_response
-from Src.Deploy.Edge.resource_ctrl import get_max_cpu
-from Src.Deploy.Shared.bandwidth_iperf import measure_bandwidth_iperf
-from Src.Deploy.Shared.model_loader_mnn import threshold_for_stage
-from Src.Deploy.Shared.model_loader_mnn_edge import load_edge_model
-from Src.compute_profile import compute_profile_state
+from Src.Shared.Config.deploy_config import DEFAULT as TESTBED_CFG
+from Src.Phase3_Runtime.Edge.comm import receive_tensor, send_response
+from Src.Phase3_Runtime.Edge.resource_ctrl import get_max_cpu
+from Src.Phase3_Runtime.Shared.bandwidth_iperf import measure_bandwidth_iperf
+from Src.Phase3_Runtime.Shared.model_loader_mnn import threshold_for_stage
+from Src.Phase3_Runtime.Shared.model_loader_mnn_edge import load_edge_model
+from Src.Shared.Profiles.compute_profile import compute_profile_state
 
 status_app = Flask(__name__)
 
@@ -42,8 +42,7 @@ def run_feature_server():
         edge_end = int(meta.get("edge_end", 3))
         edge_start = device_end + 1
 
-        print(
-            f"device_end={device_end}, edge_end={edge_end}, edge_start={edge_start}")
+        print(f"device_end={device_end}, edge_end={edge_end}, edge_start={edge_start}")
 
         # 设置 CPU 线程数（保留原逻辑）
         torch.set_num_threads(
@@ -59,14 +58,13 @@ def run_feature_server():
         else:
             # 边缘没有需要执行的层，直接使用输入特征作为输出，置信度为 None
             features = tensor
-            logits = None
+            # logits = None
             conf = None
             pred = None
             T_edge = 0.0
 
         # 获取阈值
-        exit_layer, threshold = threshold_for_stage(
-            meta["exit_thresholds"], edge_end)
+        exit_layer, threshold = threshold_for_stage(meta["exit_thresholds"], edge_end)
 
         # 早期退出判断
         if conf is not None and (
@@ -86,7 +84,7 @@ def run_feature_server():
             continue
 
         # 需要转发到云端
-        from Src.Deploy.Device.comm import send_tensor as send_to_cloud
+        from Src.Phase3_Runtime.Device.comm import send_tensor as send_to_cloud
 
         cloud_payload = {"tensor": features, "meta": meta}
         t_fwd = time.perf_counter()

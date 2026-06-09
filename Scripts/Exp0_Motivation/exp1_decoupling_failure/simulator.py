@@ -8,17 +8,17 @@ from __future__ import annotations
 import os
 import sys
 
-PROJECT_ROOT = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "..")
-)
-if PROJECT_ROOT not in sys.path:
-    sys.path.insert(0, PROJECT_ROOT)
-
 from Scripts.Exp0_Motivation.utils.config import DEVICE_GFLOPS, EDGE_GFLOPS, RTT_MS
 from Scripts.Exp0_Motivation.utils.network_sim import (
     compute_latency_ms,
     transmission_latency_ms,
 )
+
+PROJECT_ROOT = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "..", "..")
+)
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
 
 
 def _transmission_ratio(
@@ -73,11 +73,7 @@ def simulate_latency(
     transmission_latency_ms_val = tx_ms * tx_ratio
 
     remaining_flops = max(0.0, total_flops - flops_up_to)
-    edge_latency_ms = (
-        compute_latency_ms(remaining_flops, edge_gflops) * tx_ratio
-    )
+    edge_latency_ms = compute_latency_ms(remaining_flops, edge_gflops) * tx_ratio
 
-    end_to_end = (
-        device_latency_ms + transmission_latency_ms_val + edge_latency_ms
-    )
+    end_to_end = device_latency_ms + transmission_latency_ms_val + edge_latency_ms
     return float(end_to_end), float(tx_ratio)

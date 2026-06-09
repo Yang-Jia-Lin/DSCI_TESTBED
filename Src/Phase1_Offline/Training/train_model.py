@@ -9,11 +9,15 @@ import pandas as pd
 import torch
 import torch.nn as nn
 
-from Src.Algorithm.Utils.utils_function import get_data_loaders, get_device
-from Src.Models.ModelNet.Resnet50 import Bottleneck, MultiEEResNet50, freeze_layers
-from Src.Models.model_config import RESNET50 as MODEL_CFG
+from Src.Shared.Config.paths import RESNET50_PATHS as MODEL_PATHS
+from Src.Shared.Models.ModelNet.Resnet50 import (
+    Bottleneck,
+    MultiEEResNet50,
+    freeze_layers,
+)
+from Src.Shared.Utils.utils_function import get_data_loaders, get_device
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
 
 def parse_args(argv=None):
@@ -22,10 +26,15 @@ def parse_args(argv=None):
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--num-workers", type=int, default=4)
-    parser.add_argument("--output", default=str(MODEL_CFG.weights_dir / "resnet50_cifar10_backbone.pth"))
+    parser.add_argument(
+        "--output",
+        default=str(MODEL_PATHS.weights_dir / "resnet50_cifar10_backbone.pth"),
+    )
     parser.add_argument(
         "--log-output",
-        default=str(PROJECT_ROOT / "Scripts" / "Results" / "OfflinePipeline" / "train_model.csv"),
+        default=str(
+            PROJECT_ROOT / "Scripts" / "Results" / "OfflinePipeline" / "train_model.csv"
+        ),
     )
     return parser.parse_args(argv)
 
@@ -60,13 +69,19 @@ def main(argv=None):
         random_seed=42,
         num_workers=args.num_workers,
     )
-    model = MultiEEResNet50(Bottleneck, [3, 4, 6, 3], num_classes=10, include_top=True).to(device)
+    model = MultiEEResNet50(
+        Bottleneck, [3, 4, 6, 3], num_classes=10, include_top=True
+    ).to(device)
     freeze_layers(model, freeze_x2_fc=True, freeze_x3_fc=True)
-    optimizer = torch.optim.Adam((p for p in model.parameters() if p.requires_grad), lr=args.lr)
+    optimizer = torch.optim.Adam(
+        (p for p in model.parameters() if p.requires_grad), lr=args.lr
+    )
     criterion = nn.CrossEntropyLoss()
     rows = []
     for epoch in range(1, args.epochs + 1):
-        train_loss, train_acc = _run_epoch(model, train_loader, device, criterion, optimizer)
+        train_loss, train_acc = _run_epoch(
+            model, train_loader, device, criterion, optimizer
+        )
         val_loss, val_acc = _run_epoch(model, valid_loader, device, criterion)
         rows.append(
             {

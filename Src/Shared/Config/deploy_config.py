@@ -1,4 +1,4 @@
-"""Runtime network configuration for the deploy testbed."""
+"""Static runtime topology: node addresses, ports, and network fallbacks."""
 
 from dataclasses import dataclass
 

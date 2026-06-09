@@ -11,24 +11,24 @@ import os
 import sys
 from pathlib import Path
 
-PROJECT_ROOT = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "..")
-)
-if PROJECT_ROOT not in sys.path:
-    sys.path.insert(0, PROJECT_ROOT)
-
 from Scripts.Exp0_Motivation.exp1_decoupling_failure.model_wrapper import (
     ResNet50EEWrapper,
 )
 from Scripts.Exp0_Motivation.exp1_decoupling_failure.simulator import simulate_latency
 from Scripts.Exp0_Motivation.exp1_decoupling_failure.strategies import (
-    DSCIJointStrategy,
     DecoupledStrategy,
+    DSCIJointStrategy,
     EEOnlyStrategy,
     LocalStrategy,
     SCOnlyStrategy,
 )
 from Scripts.Exp0_Motivation.utils.output_paths import create_run_output_dirs
+
+PROJECT_ROOT = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "..", "..")
+)
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
 
 # ---- 实验超参 ----
 BANDWIDTHS = [0.25, 0.5, 1.0, 2.0, 4.0, 8.0]  # Mbps，含极窄带以触发性能倒置
@@ -74,7 +74,9 @@ def main() -> None:
     final_layer = model_info["final_layer"]
 
     if model_info["rates_from_csv"]:
-        log.info("[Exp1] 早退率来自 Data/OfflineTables/resnet50_cifar10_rates.csv（阈值线性插值）")
+        log.info(
+            "[Exp1] 早退率来自 Data/OfflineTables/resnet50_cifar10_rates.csv（阈值线性插值）"
+        )
     else:
         log.info("[Exp1] 早退率由 Beta 分布合成（CSV 不可用）")
 
@@ -131,9 +133,8 @@ def main() -> None:
                     extra,
                 )
 
-            if (
-                group_latencies.get("Decoupled", 0)
-                > group_latencies.get("Local", float("inf"))
+            if group_latencies.get("Decoupled", 0) > group_latencies.get(
+                "Local", float("inf")
             ):
                 msg = (
                     f">>> [!] Decoupled > Local at BW={bw}Mbps "

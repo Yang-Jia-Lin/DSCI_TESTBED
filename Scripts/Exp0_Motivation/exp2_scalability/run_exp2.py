@@ -10,12 +10,7 @@ import logging
 import os
 import sys
 from pathlib import Path
-
-PROJECT_ROOT = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "..")
-)
-if PROJECT_ROOT not in sys.path:
-    sys.path.insert(0, PROJECT_ROOT)
+from typing import cast
 
 from Scripts.Exp0_Motivation.exp2_scalability.scheduler import (
     PerRequestScheduler,
@@ -28,6 +23,12 @@ from Scripts.Exp0_Motivation.utils.config import (
     SCHEDULE_PERIOD_S,
 )
 from Scripts.Exp0_Motivation.utils.output_paths import create_run_output_dirs
+
+PROJECT_ROOT = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "..", "..")
+)
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
 
 CONCURRENT_USERS = [1, 2, 4, 8, 16, 32]
 INFERENCE_LATENCY_MS = 50.0
@@ -82,10 +83,13 @@ def main() -> None:
             ("DSCI", quasi, True),
         ):
             if is_quasi:
-                overhead_per_req = sched.overhead_per_request_ms(
-                    n, INFERENCE_LATENCY_MS
-                )
-                overhead_round = sched.compute_scheduling_overhead_ms(n)
+                # sched is QuasiStaticScheduler here; use cast for type checkers
+                overhead_per_req = cast(
+                    QuasiStaticScheduler, sched
+                ).overhead_per_request_ms(n, INFERENCE_LATENCY_MS)
+                overhead_round = cast(
+                    QuasiStaticScheduler, sched
+                ).compute_scheduling_overhead_ms(n)
             else:
                 overhead_round = sched.compute_scheduling_overhead_ms(n)
                 overhead_per_req = overhead_round / n
@@ -95,18 +99,14 @@ def main() -> None:
             )
             drift = sched.compute_config_drift(n)
             denom = INFERENCE_LATENCY_MS + overhead_per_req
-            overhead_ratio = (
-                100.0 * overhead_per_req / denom if denom > 0 else 0.0
-            )
+            overhead_ratio = 100.0 * overhead_per_req / denom if denom > 0 else 0.0
 
             results.append(
                 {
                     "n_users": n,
                     "scheduler": label,
                     "scheduling_overhead_ms_round": round(overhead_round, 3),
-                    "scheduling_overhead_per_request_ms": round(
-                        overhead_per_req, 4
-                    ),
+                    "scheduling_overhead_per_request_ms": round(overhead_per_req, 4),
                     "scheduling_overhead_ratio_pct": round(overhead_ratio, 2),
                     "effective_throughput_rps": round(throughput, 2),
                     "config_drift": round(drift, 4),
@@ -121,7 +121,9 @@ def main() -> None:
                 drift,
             )
 
-        pr = next(r for r in results if r["n_users"] == n and r["scheduler"] == "Per-Request")
+        pr = next(
+            r for r in results if r["n_users"] == n and r["scheduler"] == "Per-Request"
+        )
         ds = next(r for r in results if r["n_users"] == n and r["scheduler"] == "DSCI")
         if pr["effective_throughput_rps"] > 0:
             speedup = ds["effective_throughput_rps"] / pr["effective_throughput_rps"]

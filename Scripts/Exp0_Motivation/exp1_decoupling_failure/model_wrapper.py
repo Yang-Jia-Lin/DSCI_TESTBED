@@ -1,8 +1,8 @@
-﻿"""
+"""
 Scripts/Exp0_Motivation/exp1_decoupling_failure/model_wrapper.py
 
 关键常量来源（实现前自项目文件读取）：
-- 模型类: MultiEEResNet50 (Src/Models/ModelNet/Resnet50.py)
+- 模型类: MultiEEResNet50 (Src/Shared/Models/ModelNet/Resnet50.py)
 - 早退头层索引（仅此处设 τ）: E = [57, 103]；末层 127 为最终分类出口
 - 切分点 X: 可在 1..127 任意层枚举；0 表示 Local
 - 总层数 m = 128
@@ -33,15 +33,16 @@ from Scripts.Exp0_Motivation.utils.config import (  # noqa: E402
     FINAL_LAYER,
     NUM_LAYERS,
 )
-from Src.Models.model_config import RESNET50 as MODEL_CFG  # noqa: E402
-from Src.Models.ModelNet.Resnet50 import Bottleneck, MultiEEResNet50  # noqa: E402
+from Src.Shared.Config.model_config import RESNET50 as MODEL_CFG  # noqa: E402
+from Src.Shared.Config.paths import RESNET50_PATHS as MODEL_PATHS
+from Src.Shared.Models.ModelNet.Resnet50 import Bottleneck, MultiEEResNet50  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
 # 权重与 CSV 默认路径（相对项目根）
-DEFAULT_WEIGHTS = Path("Data/Weights") / MODEL_CFG.weight_path.name
-LAYER_STATS_CSV = Path("Data/OfflineTables") / MODEL_CFG.layer_stats_csv.name
-RATES_CSV = Path("Data/OfflineTables") / MODEL_CFG.rate_csv.name
+DEFAULT_WEIGHTS = Path("Data/Weights") / MODEL_PATHS.weight_path.name
+LAYER_STATS_CSV = Path("Data/OfflineTables") / MODEL_PATHS.layer_stats_csv.name
+RATES_CSV = Path("Data/OfflineTables") / MODEL_PATHS.rate_csv.name
 
 # 加载失败时的硬编码回退（ResNet-50 @ CIFAR-10 典型量级）
 _FALLBACK_EXIT_LAYERS = [57, 103]

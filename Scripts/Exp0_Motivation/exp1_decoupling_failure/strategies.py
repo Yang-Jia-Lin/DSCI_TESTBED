@@ -11,17 +11,17 @@ from abc import ABC, abstractmethod
 
 import numpy as np
 
-PROJECT_ROOT = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "..")
-)
-if PROJECT_ROOT not in sys.path:
-    sys.path.insert(0, PROJECT_ROOT)
-
 from Scripts.Exp0_Motivation.exp1_decoupling_failure.model_wrapper import (
     ResNet50EEWrapper,
 )
 from Scripts.Exp0_Motivation.exp1_decoupling_failure.simulator import simulate_latency
 from Scripts.Exp0_Motivation.utils.config import DECOUPLED_NARROW_BW_MBPS
+
+PROJECT_ROOT = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "..", "..")
+)
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
 
 
 def _uniform_thresholds(n_exits: int, tau: float) -> list[float]:
@@ -115,7 +115,7 @@ class DecoupledStrategy(BaseStrategy):
 
     def optimize(self, bandwidth_mbps, model_wrapper, model_info, tau_grid=None):
         n = model_info["n_exits"]
-        thresholds = [1.0] * n
+        # thresholds = [1.0] * n
         final = model_info["final_layer"]
         candidates = _exit_only_split_candidates(model_info)
         split_star = candidates[0]
@@ -128,9 +128,7 @@ class DecoupledStrategy(BaseStrategy):
             )
         else:
             for split in candidates:
-                lat, _, _ = _eval(
-                    split, 1.0, bandwidth_mbps, model_wrapper, model_info
-                )
+                lat, _, _ = _eval(split, 1.0, bandwidth_mbps, model_wrapper, model_info)
                 if lat < best_lat:
                     best_lat, split_star = lat, split
         grid = tau_grid or [round(x, 2) for x in np.arange(0.5, 0.96, 0.05)]

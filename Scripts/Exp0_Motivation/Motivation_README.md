@@ -61,7 +61,7 @@ Scripts/Exp0_Motivation/
 %USERPROFILE%\.conda\envs\DSCI\python.exe   # Python 3.10.19
 ```
 
-ä¾èµï¼`numpy`, `torch`, `pandas`, `matplotlib`, `scipy`ï¼ä»¥åé¡¹ç®å `Src/Models/`ã`Data/`ã`Src/Utils/plot_utils.py`ã?
+ä¾èµï¼`numpy`, `torch`, `pandas`, `matplotlib`, `scipy`ï¼ä»¥åé¡¹ç®å `Src/Shared/Models/`ã`Data/`ã`Src/Utils/plot_utils.py`ã?
 ### 2.3 ä¸é®å¤ç°ï¼å¨é¡¹ç®æ ¹ç®å½ `DSCI_testbed/`ï¼?
 
 ```powershell
@@ -106,7 +106,7 @@ Scripts/Results/Exp0_Motivation/YYYYMMDD_HHMMSS/
 
 | é¡¹ç® | å®ç°åå?| æ¥æº |
 |------|----------|------|
-| ç½ç»ç»æ | `MultiEEResNet50`ï¼Bottleneck, blocks `[3,4,6,3]`, CIFAR-10ï¼?| `Src/Models/ModelNet/Resnet50.py` |
+| ç½ç»ç»æ | `MultiEEResNet50`ï¼Bottleneck, blocks `[3,4,6,3]`, CIFAR-10ï¼?| `Src/Shared/Models/ModelNet/Resnet50.py` |
 | æé | `Data/Weights/ResNet50_multi_EE_model.pth` | å è½½å¤±è´¥æ¶ä»ç?CSV åæ°æ®ç»§ç»?|
 | æ©éå¤´å±ç´¢å¼ | **57**, **103** | `Src/Configs/model_config.py` |
 | æ«å± / æ»å±æ?| **127** / **128** | åä¸ |

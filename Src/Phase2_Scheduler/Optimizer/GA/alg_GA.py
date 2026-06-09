@@ -4,7 +4,7 @@ Src/Optimizer/GA/alg_GA.py
 
 import random
 import numpy as np
-from Src.Algorithm.Objective.objective import objective
+from Src.Phase2_Scheduler.Objective.objective import objective
 
 
 def optimize_GA(

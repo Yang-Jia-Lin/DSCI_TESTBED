@@ -4,9 +4,10 @@ import argparse
 import sys
 from pathlib import Path
 
-from Src.Models.model_config import RESNET50 as MODEL_CFG
+from Src.Shared.Config.model_config import RESNET50 as MODEL_CFG
+from Src.Shared.Config.paths import RESNET50_PATHS as MODEL_PATHS
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
@@ -29,7 +30,7 @@ def parse_args():
     parser.add_argument(
         "--input_path",
         default=str(
-            MODEL_CFG.profile_dir / f"{MODEL_CFG.artifact_prefix}_difficulty_raw.csv"
+            MODEL_PATHS.profile_dir / f"{MODEL_CFG.artifact_prefix}_difficulty_raw.csv"
         ),
         help="Raw profiling CSV from profile_difficulty.py.",
     )

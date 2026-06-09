@@ -12,25 +12,26 @@ from typing import Any
 
 import numpy as np
 
-from Src.Algorithm.algo_config import DEFAULT as DEFAULT_ALGO_CONFIG
-from Src.Algorithm.Interface.decision_codec import encode
-from Src.Algorithm.Interface.reward_adapter import (
+from Src.Phase2_Scheduler.algo_config import DEFAULT as DEFAULT_ALGO_CONFIG
+from Src.Phase2_Scheduler.Service.decision_codec import encode
+from Src.Phase2_Scheduler.Service.reward_adapter import (
     RoundRewardResult,
     compute_round_reward,
 )
-from Src.Algorithm.Interface.state_adapter import to_paras
-from Src.Algorithm.Objective.compute_P import compute_layer_exit_probs
-from Src.Algorithm.Objective.objective import objective
-from Src.Algorithm.Optimizer.DSCI.agent import (
+from Src.Phase2_Scheduler.Service.state_adapter import to_paras
+from Src.Phase2_Scheduler.Objective.compute_P import compute_layer_exit_probs
+from Src.Phase2_Scheduler.Objective.objective import objective
+from Src.Phase2_Scheduler.Optimizer.DSCI.agent import (
     PPOAgent,
     _init_feasible_XY,
     allocate_resources,
     compute_iota_kappa,
 )
-from Src.Algorithm.Optimizer.DSCI.run_DSCI import _build_ppo_params
-from Src.paras import Paras
+from Src.Phase2_Scheduler.Optimizer.DSCI.run_DSCI import _build_ppo_params
+from Src.Phase2_Scheduler.paras import Paras
+from Src.Shared.Config.paths import SOLUTION_CACHE_DIR
 
-INTERFACE_SOLUTION_DIR = Path(__file__).resolve().parent / "SolutionCache"
+INTERFACE_SOLUTION_DIR = SOLUTION_CACHE_DIR
 LATEST_SOLUTION_PATH = INTERFACE_SOLUTION_DIR / "latest_solution.npz"
 LATEST_META_PATH = INTERFACE_SOLUTION_DIR / "latest_solution_meta.json"
 

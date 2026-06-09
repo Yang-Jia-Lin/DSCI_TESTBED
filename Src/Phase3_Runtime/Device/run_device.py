@@ -1,4 +1,4 @@
-﻿import argparse
+import argparse
 import csv
 import json
 import time
@@ -9,17 +9,18 @@ import numpy as np
 import requests
 import torch
 
-from Src.Deploy.Device.comm import send_tensor
-from Src.Deploy.deploy_config import DEFAULT as TESTBED_CFG
-from Src.Deploy.Shared.bandwidth_iperf import measure_bandwidth_iperf
-from Src.compute_profile import compute_profile_state
-from Src.Deploy.Shared.dataloader import (
+from Src.Phase3_Runtime.Device.comm import send_tensor
+from Src.Shared.Config.deploy_config import DEFAULT as TESTBED_CFG
+from Src.Shared.Config.paths import DEVICE_RESULTS_DIR
+from Src.Phase3_Runtime.Shared.bandwidth_iperf import measure_bandwidth_iperf
+from Src.Shared.Profiles.compute_profile import compute_profile_state
+from Src.Shared.Data.dataloader import (
     VALID_DIFFICULTIES,
     default_difficulty_table_path,
     iter_cifar10_test_samples,
 )
-from Src.Deploy.Shared.state_reporter import report_status
-from Src.Deploy.Shared.model_loader import (
+from Src.Phase3_Runtime.Shared.state_reporter import report_status
+from Src.Phase3_Runtime.Shared.model_loader import (
     load_full_model,
     stage_end_from_partition_boundary,
     threshold_for_stage,
@@ -27,7 +28,7 @@ from Src.Deploy.Shared.model_loader import (
 
 TEST_SAMPLES = 100
 DEFAULT_DATA_ROOT = Path("Data") / "CIFAR10" / "cifar-10-batches-py"
-RESULTS_DIR = Path(__file__).resolve().parent / "Results"
+RESULTS_DIR = DEVICE_RESULTS_DIR
 CSV_OUTPUT = RESULTS_DIR / f"test_results_{datetime.now().strftime('%Y%m%d%H%M%S')}.csv"
 
 # ==================== 辅助函数 ====================
@@ -115,7 +116,8 @@ def cifar10_test_loader(
 def unpack_loader_sample(sample):
     image = sample[0]
     label = int(sample[1])
-    metadata = {"image_id": "", "difficulty": "", "profile_confidence": ""}
+    # Use appropriate types for metadata fields: image_id and profile_confidence may be numeric
+    metadata = {"image_id": None, "difficulty": "", "profile_confidence": None}
 
     if len(sample) == 3:
         metadata["image_id"] = int(sample[2])
@@ -380,7 +382,7 @@ def main(argv=None):
 
         try:
             res = run_single_inference(
-                input_tensor, label, decision, bw_d2e, edge_status["BW_e2c"], cpu_avail
+                input_tensor, label, decision, bw_d2e, edge_status["BW_e2c"], device_status
             )
             res = convert_to_jsonable(res)
             if not isinstance(res, dict):

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import argparse
 
-from Src.compute_profile import load_compute_profile
+from Src.Shared.Profiles.compute_profile import load_compute_profile
 
 
 def parse_args(argv=None):

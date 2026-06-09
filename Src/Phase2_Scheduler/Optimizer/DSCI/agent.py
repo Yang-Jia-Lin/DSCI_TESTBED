@@ -15,11 +15,11 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
-from Src.Algorithm.Objective.compute_P import compute_layer_exit_probs
-from Src.Algorithm.Objective.objective import get_lat_and_acc, objective
-from Src.Algorithm.Optimizer.DSCI.buffer import RolloutBuffer
-from Src.Algorithm.Optimizer.DSCI.networks import ActorCritic
-from Src.Algorithm.Utils.parsing_data import split_points_matrix
+from Src.Phase2_Scheduler.Objective.compute_P import compute_layer_exit_probs
+from Src.Phase2_Scheduler.Objective.objective import get_lat_and_acc, objective
+from Src.Phase2_Scheduler.Optimizer.DSCI.buffer import RolloutBuffer
+from Src.Phase2_Scheduler.Optimizer.DSCI.networks import ActorCritic
+from Src.Phase2_Scheduler.Utils.parsing_data import split_points_matrix
 
 
 # ---------- 状态构造（紧凑 Markov） ----------
@@ -261,7 +261,7 @@ class PPOAgent:
         eta = float(np.clip(outer_ema, 0.0, 1.0))
         F_e = ((1.0 - eta) * F_e + eta * new_F_e).astype(np.float32)
         F_c = ((1.0 - eta) * F_c + eta * new_F_c).astype(np.float32)
-        return F_e, F_c
+        return cast(np.ndarray, F_e), cast(np.ndarray, F_c)
 
     @torch.no_grad()
     def act_one_episode(

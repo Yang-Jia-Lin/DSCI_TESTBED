@@ -1,6 +1,6 @@
 import torch.nn as nn
 
-from Src.Deploy.Shared.model_loader import load_full_model
+from Src.Phase3_Runtime.Shared.model_loader import load_full_model
 
 
 class EdgeModel(nn.Module):

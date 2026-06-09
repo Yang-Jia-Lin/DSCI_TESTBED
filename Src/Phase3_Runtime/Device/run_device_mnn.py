@@ -3,7 +3,6 @@ import json
 import pickle
 import time
 from datetime import datetime
-from pathlib import Path
 
 import numpy as np
 import requests
@@ -12,21 +11,21 @@ import torch.nn.functional as F
 
 # from torchvision import transforms
 # from torchvision.datasets import CIFAR10
-from Src.Deploy.Device.comm import send_tensor
-from Src.Deploy.deploy_config import DEFAULT as TESTBED_CFG
-from Src.Deploy.Shared.bandwidth_iperf import measure_bandwidth_iperf
-from Src.compute_profile import compute_profile_state
-from Src.Deploy.Shared.state_reporter import report_status
-from Src.Deploy.Shared.model_loader_mnn import (
+from Src.Phase3_Runtime.Device.comm import send_tensor
+from Src.Shared.Config.deploy_config import DEFAULT as TESTBED_CFG
+from Src.Shared.Config.paths import DEVICE_RESULTS_DIR
+from Src.Phase3_Runtime.Shared.bandwidth_iperf import measure_bandwidth_iperf
+from Src.Shared.Profiles.compute_profile import compute_profile_state
+from Src.Phase3_Runtime.Shared.state_reporter import report_status
+from Src.Phase3_Runtime.Shared.model_loader_mnn import (
     load_full_model,
     stage_end_from_partition_boundary,
     threshold_for_stage,
 )
 
 TEST_SAMPLES = 100
-RESULTS_DIR = Path(__file__).resolve().parent / "Results"
-CSV_OUTPUT = RESULTS_DIR / \
-    f"test_results_{datetime.now().strftime('%Y%m%d%H%M%S')}.csv"
+RESULTS_DIR = DEVICE_RESULTS_DIR
+CSV_OUTPUT = RESULTS_DIR / f"test_results_{datetime.now().strftime('%Y%m%d%H%M%S')}.csv"
 
 # ==================== 辅助函数 ====================
 
@@ -54,8 +53,7 @@ def normalize(tensor, mean, std):
     mean = torch.tensor(mean, dtype=tensor.dtype, device=tensor.device).view(
         1, -1, 1, 1
     )
-    std = torch.tensor(std, dtype=tensor.dtype,
-                       device=tensor.device).view(1, -1, 1, 1)
+    std = torch.tensor(std, dtype=tensor.dtype, device=tensor.device).view(1, -1, 1, 1)
     return (tensor - mean) / std
 
 
@@ -65,8 +63,7 @@ def cifar10_test_loader(data_dir="Data/CIFAR10/cifar-10-batches-py"):
     def load_cifar10_batch(file_path):
         with open(file_path, "rb") as f:
             batch = pickle.load(f, encoding="bytes")
-        images = batch[b"data"].reshape(-1, 3,
-                                        32, 32).astype(np.float32) / 255.0
+        images = batch[b"data"].reshape(-1, 3, 32, 32).astype(np.float32) / 255.0
         labels = np.array(batch[b"labels"])
         return images, labels
 
@@ -76,8 +73,7 @@ def cifar10_test_loader(data_dir="Data/CIFAR10/cifar-10-batches-py"):
         tensor = F.interpolate(
             tensor, size=(224, 224), mode="bilinear", align_corners=False
         )
-        tensor = normalize(tensor, [0.4914, 0.4822, 0.4465], [
-                           0.2023, 0.1994, 0.2010])
+        tensor = normalize(tensor, [0.4914, 0.4822, 0.4465], [0.2023, 0.1994, 0.2010])
         yield tensor, label
 
 
@@ -106,8 +102,7 @@ def print_summary_statistics(results):
         return
 
     def _print_latency_stats(name, key):
-        values = np.array([float(r.get(key, 0.0))
-                          for r in valid], dtype=np.float64)
+        values = np.array([float(r.get(key, 0.0)) for r in valid], dtype=np.float64)
         print(
             f"{name}: mean={values.mean():.2f} ms, "
             f"var={values.var():.2f}, std={values.std():.2f}, "
@@ -124,8 +119,7 @@ def print_summary_statistics(results):
     split_points = {}
     layers = {}
     for r in results:
-        split_key = (r.get("partition_s1", "unknown"),
-                     r.get("partition_s2", "unknown"))
+        split_key = (r.get("partition_s1", "unknown"), r.get("partition_s2", "unknown"))
         layer = r.get("exit_layer", "unknown")
         split_points[split_key] = split_points.get(split_key, 0) + 1
         layers[layer] = layers.get(layer, 0) + 1
@@ -268,9 +262,7 @@ def main():
 
     print("Collecting current state...")
     device_status = compute_profile_state("device", "mnn")
-    bw_d2e = measure_bandwidth_iperf(
-        TESTBED_CFG.edge_host, TESTBED_CFG.edge_iperf_port
-    )
+    bw_d2e = measure_bandwidth_iperf(TESTBED_CFG.edge_host, TESTBED_CFG.edge_iperf_port)
     edge_response = requests.get(
         f"http://{TESTBED_CFG.edge_host}:{TESTBED_CFG.edge_status_port}/status"
     )
@@ -301,8 +293,7 @@ def main():
     if not decision:
         print("No decision received; exiting.")
         return
-    print("Received decision:", json.dumps(
-        decision, indent=2, ensure_ascii=False))
+    print("Received decision:", json.dumps(decision, indent=2, ensure_ascii=False))
 
     print("Loading CIFAR-10 test set...")
     test_loader = cifar10_test_loader("Data/CIFAR10/cifar-10-batches-py")
@@ -321,7 +312,12 @@ def main():
 
         try:
             res = run_single_inference(
-                input_tensor, label, decision, bw_d2e, edge_status["BW_e2c"], cpu_avail
+                input_tensor,
+                label,
+                decision,
+                bw_d2e,
+                edge_status["BW_e2c"],
+                device_status.get("cpu_avail", 1.0),
             )
             res = convert_to_jsonable(res)
             if not isinstance(res, dict):

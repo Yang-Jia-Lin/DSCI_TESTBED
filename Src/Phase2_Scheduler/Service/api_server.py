@@ -1,11 +1,11 @@
 """Flask HTTP server for testbed deploy ↔ algorithm communication."""
 
-from Src.Algorithm.Interface.algo_service import AlgoService, AlgoServiceConfig
-from Src.Algorithm.Interface.decision_codec import DecisionCodecError
-from Src.Algorithm.Interface.reward_adapter import RewardAdapterError
-from Src.Algorithm.Interface.state_adapter import to_paras
-from Src.Deploy.deploy_config import DEFAULT as TESTBED_CFG
-from Src.Models.model_config import get_model_config
+from Src.Phase2_Scheduler.Service.algo_service import AlgoService, AlgoServiceConfig
+from Src.Phase2_Scheduler.Service.decision_codec import DecisionCodecError
+from Src.Phase2_Scheduler.Service.reward_adapter import RewardAdapterError
+from Src.Phase2_Scheduler.Service.state_adapter import to_paras
+from Src.Shared.Config.deploy_config import DEFAULT as TESTBED_CFG
+from Src.Shared.Config.model_config import get_model_config
 
 try:
     from flask import Flask, jsonify, request

@@ -4,9 +4,10 @@ Src/Optimizer/GA/run_GA.py
 
 from pathlib import Path
 
-from Src.Algorithm.Optimizer.GA.alg_GA import optimize_GA
-from Src.Algorithm.Utils.log_function import save_experiment_results
-from Src.paras import RESULT_GA_PATH, Paras
+from Src.Phase2_Scheduler.Optimizer.GA.alg_GA import optimize_GA
+from Src.Phase2_Scheduler.Utils.log_function import save_experiment_results
+from Src.Phase2_Scheduler.paras import Paras
+from Src.Shared.Config.paths import RESULT_GA_PATH
 
 paras = Paras()
 GA_hyperparams = {"population_size": 50, "generations": 150, "mutation_rate": 0.1}

@@ -14,15 +14,15 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 
+from Scripts.Exp0_Motivation.utils.output_paths import resolve_output_dir
+
 PROJECT_ROOT = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "..", "..")
 )
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-from Src.Algorithm.Utils.plot_utils import save_fig_for_ieee, set_ieee_style  # noqa: E402
-
-from Scripts.Exp0_Motivation.utils.output_paths import resolve_output_dir
+from Src.Shared.Utils.plot_utils import save_fig_for_ieee, set_ieee_style  # noqa: E402
 
 
 def _load(output_dir: Path) -> dict:
