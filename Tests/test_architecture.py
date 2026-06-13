@@ -55,11 +55,18 @@ class ArchitectureBoundaryTests(unittest.TestCase):
             "Src.Phase2_Scheduler.Objective.compute_latency",
             "Src.Phase2_Scheduler.Optimizer.DSCI.agent",
             "Src.Phase3_Runtime.Device.run_device",
+            "Src.Phase3_Runtime.Device.runtime_v2",
+            "Src.Phase3_Runtime.Device.run_device_v2",
             "Src.Phase3_Runtime.Edge.run_edge",
+            "Src.Phase3_Runtime.Edge.run_edge_v2",
             "Src.Phase3_Runtime.Cloud.run_cloud",
+            "Src.Phase3_Runtime.Cloud.run_cloud_v2",
             "Src.Shared.Config.model_config",
             "Src.Shared.Models.ModelNet.Resnet50",
+            "Src.Shared.Partitioning.manifest",
+            "Src.Shared.Partitioning.pytorch_executor",
             "Src.Shared.Profiles.compute_profile",
+            "Src.Shared.Profiles.segment_profile",
             "Src.Shared.Data.dataloader",
         )
         for module in modules:

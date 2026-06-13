@@ -138,6 +138,7 @@ class AlgoService:
                     "f_u": cls._round_float(f_u_values[i]),
                     "BW_d2e": cls._round_float(bw_d2e_values[i]),
                     "compute_profile_id": user.get("compute_profile_id"),
+                    "execution_profile_id": user.get("execution_profile_id"),
                 }
             )
         return {
@@ -147,12 +148,23 @@ class AlgoService:
                 "early_exit_layers": [int(x) for x in paras.E],
             },
             "num_users": int(paras.n),
+            "resource_mode": paras.resource_mode,
+            "manifest_id": paras.manifest_id,
+            "model_hash": (
+                paras.partition_manifest.model_hash
+                if paras.partition_manifest is not None
+                else None
+            ),
             "users": users,
             "edge": {
                 "f_e_max": cls._round_float(paras.f_e_max),
                 "compute_profile_id": (state.get("edge") or {}).get(
                     "compute_profile_id"
                 ),
+                "execution_profile_id": (state.get("edge") or {}).get(
+                    "execution_profile_id"
+                ),
+                "worker_count": (state.get("edge") or {}).get("worker_count"),
             },
             "cloud": {
                 "f_c_max": cls._round_float(paras.f_c_max),
@@ -160,6 +172,10 @@ class AlgoService:
                 "compute_profile_id": (state.get("cloud") or {}).get(
                     "compute_profile_id"
                 ),
+                "execution_profile_id": (state.get("cloud") or {}).get(
+                    "execution_profile_id"
+                ),
+                "worker_count": (state.get("cloud") or {}).get("worker_count"),
             },
         }
 
@@ -184,6 +200,11 @@ class AlgoService:
     def _allocate_resources_for_xy(
         X: np.ndarray, Y: np.ndarray, paras: Paras
     ) -> tuple[np.ndarray, np.ndarray]:
+        if paras.resource_mode == "fixed_worker_pool":
+            return (
+                np.zeros((paras.n, 1), dtype=np.float32),
+                np.zeros((paras.n, 1), dtype=np.float32),
+            )
         exit_prob = compute_layer_exit_probs(Y, paras)
         iota, kappa = compute_iota_kappa(X, paras.C_e, paras.C_c, exit_prob)
         f_e, f_c = allocate_resources(iota, kappa, paras.f_e_max, paras.f_c_max)
@@ -278,6 +299,9 @@ class AlgoService:
     @staticmethod
     def _validate_fixed_split(split: tuple[int, int], paras: Paras) -> tuple[int, int]:
         s1, s2 = int(split[0]), int(split[1])
+        if paras.resource_mode == "fixed_worker_pool":
+            paras.partition_manifest.validate_boundary_pair(s1, s2)
+            return s1, s2
         m = int(paras.m)
         if not (0 <= s1 < s2 < m):
             raise ValueError(
@@ -324,7 +348,17 @@ class AlgoService:
         last = m - 1
         penultimate = max(0, m - 2)
 
-        if placement == "device":
+        if paras.resource_mode == "fixed_worker_pool":
+            final = int(paras.partition_manifest.final_boundary_id)
+            exit_1 = paras.partition_manifest.exit_boundary_for_logical_layer(57)
+            exit_2 = paras.partition_manifest.exit_boundary_for_logical_layer(103)
+            if placement == "device":
+                s1, s2 = (exit_1, final) if early_exit else (final - 1, final)
+            elif placement == "edge":
+                s1, s2 = (0, exit_2) if early_exit else (0, final - 1)
+            else:
+                s1, s2 = (0, 1)
+        elif placement == "device":
             s1, s2 = (57, last) if early_exit and m > 58 else (penultimate, last)
         elif placement == "edge":
             s1, s2 = (0, 103) if early_exit and m > 104 else (0, penultimate)
@@ -351,8 +385,13 @@ class AlgoService:
                     if 0 <= layer < m:
                         Y[:, layer] = 0.0
 
-        F_e = self._make_resource_vector(paras.f_e_max, n, placement == "edge")
-        F_c = self._make_resource_vector(paras.f_c_max, n, placement == "cloud")
+        fixed_workers = paras.resource_mode == "fixed_worker_pool"
+        F_e = self._make_resource_vector(
+            paras.f_e_max, n, placement == "edge" and not fixed_workers
+        )
+        F_c = self._make_resource_vector(
+            paras.f_c_max, n, placement == "cloud" and not fixed_workers
+        )
 
         preset_signature = copy.deepcopy(signature)
         preset_signature["decision_mode"] = {

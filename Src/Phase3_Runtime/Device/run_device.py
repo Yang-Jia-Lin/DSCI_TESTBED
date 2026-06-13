@@ -186,6 +186,11 @@ def print_summary_statistics(results):
 
 
 def run_single_inference(input_tensor, label, decision, bw_d2e, bw_e2c, cpu_avail):
+    if decision.get("resource_mode") == "fixed_worker_pool":
+        raise ValueError(
+            "fixed_worker_pool decisions must be executed by "
+            "Src.Phase3_Runtime.Device.run_device_v2"
+        )
     user = decision["users"][0]
     model = load_full_model()
     exit_thresholds = user["exit_thresholds"]

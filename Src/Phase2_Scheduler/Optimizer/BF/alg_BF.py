@@ -8,15 +8,24 @@ import numpy as np
 
 from Src.Phase2_Scheduler.Objective.compute_accuracy import compute_expected_accuracy
 from Src.Phase2_Scheduler.Objective.compute_exit_points import compute_exit_points
-from Src.Phase2_Scheduler.Objective.compute_latency import compute_user_latency
+from Src.Phase2_Scheduler.Objective.compute_latency import (
+    compute_total_latency,
+    compute_user_latency,
+)
 from Src.Phase2_Scheduler.Objective.compute_P import compute_layer_exit_probs
+from Src.Phase2_Scheduler.Objective.objective import objective
 from Src.Phase2_Scheduler.paras import Paras
 
 
-def _generate_all_valid_X_rows(m: int) -> np.ndarray:
+def _generate_all_valid_X_rows(
+    m: int, boundary_ids: list[int] | None = None
+) -> np.ndarray:
     rows = []
-    for a in range(m):
-        for b in range(a + 1, m):
+    candidates = list(boundary_ids or range(m))
+    for a in candidates:
+        for b in candidates:
+            if not 0 <= a < b < m:
+                continue
             x = np.zeros(m, dtype=np.int8)
             x[a] = 1
             x[b] = 1
@@ -80,7 +89,7 @@ def _precompute_threshold_cache(
     assert len(exit_layers) == 2, "BF assumes exactly 2 early-exit layers."
 
     grid = _tau_grid(step)
-    cache: Dict[Tuple[int, int], Dict[str, Any]] = {(0, 0): {"grid": grid}}
+    cache: Dict[Tuple[int, int], Dict[str, Any]] = {}
 
     for i1, t1 in enumerate(grid):
         for i2, t2 in enumerate(grid):
@@ -98,6 +107,8 @@ def _init_fe_fc(
     初始化可行 F_e, F_c：非负、sum==budget（严格），避免全 0。
     """
     n = paras.n
+    if getattr(paras, "resource_mode", None) == "fixed_worker_pool":
+        return np.zeros((n, 1)), np.zeros((n, 1))
     fe = rng.random(n).astype(np.float64) + eps
     fc = rng.random(n).astype(np.float64) + eps
 
@@ -134,6 +145,13 @@ def _optimize_F_by_pairwise_swaps(
     - 只重算 i,j 的 latency（用 compute_user_latency 原公式）
     - acc 不受 F 影响，所以不变
     """
+    if getattr(paras, "resource_mode", None) == "fixed_worker_pool":
+        return F_e, F_c, lat_vec, _objective_from_sums(
+            float(paras.alpha),
+            float(paras.beta),
+            float(np.sum(acc_vec)),
+            float(np.sum(lat_vec)),
+        )
     if rng is None:
         rng = np.random.default_rng()
 
@@ -281,13 +299,13 @@ def optimize_BF(
     rng = np.random.default_rng()
 
     # candidates
-    X_candidates = _generate_all_valid_X_rows(m)
+    X_candidates = _generate_all_valid_X_rows(m, paras.partition_boundary_ids)
     K = X_candidates.shape[0]
     cuts_by_k = _precompute_cut_points_for_X_candidates(X_candidates, paras)
 
     # threshold cache
     cache = _precompute_threshold_cache(paras, step=threshold_step)
-    grid = cache[(0, 0)]["grid"]
+    grid = _tau_grid(threshold_step)
     G = len(grid)
 
     best_overall_val = -float("inf")
@@ -336,6 +354,15 @@ def optimize_BF(
         acc_sum = float(np.sum(acc_vec))
         lat_sum = float(np.sum(lat_vec))
         val = _objective_from_sums(alpha, beta, acc_sum, lat_sum)
+        fixed_workers = paras.resource_mode == "fixed_worker_pool"
+        if fixed_workers:
+            X_current = np.stack(
+                [X_candidates[int(index)] for index in X_idx], axis=0
+            ).astype(np.float64)
+            P_current = compute_layer_exit_probs(Y, paras)
+            lat_vec = compute_total_latency(X_current, P_current, F_e, F_c, paras)
+            lat_sum = float(np.sum(lat_vec))
+            val = float(objective(X_current, Y, F_e, F_c, paras))
 
         if not np.isfinite(val):
             if verbose:
@@ -376,18 +403,29 @@ def optimize_BF(
                             acc_u = float(cache[(i1, i2)]["acc"])
                             P_row = cache[(i1, i2)]["P_row"]
 
-                            lat_u = compute_user_latency(
-                                u, cut0, cut1, P_row, fe_u, fc_u, paras
-                            )
-                            if not np.isfinite(lat_u):
-                                continue
-
-                            # incremental objective
-                            acc_sum_tmp = acc_sum - old_acc + acc_u
-                            lat_sum_tmp = lat_sum - old_lat + lat_u
-                            val_tmp = _objective_from_sums(
-                                alpha, beta, acc_sum_tmp, lat_sum_tmp
-                            )
+                            if fixed_workers:
+                                X_tmp = np.stack(
+                                    [X_candidates[int(index)] for index in X_idx],
+                                    axis=0,
+                                ).astype(np.float64)
+                                X_tmp[u] = X_candidates[k]
+                                Y_tmp = Y.copy()
+                                Y_tmp[u, :] = 1.0
+                                Y_tmp[u, e1] = grid[i1]
+                                Y_tmp[u, e2] = grid[i2]
+                                val_tmp = float(objective(X_tmp, Y_tmp, F_e, F_c, paras))
+                                lat_u = old_lat
+                            else:
+                                lat_u = compute_user_latency(
+                                    u, cut0, cut1, P_row, fe_u, fc_u, paras
+                                )
+                                if not np.isfinite(lat_u):
+                                    continue
+                                acc_sum_tmp = acc_sum - old_acc + acc_u
+                                lat_sum_tmp = lat_sum - old_lat + lat_u
+                                val_tmp = _objective_from_sums(
+                                    alpha, beta, acc_sum_tmp, lat_sum_tmp
+                                )
 
                             if np.isfinite(val_tmp) and val_tmp > best_local_val + tol:
                                 best_local_val = val_tmp
@@ -414,9 +452,19 @@ def optimize_BF(
                     lat_sum = lat_sum - old_lat + best_lat
 
                     acc_vec[u] = best_acc
-                    lat_vec[u] = best_lat
-
-                    val = best_local_val
+                    if fixed_workers:
+                        X_current = np.stack(
+                            [X_candidates[int(index)] for index in X_idx], axis=0
+                        ).astype(np.float64)
+                        P_current = compute_layer_exit_probs(Y, paras)
+                        lat_vec = compute_total_latency(
+                            X_current, P_current, F_e, F_c, paras
+                        )
+                        lat_sum = float(np.sum(lat_vec))
+                        val = float(objective(X_current, Y, F_e, F_c, paras))
+                    else:
+                        lat_vec[u] = best_lat
+                        val = best_local_val
                 else:
                     # keep old
                     pass

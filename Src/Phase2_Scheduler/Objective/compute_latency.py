@@ -163,7 +163,77 @@ def _compute_cloud_computation_delay(cut_points_i, P_i, C, f_c):
     return float(T_expected)
 
 
+def _fixed_worker_components(X, P, paras):
+    """Measured segment latency components for the fixed-worker deployment mode."""
+    manifest = paras.partition_manifest
+    if manifest is None:
+        raise ValueError("fixed_worker_pool requires a partition manifest")
+    cuts = compute_exit_points(X, paras)
+    n = X.shape[0]
+    boundary_bytes = np.asarray(paras.boundary_bytes, dtype=np.float64)
+    user_latency = np.asarray(paras.segment_latency_u, dtype=np.float64)
+    edge_latency = np.asarray(paras.segment_latency_e, dtype=np.float64)
+    cloud_latency = np.asarray(paras.segment_latency_c, dtype=np.float64)
+    local = np.zeros(n)
+    d2e = np.zeros(n)
+    edge_service = np.zeros(n)
+    e2c = np.zeros(n)
+    cloud_service = np.zeros(n)
+    reach_edge = np.zeros(n)
+    reach_cloud = np.zeros(n)
+
+    exit_layers = list(paras.E) + [paras.m - 1]
+    exit_boundaries = np.array(
+        [manifest.exit_boundary_for_logical_layer(layer) for layer in exit_layers],
+        dtype=np.int64,
+    )
+    for i in range(n):
+        b1, b2 = int(cuts[i, 0]), int(cuts[i, 1])
+        manifest.validate_boundary_pair(b1, b2)
+        exit_probs = np.array([float(P[i, layer]) for layer in exit_layers])
+        segment_reach = np.array(
+            [float(exit_probs[exit_boundaries > sid].sum()) for sid in manifest.segment_ids]
+        )
+        local[i] = float(np.sum(user_latency[i, :b1] * segment_reach[:b1]))
+        edge_service[i] = float(np.sum(edge_latency[b1:b2] * segment_reach[b1:b2]))
+        cloud_service[i] = float(
+            np.sum(cloud_latency[b2:] * segment_reach[b2:])
+        )
+        for exit_index, item in enumerate(manifest.early_exits):
+            boundary_id = int(item["boundary_id"])
+            if boundary_id == manifest.final_boundary_id:
+                continue
+            logical_layer = int(item["logical_layer"])
+            reach_head = float(exit_probs[exit_boundaries >= boundary_id].sum())
+            if boundary_id <= b1:
+                local[i] += reach_head * float(
+                    paras.exit_head_latency_u[i][logical_layer]
+                )
+            elif boundary_id <= b2:
+                edge_service[i] += reach_head * float(
+                    paras.exit_head_latency_e[logical_layer]
+                )
+            else:
+                cloud_service[i] += reach_head * float(
+                    paras.exit_head_latency_c[logical_layer]
+                )
+        reach_edge[i] = float(exit_probs[exit_boundaries > b1].sum())
+        reach_cloud[i] = float(exit_probs[exit_boundaries > b2].sum())
+        d2e_raw = _compute_device_to_edge_delay(boundary_bytes[b1], i, paras) + float(
+            paras.protocol_overhead_d2e_s
+        )
+        e2c_raw = _compute_edge_to_cloud_delay_for_paras(
+            boundary_bytes[b2], paras
+        ) + float(paras.protocol_overhead_e2c_s)
+        d2e[i] = reach_edge[i] * d2e_raw
+        e2c[i] = reach_cloud[i] * e2c_raw
+
+    return local, d2e, edge_service, e2c, cloud_service
+
+
 def compute_total_latency(X, P, F_e, F_c, paras):
+    if getattr(paras, "resource_mode", None) == "fixed_worker_pool":
+        return np.sum(np.vstack(_fixed_worker_components(X, P, paras)), axis=0)
     n = X.shape[0]
     m = X.shape[1]
     C_u = np.asarray(paras.C_u, dtype=np.float64)
@@ -214,6 +284,8 @@ def compute_total_latency(X, P, F_e, F_c, paras):
 
 
 def compute_5_latency(X, P, F_e, F_c, paras):
+    if getattr(paras, "resource_mode", None) == "fixed_worker_pool":
+        return _fixed_worker_components(X, P, paras)
     n = X.shape[0]
     m = X.shape[1]
     C_u = np.asarray(paras.C_u, dtype=np.float64)
@@ -283,6 +355,18 @@ def compute_user_latency(
       - P_row: P[u]，长度 m
       - F_e_u, F_c_u: allocated edge/cloud effective throughput (FLOP/s)
     """
+    if getattr(paras, "resource_mode", None) == "fixed_worker_pool":
+        x = np.zeros((paras.n, paras.m), dtype=np.float64)
+        x[:, 0] = 1.0
+        x[:, 1] = 1.0
+        x[u, :] = 0.0
+        x[u, int(cut0)] = 1.0
+        x[u, int(cut1)] = 1.0
+        p = np.zeros((paras.n, paras.m), dtype=np.float64)
+        p[u] = P_row
+        parts = _fixed_worker_components(x, p, paras)
+        return float(sum(float(part[u]) for part in parts))
+
     C_u = np.asarray(paras.C_u, dtype=np.float64)
     C_e = np.asarray(paras.C_e, dtype=np.float64)
     C_c = np.asarray(paras.C_c, dtype=np.float64)

@@ -1,4 +1,5 @@
 from Src.Shared.Config.paths import RESNET50_PATHS as MODEL_PATHS
+from Src.Shared.Partitioning.manifest import PartitionManifest, validate_model_file
 
 FULL_MODEL_PATH = MODEL_PATHS.resolve_weight_path()
 
@@ -11,8 +12,15 @@ EXIT_LAYER_BY_STAGE = {
 _MODEL = None
 
 
-def load_full_model():
+def load_full_model(manifest: PartitionManifest | None = None):
     global _MODEL
+    if manifest is not None:
+        if manifest.model_name != MODEL_PATHS.model.name:
+            raise ValueError(
+                f"Manifest model {manifest.model_name!r} != runtime model "
+                f"{MODEL_PATHS.model.name!r}"
+            )
+        validate_model_file(manifest, MODEL_PATHS.resolve_weight_path())
     if _MODEL is None:
         import torch
 

@@ -79,6 +79,44 @@ def _validate_state_payload(state: dict) -> None:
 
     edge = state["edge"]
     cloud = state["cloud"]
+    resource_mode = str(
+        state.get("resource_mode")
+        or edge.get("resource_mode")
+        or cloud.get("resource_mode")
+        or "simulation_resource_mode"
+    )
+    if resource_mode == "fixed_worker_pool":
+        all_owners = [*state["users"], edge, cloud]
+        if any(not owner.get("manifest_id") for owner in all_owners):
+            raise KeyError("every node must report manifest_id")
+        manifest_ids = {str(owner["manifest_id"]) for owner in all_owners}
+        if len(manifest_ids) != 1:
+            raise KeyError("all nodes must report the same manifest_id")
+        if any(not owner.get("model_hash") for owner in all_owners):
+            raise KeyError("every node must report model_hash")
+        if len({str(owner["model_hash"]) for owner in all_owners}) != 1:
+            raise KeyError("all nodes must report the same model_hash")
+        owners = [
+            *[(f"users[{i}]", user) for i, user in enumerate(state["users"])],
+            ("edge", edge),
+            ("cloud", cloud),
+        ]
+        for owner_name, owner in owners:
+            for key in (
+                "execution_profile_id",
+                "backend",
+                "worker_count",
+                "threads_per_worker",
+            ):
+                if key not in owner:
+                    raise KeyError(f"{owner_name}.{key}")
+        if "BW_e2c" not in cloud:
+            raise KeyError("cloud.BW_e2c")
+        for i, user in enumerate(state["users"]):
+            if "BW_d2e" not in user:
+                raise KeyError(f"users[{i}].BW_d2e")
+        to_paras(state)
+        return
     for key in ("f_e_max",):
         if key not in edge:
             raise KeyError(f"edge.{key}")

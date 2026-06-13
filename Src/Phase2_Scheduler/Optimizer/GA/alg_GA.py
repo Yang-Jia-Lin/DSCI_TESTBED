@@ -33,6 +33,11 @@ def optimize_GA(
     f_e_max = paras.f_e_max
     f_c_max = paras.f_c_max
     len_fe = len_fc = n_rows
+    valid_boundaries = [
+        int(value)
+        for value in (paras.partition_boundary_ids or range(n_cols))
+        if 0 <= int(value) < n_cols
+    ]
 
     # 早退层布尔表
     early_exit_flags = [j in paras.E for j in range(n_cols)]
@@ -41,9 +46,15 @@ def optimize_GA(
     def repair_X(mat):
         """修复X使每行最多只有2个1"""
         for r in mat:
+            for j in range(n_cols):
+                if j not in valid_boundaries:
+                    r[j] = 0
             while sum(r) > 2:
                 idx = random.choice([j for j, v in enumerate(r) if v == 1])
                 r[idx] = 0
+            while sum(r) < 2:
+                idx = random.choice([j for j in valid_boundaries if r[j] == 0])
+                r[idx] = 1
         return mat
 
     def repair_Y(y):
@@ -70,7 +81,7 @@ def optimize_GA(
         # X
         X = [[0] * n_cols for _ in range(n_rows)]
         for i in range(n_rows):
-            for j in random.sample(range(n_cols), k=random.choice([0, 1, 2])):
+            for j in random.sample(valid_boundaries, k=2):
                 X[i][j] = 1
         X = repair_X(X)
 
@@ -79,8 +90,12 @@ def optimize_GA(
         Y = repair_Y(Y)
 
         # F_e, F_c 随机分配
-        F_e = repair_F([random.random() for _ in range(len_fe)], f_e_max)
-        F_c = repair_F([random.random() for _ in range(len_fc)], f_c_max)
+        if paras.resource_mode == "fixed_worker_pool":
+            F_e = [0.0] * len_fe
+            F_c = [0.0] * len_fc
+        else:
+            F_e = repair_F([random.random() for _ in range(len_fe)], f_e_max)
+            F_c = repair_F([random.random() for _ in range(len_fc)], f_c_max)
         population.append((X, Y, F_e, F_c))
 
     # ---------- 4. 评估 ----------
@@ -143,8 +158,12 @@ def optimize_GA(
             for a, b in zip(p1[3], p2[3]):
                 Fc1.append(a if random.random() < 0.5 else b)
                 Fc2.append(b if random.random() < 0.5 else a)
-            Fe1, Fe2 = repair_F(Fe1, f_e_max), repair_F(Fe2, f_e_max)
-            Fc1, Fc2 = repair_F(Fc1, f_c_max), repair_F(Fc2, f_c_max)
+            if paras.resource_mode == "fixed_worker_pool":
+                Fe1 = Fe2 = [0.0] * len_fe
+                Fc1 = Fc2 = [0.0] * len_fc
+            else:
+                Fe1, Fe2 = repair_F(Fe1, f_e_max), repair_F(Fe2, f_e_max)
+                Fc1, Fc2 = repair_F(Fc1, f_c_max), repair_F(Fc2, f_c_max)
 
             # 变异时修复 Y 和 F
             def mutate(ind):
@@ -168,6 +187,9 @@ def optimize_GA(
                         Y[j] += random.gauss(0, 0.1)
                         Y[j] = max(0.0, min(1.0 - 1e-6, Y[j]))
                 Y = repair_Y(Y)
+
+                if paras.resource_mode == "fixed_worker_pool":
+                    return X, Y, [0.0] * len_fe, [0.0] * len_fc
 
                 # F 变异
                 for k in range(len_fe):

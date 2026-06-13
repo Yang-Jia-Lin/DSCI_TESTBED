@@ -46,6 +46,8 @@ def validate_decision(
                 f"User {i}: X_row must have exactly two 1s, got {len(ones)}"
             )
         s1, s2 = int(split_pts[i, 0]), int(split_pts[i, 1])
+        if paras.resource_mode == "fixed_worker_pool":
+            paras.partition_manifest.validate_boundary_pair(s1, s2)
         if not (0 <= s1 < s2 < m):
             raise DecisionCodecError(
                 f"User {i}: require 0 <= partition_s1 < partition_s2 < {m}, "
@@ -59,6 +61,9 @@ def validate_decision(
                 raise DecisionCodecError(
                     f"User {i}, layer {layer}: threshold {thr} not in [0, 1]"
                 )
+
+    if paras.resource_mode == "fixed_worker_pool":
+        return
 
     edge_limit = float(paras.f_e_max)
     cloud_limit = float(paras.f_c_max)
@@ -124,23 +129,37 @@ def encode(
             "user_id": int(user_ids[i]),
             "partition_s1": s1,
             "partition_s2": s2,
-            "device_layers": [0, s1],
-            "edge_layers": [s1, s2],
-            "cloud_layers": [s2, m],
             "exit_thresholds": {
                 str(int(layer)): float(Y[i, layer]) for layer in paras.E
             },
-            "edge_compute_alloc": fe,
-            "cloud_compute_alloc": fc,
-            "edge_compute_quota": fe / f_e_max if f_e_max > 0 else 0.0,
-            "cloud_compute_quota": fc / f_c_max if f_c_max > 0 else 0.0,
         }
+        if paras.resource_mode == "fixed_worker_pool":
+            entry["partition_boundary_1"] = s1
+            entry["partition_boundary_2"] = s2
+            entry["device_boundaries"] = [0, s1]
+            entry["edge_boundaries"] = [s1, s2]
+            entry["cloud_boundaries"] = [
+                s2,
+                int(paras.partition_manifest.final_boundary_id),
+            ]
+        else:
+            entry.update(
+                {
+                    "device_layers": [0, s1],
+                    "edge_layers": [s1, s2],
+                    "cloud_layers": [s2, m],
+                    "edge_compute_alloc": fe,
+                    "cloud_compute_alloc": fc,
+                    "edge_compute_quota": fe / f_e_max if f_e_max > 0 else 0.0,
+                    "cloud_compute_quota": fc / f_c_max if f_c_max > 0 else 0.0,
+                }
+            )
         if include_debug_rows:
             entry["X_row"] = X[i].astype(float).tolist()
             entry["Y_row"] = Y[i].astype(float).tolist()
         users_out.append(entry)
 
-    return {
+    result = {
         "decision_id": decision_id or "unknown",
         "model_name": model_name,
         "num_users": n,
@@ -150,3 +169,8 @@ def encode(
         "slice_semantics": "python_left_closed_right_open",
         "users": users_out,
     }
+    if paras.resource_mode == "fixed_worker_pool":
+        result["manifest_id"] = paras.manifest_id
+        result["model_hash"] = paras.partition_manifest.model_hash
+        result["resource_mode"] = "fixed_worker_pool"
+    return result

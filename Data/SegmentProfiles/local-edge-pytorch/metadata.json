@@ -1,0 +1,15 @@
+{
+  "profile_id": "local-edge-pytorch",
+  "manifest_id": "resnet50-cifar10-partition-v1",
+  "model_name": "Resnet50",
+  "model_hash": "9c9e9a5ea3bb2faabdafb5178742f7581852a279281f83827db377f13e7779cc",
+  "backend": "pytorch",
+  "worker_count": 2,
+  "threads_per_worker": 1,
+  "total_model_latency_s": 0.23234694999882777,
+  "num_segments": 19,
+  "exit_head_latencies_s": {
+    "57": 0.0002868999999918742,
+    "103": 0.0002894749995903112
+  }
+}

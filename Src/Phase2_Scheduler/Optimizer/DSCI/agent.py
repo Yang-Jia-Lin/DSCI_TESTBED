@@ -62,8 +62,10 @@ def _init_feasible_XY(paras):
     """
     n, m = paras.n, paras.m
     X = np.zeros((n, m), dtype=np.float32)
-    k1 = max(0, m // 3)
-    k2 = min(m - 1, (2 * m) // 3)
+    boundaries = list(getattr(paras, "partition_boundary_ids", None) or range(m))
+    usable = [value for value in boundaries if 0 <= int(value) < m]
+    k1 = int(usable[max(0, len(usable) // 3)])
+    k2 = int(usable[min(len(usable) - 1, (2 * len(usable)) // 3)])
     if k1 == k2:
         k2 = min(m - 1, k1 + 1)
 
@@ -128,6 +130,7 @@ class PPOAgent:
             state_dim=self.state_dim,
             num_layers=self.paras.m,
             action_dim_Y=self.action_dim_Y,
+            partition_boundary_ids=self.paras.partition_boundary_ids,
         ).to(self.device)
         self.policy: ActorCritic = policy_net
 
@@ -232,6 +235,11 @@ class PPOAgent:
     def default_resources(paras) -> tuple[np.ndarray, np.ndarray]:
         """Equal-split edge/cloud compute as in ``train()`` initialization."""
         n = paras.n
+        if getattr(paras, "resource_mode", None) == "fixed_worker_pool":
+            return (
+                np.zeros((n, 1), dtype=np.float32),
+                np.zeros((n, 1), dtype=np.float32),
+            )
         F_e = np.ones((n, 1), dtype=np.float32) * (paras.f_e_max / n)
         F_c = np.ones((n, 1), dtype=np.float32) * (paras.f_c_max / n)
         return F_e, F_c
@@ -245,6 +253,8 @@ class PPOAgent:
         outer_ema: float = 1.0,
     ) -> tuple[np.ndarray, np.ndarray]:
         """Theorem-1 closed-form allocation for a fixed (X, Y)."""
+        if getattr(self.paras, "resource_mode", None) == "fixed_worker_pool":
+            return self.default_resources(self.paras)
         if F_e is None or F_c is None:
             F_e, F_c = self.default_resources(self.paras)
 

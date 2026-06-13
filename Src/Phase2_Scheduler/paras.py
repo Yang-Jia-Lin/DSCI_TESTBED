@@ -7,6 +7,7 @@ objective and optimizers.
 
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -18,6 +19,8 @@ from Src.Shared.Config.model_config import ModelConfig
 from Src.Shared.Config.paths import RESNET50_PATHS as MODEL_PATHS
 from Src.Shared.Config.paths import ModelArtifactPaths
 from Src.Shared.Profiles.compute_profile import load_compute_profile
+from Src.Shared.Partitioning.manifest import load_partition_manifest
+from Src.Shared.Profiles.segment_profile import load_segment_profile
 
 # --- Default Parameters ---
 NUM_USERS = TESTBED_CFG.num_users
@@ -88,6 +91,21 @@ class Paras:
     )
     B_u: np.ndarray | None = None  # measured Device -> Edge bandwidth, Mbps
     model_cfg: ModelConfig | None = None
+    resource_mode: str = "simulation_resource_mode"
+    manifest_id: str | None = None
+    partition_manifest: Any = None
+    segment_latency_u: np.ndarray | None = None
+    segment_latency_e: np.ndarray | None = None
+    segment_latency_c: np.ndarray | None = None
+    exit_head_latency_u: list[dict[int, float]] | None = None
+    exit_head_latency_e: dict[int, float] | None = None
+    exit_head_latency_c: dict[int, float] | None = None
+    partition_boundary_ids: list[int] | None = None
+    boundary_bytes: list[int] | None = None
+    edge_worker_count: int = 1
+    cloud_worker_count: int = 1
+    protocol_overhead_d2e_s: float = 0.0
+    protocol_overhead_e2c_s: float = 0.0
 
     rates: np.ndarray | None = field(init=False, default=None)
     accs: np.ndarray | None = field(init=False, default=None)
@@ -95,6 +113,28 @@ class Paras:
     def __post_init__(self):
         if self.model_cfg is None:
             self.model_cfg = MODEL_CFG
+        if self.resource_mode == "fixed_worker_pool":
+            if self.partition_manifest is None:
+                if not self.manifest_id:
+                    raise ValueError("fixed_worker_pool requires manifest_id")
+                self.partition_manifest = load_partition_manifest(self.manifest_id)
+            self.manifest_id = self.partition_manifest.manifest_id
+            if self.partition_boundary_ids is None:
+                self.partition_boundary_ids = list(self.partition_manifest.boundary_ids)
+            if self.boundary_bytes is None:
+                self.boundary_bytes = list(self.partition_manifest.boundary_bytes)
+            for name in ("segment_latency_u", "segment_latency_e", "segment_latency_c"):
+                value = getattr(self, name)
+                if value is None:
+                    raise ValueError(f"fixed_worker_pool requires {name}")
+                setattr(self, name, np.asarray(value, dtype=np.float64))
+            for name in (
+                "exit_head_latency_u",
+                "exit_head_latency_e",
+                "exit_head_latency_c",
+            ):
+                if getattr(self, name) is None:
+                    raise ValueError(f"fixed_worker_pool requires {name}")
 
         self.E = list(self.E)
         self.D = list(self.D)
@@ -195,6 +235,12 @@ class Paras:
         users = state["users"]
         edge = state["edge"]
         cloud = state["cloud"]
+        resource_mode = str(
+            state.get("resource_mode")
+            or edge.get("resource_mode")
+            or cloud.get("resource_mode")
+            or "simulation_resource_mode"
+        )
 
         def positive_float(value, fallback, name, minimum=1e-6):
             try:
@@ -231,6 +277,99 @@ class Paras:
         layer_bytes = layer_df["num_bytes"].astype(int).tolist()
         layer_flops = layer_df["approx_flops"].astype(float).tolist()
         layer_names = layer_df["layer"].astype(str).tolist()
+
+        if resource_mode == "fixed_worker_pool":
+            owners = [*users, edge, cloud]
+            if any(not owner.get("manifest_id") for owner in owners):
+                raise ValueError("fixed_worker_pool requires manifest_id on every node")
+            manifest_ids = {str(owner["manifest_id"]) for owner in owners}
+            if len(manifest_ids) != 1:
+                raise ValueError(
+                    "fixed_worker_pool requires the same manifest_id on all nodes"
+                )
+            manifest_id = next(iter(manifest_ids))
+            manifest = load_partition_manifest(manifest_id)
+            if any(not owner.get("model_hash") for owner in owners):
+                raise ValueError("fixed_worker_pool requires model_hash on every node")
+            reported_hashes = {str(owner["model_hash"]) for owner in owners}
+            if reported_hashes != {manifest.model_hash}:
+                raise ValueError(
+                    "fixed_worker_pool node model_hash does not match partition manifest"
+                )
+
+            def load_execution_profile(owner: dict, owner_name: str):
+                profile_id = owner.get("execution_profile_id")
+                if not profile_id:
+                    raise KeyError(f"{owner_name}.execution_profile_id")
+                backend = owner.get("backend")
+                if not backend:
+                    raise KeyError(f"{owner_name}.backend")
+                profile = load_segment_profile(
+                    str(profile_id),
+                    manifest=manifest,
+                    expected_backend=str(backend),
+                )
+                if int(owner.get("worker_count", profile.worker_count)) != profile.worker_count:
+                    raise ValueError(f"{owner_name}.worker_count does not match profile")
+                if (
+                    int(owner.get("threads_per_worker", profile.threads_per_worker))
+                    != profile.threads_per_worker
+                ):
+                    raise ValueError(
+                        f"{owner_name}.threads_per_worker does not match profile"
+                    )
+                return profile
+
+            user_profiles = [
+                load_execution_profile(user, f"users[{i}]")
+                for i, user in enumerate(users)
+            ]
+            edge_profile = load_execution_profile(edge, "edge")
+            cloud_profile = load_execution_profile(cloud, "cloud")
+            return cls(
+                n=len(users),
+                m=int(model_cfg.num_layers),
+                E=list(model_cfg.early_exit_layers),
+                D=layer_bytes,
+                C=layer_flops,
+                C_theoretical=layer_flops,
+                F_u=np.ones(len(users), dtype=float),
+                f_e_max=1.0,
+                f_c_max=1.0,
+                b_c=bw_e2c,
+                alpha=float(algo_cfg.alpha),
+                beta=float(algo_cfg.beta),
+                H_u=None,
+                B_u=np.array(bw_d2e_values, dtype=float),
+                model_cfg=model_cfg,
+                resource_mode=resource_mode,
+                manifest_id=manifest_id,
+                partition_manifest=manifest,
+                segment_latency_u=np.stack([p.latencies for p in user_profiles]),
+                segment_latency_e=edge_profile.latencies,
+                segment_latency_c=cloud_profile.latencies,
+                exit_head_latency_u=[p.exit_head_latencies for p in user_profiles],
+                exit_head_latency_e=edge_profile.exit_head_latencies,
+                exit_head_latency_c=cloud_profile.exit_head_latencies,
+                partition_boundary_ids=list(manifest.boundary_ids),
+                boundary_bytes=list(manifest.boundary_bytes),
+                edge_worker_count=edge_profile.worker_count,
+                cloud_worker_count=cloud_profile.worker_count,
+                protocol_overhead_d2e_s=float(
+                    state.get(
+                        "protocol_overhead_d2e_s",
+                        np.mean(
+                            [float(user.get("protocol_overhead_s", 0.0)) for user in users]
+                        ),
+                    )
+                ),
+                protocol_overhead_e2c_s=float(
+                    state.get(
+                        "protocol_overhead_e2c_s",
+                        edge.get("protocol_overhead_s", 0.0),
+                    )
+                ),
+            )
 
         def load_state_profile(owner: dict, capacity_key: str, owner_name: str):
             profile_id = owner.get("compute_profile_id")

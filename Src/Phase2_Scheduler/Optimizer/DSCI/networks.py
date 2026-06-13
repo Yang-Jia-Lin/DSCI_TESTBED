@@ -14,6 +14,7 @@ class ActorCritic(nn.Module):
         state_dim: int,
         num_layers: int,
         action_dim_Y: int,
+        partition_boundary_ids: list[int] | None = None,
         hidden_dim: int = 128,
         beta_eps: float = 1e-4,
     ):
@@ -45,8 +46,16 @@ class ActorCritic(nn.Module):
         # -------- X: categorical over valid (k1,k2) pairs --------
         # 预先列出所有合法 (k1,k2) 组合，k1 < k2
         # pair_index -> (k1, k2)
+        boundaries = (
+            list(partition_boundary_ids)
+            if partition_boundary_ids is not None
+            else list(range(num_layers))
+        )
         pairs = [
-            (k1, k2) for k1 in range(num_layers) for k2 in range(k1 + 1, num_layers)
+            (k1, k2)
+            for k1 in boundaries
+            for k2 in boundaries
+            if 0 <= k1 < k2 < num_layers
         ]
         pair_tensor = torch.tensor(pairs, dtype=torch.long)  # [num_pairs, 2]
         self.register_buffer(
