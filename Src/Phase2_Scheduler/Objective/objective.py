@@ -59,8 +59,8 @@ if __name__ == "__main__":
     Y = np.ones((n, m))
     # 给 user 0 两个非 1 阈值，制造早退差异
     if m > 100:
-        Y[:, 57] = 0.9
-        Y[:, 103] = 0.8
+        for boundary in paras.E:
+            Y[:, boundary] = 0.9
 
     F_e = np.ones((n, 1)) * (paras.f_e_max / n)
     F_c = np.ones((n, 1)) * (paras.f_c_max / n)

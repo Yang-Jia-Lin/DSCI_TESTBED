@@ -1,4 +1,4 @@
-"""Executable partition manifest shared by profiling, scheduling, and runtime."""
+"""Executable partition manifests generated from a model bundle."""
 
 from __future__ import annotations
 
@@ -9,21 +9,21 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from Src.Shared.Config.paths import DATA_DIR, RESNET50_PATHS
-
-DEFAULT_MANIFEST_ROOT = DATA_DIR / "PartitionManifests"
-DEFAULT_MANIFEST_ID = "resnet50-cifar10-partition-v1"
+from Src.Shared.Config.model_config import ModelBundleSpec, get_bundle
+from Src.Shared.Config.paths import bundle_paths
 
 
 class PartitionManifestError(ValueError):
-    """Invalid or incompatible executable partition manifest."""
+    pass
 
 
 @dataclass(frozen=True)
 class PartitionManifest:
     manifest_id: str
-    model_name: str
+    bundle_id: str
+    dataset_id: str
     model_hash: str
+    input_shape: tuple[int, int, int]
     boundaries: tuple[dict[str, Any], ...]
     segments: tuple[dict[str, Any], ...]
     early_exits: tuple[dict[str, Any], ...]
@@ -42,52 +42,56 @@ class PartitionManifest:
         return int(self.boundaries[-1]["boundary_id"])
 
     @property
+    def exit_ids(self) -> tuple[str, ...]:
+        return tuple(str(item["exit_id"]) for item in self.early_exits if not item.get("final"))
+
+    @property
+    def exit_boundary_ids(self) -> tuple[int, ...]:
+        return tuple(int(item["boundary_id"]) for item in self.early_exits if not item.get("final"))
+
+    @property
     def boundary_bytes(self) -> tuple[int, ...]:
-        return tuple(
-            int(
-                item.get(
-                    "serialized_num_bytes",
-                    sum(int(t["num_bytes"]) for t in item["live_tensors"]),
-                )
-            )
-            for item in self.boundaries
+        return tuple(int(item["serialized_num_bytes"]) for item in self.boundaries)
+
+    def exit_for_boundary(self, boundary_id: int) -> dict[str, Any] | None:
+        return next(
+            (item for item in self.early_exits if int(item["boundary_id"]) == int(boundary_id)),
+            None,
         )
+
+    def boundary_for_exit(self, exit_id: str) -> int:
+        item = next((item for item in self.early_exits if item["exit_id"] == exit_id), None)
+        if item is None:
+            raise PartitionManifestError(f"Unknown exit_id {exit_id!r}")
+        return int(item["boundary_id"])
+
+    def validate_exit_thresholds(self, thresholds: dict[str, float]) -> None:
+        if set(thresholds) != set(self.exit_ids):
+            raise PartitionManifestError(
+                f"exit_thresholds keys must be {list(self.exit_ids)}, "
+                f"got {sorted(thresholds)}"
+            )
+        if any(not 0.0 <= float(value) <= 1.0 for value in thresholds.values()):
+            raise PartitionManifestError("Every exit threshold must be in [0, 1]")
 
     def validate_boundary_pair(self, first: int, second: int) -> None:
         valid = set(self.boundary_ids)
-        if first not in valid or second not in valid:
+        if first not in valid or second not in valid or not 0 <= first < second <= self.final_boundary_id:
             raise PartitionManifestError(
-                f"Partition boundaries ({first}, {second}) are not in manifest "
-                f"{self.manifest_id!r}"
-            )
-        if not 0 <= first < second <= self.final_boundary_id:
-            raise PartitionManifestError(
-                f"Require 0 <= first < second <= {self.final_boundary_id}, "
-                f"got ({first}, {second})"
+                f"Invalid partition boundaries ({first}, {second}) for {self.manifest_id}"
             )
 
     def validate_range(self, start: int, end: int) -> None:
-        valid = set(self.boundary_ids)
-        if start not in valid or end not in valid or start > end:
-            raise PartitionManifestError(
-                f"Invalid executable boundary range ({start}, {end}) for "
-                f"manifest {self.manifest_id!r}"
-            )
-
-    def exit_boundary_for_logical_layer(self, layer: int) -> int:
-        for item in self.early_exits:
-            if int(item["logical_layer"]) == int(layer):
-                return int(item["boundary_id"])
-        if int(layer) >= 127:
-            return self.final_boundary_id
-        raise PartitionManifestError(f"No exit boundary for logical layer {layer}")
+        if start not in self.boundary_ids or end not in self.boundary_ids or start > end:
+            raise PartitionManifestError(f"Invalid range ({start}, {end}) for {self.manifest_id}")
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "manifest_id": self.manifest_id,
-            "model_name": self.model_name,
+            "bundle_id": self.bundle_id,
+            "dataset_id": self.dataset_id,
             "model_hash": self.model_hash,
-            "boundary_semantics": "segments_before_boundary_have_executed",
+            "input_shape": list(self.input_shape),
             "boundaries": list(self.boundaries),
             "segments": list(self.segments),
             "early_exits": list(self.early_exits),
@@ -107,90 +111,60 @@ def model_file_hash(path: str | Path) -> str:
 
 def validate_model_file(manifest: PartitionManifest, path: str | Path) -> None:
     actual = model_file_hash(path)
+    if actual == "weights-unavailable" or manifest.model_hash == "weights-unavailable":
+        raise PartitionManifestError(
+            f"Bundle weights are unavailable at {Path(path)}; train or migrate weights "
+            "and regenerate the partition manifest"
+        )
     if actual != manifest.model_hash:
         raise PartitionManifestError(
             f"Model hash {actual!r} does not match manifest {manifest.model_hash!r}"
         )
 
 
-def build_resnet50_manifest(
+def build_partition_manifest(
+    bundle: ModelBundleSpec | str,
     *,
-    manifest_id: str = DEFAULT_MANIFEST_ID,
-    sample_shape: tuple[int, int, int, int] = (1, 3, 227, 227),
+    manifest_id: str | None = None,
 ) -> PartitionManifest:
-    """Build the common PyTorch/MNN boundary set at residual-block boundaries."""
     import torch
 
-    from Src.Shared.Models.ModelNet.Resnet50 import Bottleneck, MultiEEResNet50
+    from Src.Shared.Models.ModelNet.MultiExitResNet import build_model
 
-    model = MultiEEResNet50(
-        Bottleneck, [3, 4, 6, 3], num_classes=10, include_top=True
-    ).eval()
-    fx_graph = torch.fx.symbolic_trace(model, concrete_args={"stage": "final"})
-    fx_nodes = list(fx_graph.graph.nodes)
-    fx_index = {node: index for index, node in enumerate(fx_nodes)}
+    bundle = get_bundle(bundle) if isinstance(bundle, str) else bundle
+    model = build_model(bundle).eval()
     names = ["stem"]
-    names.extend(f"layer1.{i}" for i in range(3))
-    names.extend(f"layer2.{i}" for i in range(4))
-    names.extend(f"layer3.{i}" for i in range(6))
-    names.extend(f"layer4.{i}" for i in range(3))
+    for layer_name in ("layer1", "layer2", "layer3", "layer4"):
+        names.extend(f"{layer_name}.{index}" for index in range(len(getattr(model, layer_name))))
     names.extend(("final_pool", "final_classifier"))
+    modules = {"stem": None, "final_pool": None, "final_classifier": None}
+    for name in names:
+        if "." in name:
+            layer, index = name.split(".")
+            modules[name] = getattr(model, layer)[int(index)]
 
-    modules = [None]
-    modules.extend(model.layer1)
-    modules.extend(model.layer2)
-    modules.extend(model.layer3)
-    modules.extend(model.layer4)
-    modules.extend((None, None))
-
+    selected_manifest_id = manifest_id or bundle.manifest_id
+    x = torch.zeros((1, *bundle.input_shape), dtype=torch.float32)
     boundaries: list[dict[str, Any]] = []
     segments: list[dict[str, Any]] = []
-    x = torch.zeros(sample_shape, dtype=torch.float32)
+    attach_boundaries: dict[str, int] = {}
 
-    def tensor_meta(name: str, value: torch.Tensor) -> dict[str, Any]:
-        return {
-            "name": name,
+    def boundary_record(boundary_id: int, label: str, output_name: str, value):
+        tensors = {output_name: value.detach().cpu()}
+        meta = {
+            "name": output_name,
             "shape": list(value.shape),
             "dtype": str(value.dtype).replace("torch.", ""),
             "num_bytes": int(value.numel() * value.element_size()),
         }
-
-    def fx_cut_node(label):
-        if label == "input":
-            return next(node for node in fx_nodes if node.op == "placeholder")
-        if label == "stem":
-            target = "maxpool"
-        elif label == "final_pool":
-            return next(node for node in reversed(fx_nodes) if node.name.startswith("flatten"))
-        elif label == "final_classifier":
-            target = "fc"
-        else:
-            target = f"{label}.relu"
-        return next(
-            node
-            for node in reversed(fx_nodes)
-            if node.op == "call_module" and str(node.target) == target
-        )
-
-    def boundary_record(boundary_id, logical_layer_after, label, name, value):
-        tensors = {name: value.detach().cpu()}
-        cut = fx_cut_node(label)
-        live_values = [
-            node.name
-            for node in fx_nodes[: fx_index[cut] + 1]
-            if any(fx_index[user] > fx_index[cut] for user in node.users)
-        ]
         return {
             "boundary_id": boundary_id,
-            "logical_layer_after": logical_layer_after,
             "label": label,
-            "live_tensors": [tensor_meta(name, value)],
-            "fx_node_after": cut.name,
-            "fx_live_values": live_values,
+            "live_tensors": [meta],
             "serialized_num_bytes": len(
                 pickle.dumps(
                     {
-                        "manifest_id": manifest_id,
+                        "manifest_id": selected_manifest_id,
                         "boundary_id": boundary_id,
                         "tensors": tensors,
                     },
@@ -199,14 +173,7 @@ def build_resnet50_manifest(
             ),
         }
 
-    boundaries.append(
-        boundary_record(0, None, "input", "main", x)
-    )
-
-    logical_after = [
-        3, 12, 19, 26, 35, 42, 49, 56, 67, 74, 81, 88, 95, 102, 111, 118, 125,
-        126, 127,
-    ]
+    boundaries.append(boundary_record(0, "input", "main", x))
     with torch.no_grad():
         for segment_id, name in enumerate(names):
             if name == "stem":
@@ -219,100 +186,95 @@ def build_resnet50_manifest(
                 x = model.fc(x)
                 output_name = "logits"
             else:
-                x = modules[segment_id](x)
+                x = modules[name](x)
                 output_name = "main"
-            end_boundary = segment_id + 1
+            end = segment_id + 1
             segments.append(
                 {
                     "segment_id": segment_id,
                     "name": name,
                     "start_boundary": segment_id,
-                    "end_boundary": end_boundary,
+                    "end_boundary": end,
                     "input_names": ["main"],
                     "output_names": [output_name],
                 }
             )
-            boundaries.append(
-                boundary_record(
-                    end_boundary,
-                    logical_after[segment_id],
-                    name,
-                    output_name,
-                    x,
-                )
-            )
+            boundaries.append(boundary_record(end, name, output_name, x))
+            layer_name = name.split(".")[0]
+            if "." in name and name == f"{layer_name}.{len(getattr(model, layer_name)) - 1}":
+                attach_boundaries[layer_name] = end
 
-    early_exits = (
-        {"logical_layer": 57, "boundary_id": 8, "head_segment_id": "exit_57"},
-        {"logical_layer": 103, "boundary_id": 14, "head_segment_id": "exit_103"},
-        {"logical_layer": 127, "boundary_id": 19, "head_segment_id": "final"},
+    exits = tuple(
+        {
+            "exit_id": item.exit_id,
+            "attach_point": item.attach_point,
+            "boundary_id": attach_boundaries[item.attach_point],
+            "head_name": f"exit_heads.{item.exit_id}",
+            "final": False,
+        }
+        for item in bundle.exits
+    ) + (
+        {
+            "exit_id": "final",
+            "attach_point": "final_classifier",
+            "boundary_id": len(segments),
+            "head_name": "fc",
+            "final": True,
+        },
     )
     manifest = PartitionManifest(
-        manifest_id=manifest_id,
-        model_name="Resnet50",
-        model_hash=model_file_hash(RESNET50_PATHS.resolve_weight_path()),
+        manifest_id=selected_manifest_id,
+        bundle_id=bundle.bundle_id,
+        dataset_id=bundle.dataset_id,
+        model_hash=model_file_hash(bundle_paths(bundle.bundle_id).weight_path),
+        input_shape=bundle.input_shape,
         boundaries=tuple(boundaries),
         segments=tuple(segments),
-        early_exits=early_exits,
+        early_exits=exits,
     )
     validate_partition_manifest(manifest)
     return manifest
 
 
 def validate_partition_manifest(manifest: PartitionManifest) -> None:
-    if not manifest.model_name or not manifest.model_hash:
-        raise PartitionManifestError("Manifest requires model_name and model_hash")
-    boundary_ids = manifest.boundary_ids
-    if boundary_ids != tuple(range(len(boundary_ids))):
+    if manifest.boundary_ids != tuple(range(len(manifest.boundaries))):
         raise PartitionManifestError("boundary_id values must be contiguous from zero")
     if manifest.segment_ids != tuple(range(len(manifest.segments))):
         raise PartitionManifestError("segment_id values must be contiguous from zero")
     if len(manifest.boundaries) != len(manifest.segments) + 1:
-        raise PartitionManifestError("Manifest must have exactly one more boundary than segment")
-    for segment in manifest.segments:
-        sid = int(segment["segment_id"])
-        if int(segment["start_boundary"]) != sid or int(segment["end_boundary"]) != sid + 1:
-            raise PartitionManifestError("Segments must connect adjacent boundaries")
+        raise PartitionManifestError("Manifest must have one more boundary than segment")
+    exit_ids = [item["exit_id"] for item in manifest.early_exits]
+    if len(exit_ids) != len(set(exit_ids)) or exit_ids[-1] != "final":
+        raise PartitionManifestError("Manifest exits must be unique and end with final")
 
 
-def write_partition_manifest(
-    manifest: PartitionManifest,
-    path: str | Path | None = None,
-    *,
-    overwrite: bool = False,
-) -> Path:
-    target = Path(path or DEFAULT_MANIFEST_ROOT / f"{manifest.manifest_id}.json")
+def write_partition_manifest(manifest: PartitionManifest, path=None, *, overwrite=False) -> Path:
+    target = Path(path or bundle_paths(manifest.bundle_id).manifest_path)
     if target.exists() and not overwrite:
         raise PartitionManifestError(f"Manifest already exists: {target}")
     target.parent.mkdir(parents=True, exist_ok=True)
-    with target.open("w", encoding="utf-8") as handle:
-        json.dump(manifest.to_dict(), handle, indent=2)
-        handle.write("\n")
+    target.write_text(json.dumps(manifest.to_dict(), indent=2) + "\n", encoding="utf-8")
     return target
 
 
-def load_partition_manifest(
-    manifest_id: str = DEFAULT_MANIFEST_ID,
-    *,
-    path: str | Path | None = None,
-) -> PartitionManifest:
-    target = Path(path or DEFAULT_MANIFEST_ROOT / f"{manifest_id}.json")
+def load_partition_manifest(bundle_id: str | None = None, *, path=None) -> PartitionManifest:
+    bundle = get_bundle(bundle_id)
+    target = Path(path or bundle_paths(bundle.bundle_id).manifest_path)
     if not target.is_file():
         raise PartitionManifestError(f"Partition manifest not found: {target}")
-    with target.open("r", encoding="utf-8") as handle:
-        data = json.load(handle)
+    data = json.loads(target.read_text(encoding="utf-8"))
     manifest = PartitionManifest(
         manifest_id=str(data["manifest_id"]),
-        model_name=str(data["model_name"]),
+        bundle_id=str(data["bundle_id"]),
+        dataset_id=str(data["dataset_id"]),
         model_hash=str(data["model_hash"]),
+        input_shape=tuple(int(x) for x in data["input_shape"]),
         boundaries=tuple(data["boundaries"]),
         segments=tuple(data["segments"]),
         early_exits=tuple(data["early_exits"]),
         path=target,
     )
-    if manifest.manifest_id != manifest_id:
-        raise PartitionManifestError(
-            f"Manifest id {manifest.manifest_id!r} != expected {manifest_id!r}"
-        )
+    if manifest.bundle_id != bundle.bundle_id:
+        raise PartitionManifestError("Manifest bundle_id mismatch")
     validate_partition_manifest(manifest)
     return manifest

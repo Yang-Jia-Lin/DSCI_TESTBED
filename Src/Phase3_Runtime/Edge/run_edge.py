@@ -1,108 +1,109 @@
+"""Fixed-worker Edge runtime for partition-manifest decisions."""
+
+from __future__ import annotations
+
+import argparse
 import threading
 import time
 
-import torch
 from flask import Flask, jsonify
 
+from Src.Phase3_Runtime.Device.comm import send_tensor
+from Src.Phase3_Runtime.Shared.fixed_worker_pool import FixedWorkerPool, WorkerPoolConfig
+from Src.Phase3_Runtime.Shared.segment_worker import (
+    execute_mnn_range,
+    execute_pytorch_range,
+    init_mnn_worker,
+    init_pytorch_worker,
+)
+from Src.Phase3_Runtime.Shared.socket_server import serve_requests
 from Src.Shared.Config.deploy_config import DEFAULT as TESTBED_CFG
-from Src.Phase3_Runtime.Edge.comm import receive_tensor, send_response
-from Src.Phase3_Runtime.Edge.resource_ctrl import get_max_cpu
-from Src.Phase3_Runtime.Shared.bandwidth_iperf import measure_bandwidth_iperf
-from Src.Phase3_Runtime.Shared.model_loader import load_full_model, threshold_for_stage
-from Src.Shared.Profiles.compute_profile import compute_profile_state
-
-# ── 配置 ──────────────────────────────────────────────────────────────────────
-# ─────────────────────────────────────────────────────────────────────────────
-
-status_app = Flask(__name__)
+from Src.Shared.Config.model_config import get_bundle
+from Src.Shared.Partitioning.manifest import load_partition_manifest
+from Src.Shared.Profiles.segment_profile import segment_profile_state
 
 
-@status_app.route("/status")
-def status():
-    state = compute_profile_state("edge", "pytorch")
-    state["BW_e2c"] = measure_bandwidth_iperf(
-        TESTBED_CFG.cloud_host, TESTBED_CFG.cloud_iperf_port
+def create_runtime(bundle_id: str, backend: str):
+    state = segment_profile_state("edge", backend, bundle_id)
+    state["final_boundary_id"] = load_partition_manifest(
+        state["bundle_id"]
+    ).final_boundary_id
+    config = WorkerPoolConfig(
+        worker_count=int(state["worker_count"]),
+        threads_per_worker=int(state["threads_per_worker"]),
+        max_queue_size=64,
     )
-    return jsonify(state)
+    fn = execute_pytorch_range if backend == "pytorch" else execute_mnn_range
+    initializer = init_pytorch_worker if backend == "pytorch" else init_mnn_worker
+    pool = FixedWorkerPool(
+        config, fn, initializer=initializer, initargs=(state["bundle_id"],)
+    )
+    return state, pool
 
 
-def run_feature_server():
-    model = load_full_model()
-    while True:
-        payload, conn = receive_tensor(
-            TESTBED_CFG.listen_host, TESTBED_CFG.edge_feature_port
-        )
-        if payload is None:
-            if conn:
-                conn.close()
-            continue
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--bundle-id")
+    parser.add_argument("--backend", choices=("pytorch", "mnn"), default="pytorch")
+    args = parser.parse_args(argv)
+    bundle = get_bundle(args.bundle_id)
+    state, pool = create_runtime(bundle.bundle_id, args.backend)
+    status_app = Flask(__name__)
 
-        tensor = payload["tensor"]
+    @status_app.route("/status")
+    def status():
+        current = {**state, **pool.state()}
+        current["BW_e2c"] = TESTBED_CFG.default_bw_e2c
+        return jsonify(current)
+
+    def handle(payload):
+        if payload.get("bundle_id") != state["bundle_id"]:
+            raise ValueError("Request bundle_id does not match Edge runtime")
+        if payload.get("manifest_id") != state["manifest_id"]:
+            raise ValueError("Request manifest_id does not match Edge runtime")
+        if payload.get("model_hash") != state["model_hash"]:
+            raise ValueError("Request model_hash does not match Edge runtime")
         meta = payload["meta"]
-        edge_start = int(meta.get("device_end", 2)) + 1
-        edge_end = int(meta.get("edge_end", 3))
-        exit_layer, threshold = threshold_for_stage(meta["exit_thresholds"], edge_end)
-
-        torch.set_num_threads(
-            max(1, int(meta.get("edge_compute_quota", 1.0) * get_max_cpu()))
-        )
-
-        t0 = time.perf_counter()
-        if edge_start <= edge_end:
-            with torch.no_grad():
-                features, logits, conf, pred = model.forward_partial(
-                    tensor, edge_start, edge_end
-                )
-        else:
-            features, _, conf, pred = tensor, None, None, None
-        T_edge = (time.perf_counter() - t0) * 1000
-
-        if conf is not None and (
-            edge_end == 4 or (threshold is not None and conf >= threshold)
-        ):
-            final_resp = {
-                "T_edge": T_edge,
-                "T_cloud": 0.0,
-                "T_trans_e2c": 0.0,
-                "exit_layer": exit_layer,
+        b1 = int(payload["boundary_id"])
+        b2 = int(meta["partition_boundary_2"])
+        node_started = time.perf_counter()
+        result = pool.submit(
+            b1, b2, payload["tensors"], meta.get("exit_thresholds", {})
+        ).result()
+        t_node_edge = time.perf_counter() - node_started
+        if result.get("prediction") is not None:
+            return {
+                **result,
                 "exit_location": "edge",
-                "exit_confidence": conf,
-                "prediction": pred,
+                "T_compute_edge": float(result.get("T_compute_s", 0.0)),
+                "T_node_edge": t_node_edge,
             }
-            send_response(conn, final_resp)
-            conn.close()
-            continue
-
-        from Src.Phase3_Runtime.Device.comm import send_tensor as send_to_cloud
-
-        cloud_payload = {"tensor": features, "meta": meta}
-        t_fwd = time.perf_counter()
-        try:
-            cloud_resp = send_to_cloud(
-                cloud_payload,
-                TESTBED_CFG.cloud_host,
-                TESTBED_CFG.cloud_feature_port,
-            )
-        except Exception as e:
-            send_response(conn, {"status": "error", "message": str(e)})
-            conn.close()
-            continue
-        T_trans_e2c = (time.perf_counter() - t_fwd) * 1000
-
-        final_resp = {
-            "T_edge": T_edge,
-            "T_cloud": cloud_resp.get("T_cloud", 0),
-            "T_trans_e2c": T_trans_e2c,
-            "exit_layer": cloud_resp.get("exit_layer"),
-            "exit_location": cloud_resp.get("exit_location", "cloud"),
-            "exit_confidence": cloud_resp.get("exit_confidence"),
-            "prediction": cloud_resp.get("prediction", cloud_resp.get("predicted")),
+        if b2 == int(state.get("final_boundary_id", -1)):
+            return {
+                **result,
+                "exit_location": "edge",
+                "T_compute_edge": float(result.get("T_compute_s", 0.0)),
+                "T_node_edge": t_node_edge,
+            }
+        cloud_payload = {
+            "bundle_id": state["bundle_id"],
+            "manifest_id": state["manifest_id"],
+            "model_hash": state["model_hash"],
+            "boundary_id": b2,
+            "tensors": result["tensors"],
+            "meta": meta,
         }
-        send_response(conn, final_resp)
-        conn.close()
+        tx_started = time.perf_counter()
+        cloud = send_tensor(
+            cloud_payload, TESTBED_CFG.cloud_host, TESTBED_CFG.cloud_feature_port
+        )
+        cloud["T_edge_cloud_roundtrip"] = time.perf_counter() - tx_started
+        return {
+            **cloud,
+            "T_compute_edge": float(result.get("T_compute_s", 0.0)),
+            "T_node_edge": t_node_edge,
+        }
 
-
-if __name__ == "__main__":
     threading.Thread(
         target=lambda: status_app.run(
             host=TESTBED_CFG.listen_host,
@@ -112,4 +113,8 @@ if __name__ == "__main__":
         ),
         daemon=True,
     ).start()
-    run_feature_server()
+    serve_requests(TESTBED_CFG.listen_host, TESTBED_CFG.edge_feature_port, handle)
+
+
+if __name__ == "__main__":
+    main()

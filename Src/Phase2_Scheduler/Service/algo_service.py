@@ -122,8 +122,6 @@ class AlgoService:
 
     @classmethod
     def _state_signature(cls, state: dict, paras: Paras) -> dict[str, Any]:
-        cfg = paras.model_cfg
-        model_name = state.get("model_name") or (cfg.name if cfg is not None else None)
         users = []
         f_u_values = np.asarray(paras.F_u, dtype=float).reshape(-1)
         bw_d2e_values = (
@@ -143,9 +141,9 @@ class AlgoService:
             )
         return {
             "model": {
-                "name": model_name,
+                "bundle_id": paras.bundle_id,
                 "m": int(paras.m),
-                "early_exit_layers": [int(x) for x in paras.E],
+                "exit_ids": list(paras.exit_ids),
             },
             "num_users": int(paras.n),
             "resource_mode": paras.resource_mode,
@@ -350,8 +348,8 @@ class AlgoService:
 
         if paras.resource_mode == "fixed_worker_pool":
             final = int(paras.partition_manifest.final_boundary_id)
-            exit_1 = paras.partition_manifest.exit_boundary_for_logical_layer(57)
-            exit_2 = paras.partition_manifest.exit_boundary_for_logical_layer(103)
+            exit_1 = int(paras.E[0])
+            exit_2 = int(paras.E[-1])
             if placement == "device":
                 s1, s2 = (exit_1, final) if early_exit else (final - 1, final)
             elif placement == "edge":
@@ -359,9 +357,9 @@ class AlgoService:
             else:
                 s1, s2 = (0, 1)
         elif placement == "device":
-            s1, s2 = (57, last) if early_exit and m > 58 else (penultimate, last)
+            s1, s2 = (int(paras.E[0]), last) if early_exit and paras.E else (penultimate, last)
         elif placement == "edge":
-            s1, s2 = (0, 103) if early_exit and m > 104 else (0, penultimate)
+            s1, s2 = (0, int(paras.E[-1])) if early_exit and paras.E else (0, penultimate)
         else:
             s1, s2 = (0, 4 if m > 5 else 1)
 
@@ -376,10 +374,10 @@ class AlgoService:
 
         Y = np.ones((n, m), dtype=np.float32)
         if early_exit:
-            if placement == "device" and 57 in paras.E and 57 < m:
-                Y[:, 57] = 0.0
-            elif placement == "edge" and 103 in paras.E and 103 < m:
-                Y[:, 103] = 0.0
+            if placement == "device" and paras.E:
+                Y[:, int(paras.E[0])] = 0.0
+            elif placement == "edge" and paras.E:
+                Y[:, int(paras.E[-1])] = 0.0
             elif placement == "cloud":
                 for layer in paras.E:
                     if 0 <= layer < m:
@@ -543,10 +541,6 @@ class AlgoService:
             decision_source = f"{decision_source}:threshold:{fixed_threshold:g}"
 
         decision_id = state.get("round_id") or f"round_{int(time.time() * 1000)}"
-        model_name = state.get("model_name")
-        if model_name is None and paras.model_cfg is not None:
-            model_name = paras.model_cfg.name
-
         decision = encode(
             solution.X,
             solution.Y,
@@ -554,7 +548,7 @@ class AlgoService:
             solution.F_c,
             paras,
             decision_id=str(decision_id),
-            model_name=model_name,
+            bundle_id=paras.bundle_id,
             user_ids=self._extract_user_ids(state, paras.n),
         )
         decision["objective"] = float(solution.objective)
@@ -662,6 +656,9 @@ class AlgoService:
         try:
             with open(meta_path, "r", encoding="utf-8") as f:
                 meta = json.load(f)
+            signature_model = meta.get("state_signature", {}).get("model", {})
+            if "bundle_id" not in signature_model:
+                raise ValueError("Legacy solution cache without bundle_id is not supported")
             data = np.load(solution_path, allow_pickle=False)
             self._cached_solution = CachedSolution(
                 X=np.asarray(data["X"], dtype=np.float32),
@@ -727,7 +724,7 @@ if __name__ == "__main__":
 
     state = {
         "round_id": "round_0001",
-        "model_name": "Resnet50",
+        "bundle_id": "resnet50-cifar10-ee-v1",
         "users": [
             {
                 "user_id": 0,

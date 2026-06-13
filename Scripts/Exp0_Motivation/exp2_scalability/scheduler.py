@@ -64,9 +64,8 @@ class PerRequestScheduler:
         跨用户方差随 N 增大而上升（O(N) 漂移）；每用户内 K 次请求的抖动亦计入。
         """
         n_users = max(1, int(n_users))
-        x_opt, tau_opt = 57, 0.80
+        split_opt, tau_opt = 0.45, 0.80
         w1, w2 = 0.5, 0.5
-        max_split = 127.0
 
         user_mean_splits: list[float] = []
         user_mean_taus: list[float] = []
@@ -79,14 +78,14 @@ class PerRequestScheduler:
 
         for u in range(n_users):
             rng = np.random.default_rng(seed + u * 9973)
-            splits_u: list[int] = []
+            splits_u: list[float] = []
             taus_u: list[float] = []
             for _ in range(n_requests_per_user):
                 if rng.random() < split_jump_p:
-                    delta = rng.choice([-12, -6, 0, 6, 12])
+                    delta = rng.choice([-0.10, -0.05, 0.0, 0.05, 0.10])
                 else:
-                    delta = 0
-                splits_u.append(int(np.clip(x_opt + delta, 0, 127)))
+                    delta = 0.0
+                splits_u.append(float(np.clip(split_opt + delta, 0.0, 1.0)))
                 taus_u.append(
                     float(np.clip(tau_opt + rng.normal(0, tau_sigma), 0.0, 1.0))
                 )
@@ -102,7 +101,7 @@ class PerRequestScheduler:
         mean_within_tau = float(np.mean(within_taus)) if within_taus else 0.0
 
         drift = (
-            w1 * (cross_split + 0.35 * mean_within_split) / (max_split**2)
+            w1 * (cross_split + 0.35 * mean_within_split)
             + w2 * (cross_tau + 0.35 * mean_within_tau) / (0.25**2)
         )
         return float(min(1.0, drift))

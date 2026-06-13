@@ -1,16 +1,7 @@
-"""Convert measured testbed state JSON into ``Paras``."""
+"""Convert a strict bundle-scoped state JSON into Paras."""
 
-from Src.Phase2_Scheduler.algo_config import DEFAULT as DEFAULT_ALGO_CONFIG
-from Src.Shared.Config.model_config import get_model_config
 from Src.Phase2_Scheduler.paras import Paras
 
 
-def to_paras(state: dict, model_cfg=None, algo_cfg=None) -> Paras:
-    """Build a Paras object for one testbed decision round."""
-    if model_cfg is None:
-        model_cfg = get_model_config(state.get("model_name"))
-    return Paras.from_state(
-        state=state,
-        model_cfg=model_cfg,
-        algo_cfg=algo_cfg or DEFAULT_ALGO_CONFIG,
-    )
+def to_paras(state: dict, algo_cfg=None) -> Paras:
+    return Paras.from_state(state, algo_cfg=algo_cfg)

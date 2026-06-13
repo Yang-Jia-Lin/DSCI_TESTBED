@@ -10,10 +10,10 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from Src.Shared.Config.paths import DATA_DIR
+from Src.Shared.Config.paths import SEGMENT_PROFILE_DIR
 from Src.Shared.Partitioning.manifest import PartitionManifest, load_partition_manifest
 
-DEFAULT_SEGMENT_PROFILE_ROOT = DATA_DIR / "SegmentProfiles"
+DEFAULT_SEGMENT_PROFILE_ROOT = SEGMENT_PROFILE_DIR
 SEGMENT_COLUMNS = (
     "segment_id",
     "raw_latency_mean_s",
@@ -57,10 +57,10 @@ class SegmentProfile:
         return int(self.metadata["threads_per_worker"])
 
     @property
-    def exit_head_latencies(self) -> dict[int, float]:
+    def exit_head_latencies(self) -> dict[str, float]:
         return {
-            int(layer): float(latency)
-            for layer, latency in self.metadata["exit_head_latencies_s"].items()
+            str(exit_id): float(latency)
+            for exit_id, latency in self.metadata["exit_head_latencies_s"].items()
         }
 
 
@@ -84,7 +84,7 @@ def validate_segment_profile(
     required = {
         "profile_id",
         "manifest_id",
-        "model_name",
+        "bundle_id",
         "model_hash",
         "backend",
         "worker_count",
@@ -123,16 +123,16 @@ def validate_segment_profile(
     if manifest is not None:
         if str(metadata["manifest_id"]) != manifest.manifest_id:
             raise SegmentProfileError("Profile manifest_id does not match partition manifest")
-        if str(metadata["model_name"]) != manifest.model_name:
-            raise SegmentProfileError("Profile model_name does not match partition manifest")
+        if str(metadata["bundle_id"]) != manifest.bundle_id:
+            raise SegmentProfileError("Profile bundle_id does not match partition manifest")
         if str(metadata["model_hash"]) != manifest.model_hash:
             raise SegmentProfileError("Profile model_hash does not match partition manifest")
         if count != len(manifest.segments):
             raise SegmentProfileError("Profile does not cover every manifest segment")
         expected_exits = {
-            str(int(item["logical_layer"]))
+            str(item["exit_id"])
             for item in manifest.early_exits
-            if int(item["boundary_id"]) != manifest.final_boundary_id
+            if not item.get("final")
         }
         if set(exit_head_latencies) != expected_exits:
             raise SegmentProfileError("Profile does not cover every non-final exit head")
@@ -147,16 +147,16 @@ def write_segment_profile(
     threads_per_worker: int,
     samples_s: list[list[float]],
     total_model_latency_s: float,
-    exit_head_samples_s: dict[int, list[float]] | None = None,
+    exit_head_samples_s: dict[str, list[float]] | None = None,
     profile_root: str | Path | None = None,
     overwrite: bool = False,
 ) -> SegmentProfile:
     if len(samples_s) != len(manifest.segments) or any(not row for row in samples_s):
         raise SegmentProfileError("samples_s must contain non-empty samples for every segment")
     expected_exit_layers = {
-        int(item["logical_layer"])
+        str(item["exit_id"])
         for item in manifest.early_exits
-        if int(item["boundary_id"]) != manifest.final_boundary_id
+        if not item.get("final")
     }
     if (
         exit_head_samples_s is None
@@ -188,7 +188,7 @@ def write_segment_profile(
     metadata = {
         "profile_id": profile_id,
         "manifest_id": manifest.manifest_id,
-        "model_name": manifest.model_name,
+        "bundle_id": manifest.bundle_id,
         "model_hash": manifest.model_hash,
         "backend": str(backend),
         "worker_count": int(worker_count),
@@ -196,9 +196,9 @@ def write_segment_profile(
         "total_model_latency_s": total_model_latency_s,
         "num_segments": len(manifest.segments),
         "exit_head_latencies_s": {
-            str(int(item["logical_layer"])): float(np.mean(exit_head_samples_s[int(item["logical_layer"])]))
+            str(item["exit_id"]): float(np.mean(exit_head_samples_s[str(item["exit_id"])]))
             for item in manifest.early_exits
-            if int(item["boundary_id"]) != manifest.final_boundary_id
+            if not item.get("final")
         },
     }
     validate_segment_profile(metadata, segments, manifest=manifest)
@@ -232,23 +232,25 @@ def load_segment_profile(
     return SegmentProfile(profile_id, directory, metadata, segments)
 
 
-def segment_profile_state(role: str, backend: str) -> dict:
+def segment_profile_state(role: str, backend: str, bundle_id: str) -> dict:
     key = f"DSCI_{role.upper()}_{backend.upper()}_SEGMENT_PROFILE_ID"
     common = f"DSCI_{role.upper()}_SEGMENT_PROFILE_ID"
     profile_id = os.environ.get(key) or os.environ.get(common)
     if not profile_id:
         raise SegmentProfileError(f"Set {key} or {common}")
     profile = load_segment_profile(profile_id, expected_backend=backend)
+    if str(profile.metadata["bundle_id"]) != bundle_id:
+        raise SegmentProfileError("Selected bundle_id does not match segment profile")
     validate_segment_profile(
         profile.metadata,
         profile.segments,
-        manifest=load_partition_manifest(profile.manifest_id),
+        manifest=load_partition_manifest(str(profile.metadata["bundle_id"])),
     )
     overhead_key = f"DSCI_{role.upper()}_PROTOCOL_OVERHEAD_S"
     return {
         "resource_mode": "fixed_worker_pool",
+        "bundle_id": str(profile.metadata["bundle_id"]),
         "manifest_id": profile.manifest_id,
-        "model_name": str(profile.metadata["model_name"]),
         "model_hash": str(profile.metadata["model_hash"]),
         "execution_profile_id": profile.profile_id,
         "backend": backend,

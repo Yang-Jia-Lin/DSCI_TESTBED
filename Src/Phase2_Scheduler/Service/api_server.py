@@ -5,7 +5,7 @@ from Src.Phase2_Scheduler.Service.decision_codec import DecisionCodecError
 from Src.Phase2_Scheduler.Service.reward_adapter import RewardAdapterError
 from Src.Phase2_Scheduler.Service.state_adapter import to_paras
 from Src.Shared.Config.deploy_config import DEFAULT as TESTBED_CFG
-from Src.Shared.Config.model_config import get_model_config
+from Src.Shared.Config.model_config import require_bundle_id
 
 try:
     from flask import Flask, jsonify, request
@@ -68,6 +68,7 @@ def _error(message: str, code: int):
 
 def _validate_state_payload(state: dict) -> None:
     """Fail fast on missing required fields before building Paras."""
+    require_bundle_id(state)
     if "users" not in state or not isinstance(state["users"], list):
         raise KeyError("users")
     if len(state["users"]) == 0:
@@ -87,6 +88,8 @@ def _validate_state_payload(state: dict) -> None:
     )
     if resource_mode == "fixed_worker_pool":
         all_owners = [*state["users"], edge, cloud]
+        if any(owner.get("bundle_id") != state["bundle_id"] for owner in all_owners):
+            raise KeyError("all nodes must report the selected bundle_id")
         if any(not owner.get("manifest_id") for owner in all_owners):
             raise KeyError("every node must report manifest_id")
         manifest_ids = {str(owner["manifest_id"]) for owner in all_owners}
@@ -136,10 +139,6 @@ def _validate_state_payload(state: dict) -> None:
                 raise KeyError(f"users[{i}].{key}")
         if "compute_profile_id" not in user:
             raise KeyError(f"users[{i}].compute_profile_id")
-
-    model_name = state.get("model_name")
-    if model_name is not None:
-        get_model_config(model_name)
 
     to_paras(state)
 

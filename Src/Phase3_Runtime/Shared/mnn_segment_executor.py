@@ -7,7 +7,7 @@ from pathlib import Path
 
 import numpy as np
 
-from Src.Shared.Config.paths import DATA_DIR
+from Src.Shared.Config.paths import bundle_paths
 from Src.Shared.Partitioning.manifest import PartitionManifest
 
 
@@ -20,7 +20,7 @@ class MNNSegmentExecutor:
         self.MNN = MNN
         self.manifest = manifest
         self.model_root = Path(
-            model_root or DATA_DIR / "Weights" / "mnn_segments" / manifest.manifest_id
+            model_root or bundle_paths(manifest.bundle_id).mnn_root
         )
         self._cache = {}
         missing = [
@@ -33,10 +33,10 @@ class MNNSegmentExecutor:
                 f"MNN manifest is incomplete; missing {len(missing)} segment models"
             )
         missing_heads = [
-            self.model_root / f"exit_{int(item['logical_layer'])}.mnn"
+            self.model_root / f"exit_{item['exit_id']}.mnn"
             for item in manifest.early_exits
             if int(item["boundary_id"]) != manifest.final_boundary_id
-            and not (self.model_root / f"exit_{int(item['logical_layer'])}.mnn").is_file()
+            and not (self.model_root / f"exit_{item['exit_id']}.mnn").is_file()
         ]
         if missing_heads:
             raise FileNotFoundError("MNN manifest is missing early-exit head models")
@@ -105,8 +105,7 @@ class MNNSegmentExecutor:
             return None
         if int(boundary_id) == self.manifest.final_boundary_id:
             return tensors.get("logits")
-        logical_layer = int(item["logical_layer"])
-        key = f"exit_{logical_layer}"
+        key = f"exit_{item['exit_id']}"
         if key not in self._cache:
             interpreter = self.MNN.Interpreter(str(self.model_root / f"{key}.mnn"))
             self._cache[key] = (

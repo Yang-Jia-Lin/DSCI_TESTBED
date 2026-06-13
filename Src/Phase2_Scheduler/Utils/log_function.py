@@ -103,7 +103,9 @@ def load_and_analyze_results(exp_dir: Path, analysis=True):
     timestamp = config.get("Time", "Unknown")
     hyper_params = config.get("Hyper_Parameters", {})
     sys_params = config.get("System_Parameters", {})
-    paras = Paras.from_dict(sys_params)
+    raise ValueError(
+        "Loading legacy experiment configs is not supported; rerun the experiment with bundle_id"
+    )
     best_val = config.get("Best_Objective_Value", "N/A")
     X_opt = data["X"]
     Y_opt = data["Y"]

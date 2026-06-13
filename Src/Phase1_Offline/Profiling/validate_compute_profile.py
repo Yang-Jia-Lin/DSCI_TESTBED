@@ -11,7 +11,7 @@ def parse_args(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("profile_id")
     parser.add_argument("--backend")
-    parser.add_argument("--model-name")
+    parser.add_argument("--bundle-id")
     return parser.parse_args(argv)
 
 
@@ -20,7 +20,7 @@ def main(argv=None):
     profile = load_compute_profile(
         args.profile_id,
         expected_backend=args.backend,
-        expected_model=args.model_name,
+        expected_bundle=args.bundle_id,
     )
     print(f"Profile valid: {profile.profile_id}")
     print(f"  backend: {profile.metadata['backend']}")

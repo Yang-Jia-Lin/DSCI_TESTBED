@@ -81,12 +81,8 @@ if __name__ == "__main__":
     X[0, [10, 20]] = 1
     X[1, [40, 60]] = 1
     Y = np.ones([paras.n, paras.m])
-    Y[2, 57] = 0.6
-    Y[4, 103] = 0.8
-    Y[5, 57] = 0.5
-    Y[5, 103] = 0.9
-    Y[7, 57] = 0.1
-    Y[9, 103] = 0.5
+    for row, boundary in enumerate(paras.E):
+        Y[row % n, boundary] = 0.5
 
     from Src.Shared.Config.paths import RESULT_TEST_PATH
 

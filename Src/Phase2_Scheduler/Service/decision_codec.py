@@ -87,7 +87,7 @@ def encode(
     paras: Paras,
     *,
     decision_id: str | None = None,
-    model_name: str | None = None,
+    bundle_id: str | None = None,
     user_ids: list[int] | None = None,
     include_debug_rows: bool = True,
 ) -> dict:
@@ -98,7 +98,7 @@ def encode(
         X, Y, F_e, F_c: Algorithm outputs for ``paras.n`` users.
         paras: Runtime parameters used for this round.
         decision_id: Copied from request ``round_id`` when provided.
-        model_name: Defaults to ``paras.model_cfg.name``.
+        bundle_id: Defaults to ``paras.bundle_id``.
         user_ids: Per-user ids; defaults to ``0 .. n-1``.
         include_debug_rows: Include ``X_row`` / ``Y_row`` for debugging.
     """
@@ -111,8 +111,7 @@ def encode(
     F_c_v = _as_2d_resource(F_c, n)
     split_pts = split_points_matrix(X)
 
-    cfg = paras.model_cfg
-    model_name = model_name or (cfg.name if cfg is not None else "Resnet50")
+    bundle_id = bundle_id or paras.bundle_id
     user_ids = user_ids if user_ids is not None else list(range(n))
     if len(user_ids) != n:
         raise DecisionCodecError(f"user_ids length {len(user_ids)} != num_users {n}")
@@ -130,7 +129,8 @@ def encode(
             "partition_s1": s1,
             "partition_s2": s2,
             "exit_thresholds": {
-                str(int(layer)): float(Y[i, layer]) for layer in paras.E
+                exit_id: float(Y[i, boundary])
+                for exit_id, boundary in zip(paras.exit_ids, paras.E)
             },
         }
         if paras.resource_mode == "fixed_worker_pool":
@@ -161,10 +161,10 @@ def encode(
 
     result = {
         "decision_id": decision_id or "unknown",
-        "model_name": model_name,
+        "bundle_id": bundle_id,
         "num_users": n,
         "num_layers": m,
-        "early_exit_layers": [int(x) for x in paras.E],
+        "exit_ids": list(paras.exit_ids),
         "layer_index_base": 0,
         "slice_semantics": "python_left_closed_right_open",
         "users": users_out,

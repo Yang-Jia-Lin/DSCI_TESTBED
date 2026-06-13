@@ -1,10 +1,9 @@
-Data/CIFAR10/
-Data/Model_Checkpoints
-Data/Weights
+Data/Datasets/
 Data/Runtime/SolutionCache/*
 !Data/Runtime/SolutionCache/.gitkeep
 Data/Runtime/DeviceResults/*
 !Data/Runtime/DeviceResults/.gitkeep
+Data/Archive/Runtime/
 *.pth
 *.pt
 *.h5

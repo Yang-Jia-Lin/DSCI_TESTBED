@@ -70,11 +70,11 @@ if __name__ == "__main__":
     # Layer 1: 0.5 (中等)
     # Layer 2: 0.9 (高阈值，难退出)
     if m > 3:
-        Y[0, 57] = 1
-        Y[0, 103] = 1
+        for boundary in paras.E:
+            Y[0, boundary] = 1
         # 如果还有更多层，保持为 1.0
 
-    print(f"\n>>> 测试用户 [0,57] 的阈值 Y 设置: {Y[0, 50:60]} ...")
+    print(f"\n>>> Early-exit thresholds: {[Y[0, boundary] for boundary in paras.E]}")
 
     # 3. 运行你的函数计算 P (累积概率)
     P_matrix = compute_layer_exit_probs(Y, paras)

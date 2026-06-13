@@ -17,7 +17,9 @@ def run_partitioned_inference(input_tensor: torch.Tensor, decision: dict) -> dic
     total_started = time.perf_counter()
     if decision.get("resource_mode") != "fixed_worker_pool":
         raise ValueError("runtime_v2 only accepts fixed_worker_pool decisions")
-    manifest = load_partition_manifest(str(decision["manifest_id"]))
+    if "bundle_id" not in decision:
+        raise ValueError("Legacy decision without bundle_id is not supported")
+    manifest = load_partition_manifest(str(decision["bundle_id"]))
     if decision.get("model_hash") != manifest.model_hash:
         raise ValueError("Decision model_hash does not match partition manifest")
     user = decision["users"][0]
@@ -39,6 +41,7 @@ def run_partitioned_inference(input_tensor: torch.Tensor, decision: dict) -> dic
         }
     device_output = device_result["tensors"]
     payload = {
+        "bundle_id": manifest.bundle_id,
         "manifest_id": manifest.manifest_id,
         "model_hash": manifest.model_hash,
         "boundary_id": b1,

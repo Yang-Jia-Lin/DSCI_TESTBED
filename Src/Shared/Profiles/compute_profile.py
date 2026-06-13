@@ -11,8 +11,9 @@ from typing import Iterable
 import numpy as np
 import pandas as pd
 
-PROJECT_ROOT = Path(__file__).resolve().parents[3]
-DEFAULT_PROFILE_ROOT = PROJECT_ROOT / "Data" / "ComputeProfiles"
+from Src.Shared.Config.paths import COMPUTE_PROFILE_DIR
+
+DEFAULT_PROFILE_ROOT = COMPUTE_PROFILE_DIR
 
 PROFILE_COLUMNS = (
     "layer_index",
@@ -75,7 +76,7 @@ def validate_compute_profile(
 
     required_meta = {
         "profile_id",
-        "model_name",
+        "bundle_id",
         "backend",
         "total_latency_s",
         "theta_flops_per_s",
@@ -154,7 +155,7 @@ def load_compute_profile(
     expected_layers: Iterable[str] | None = None,
     expected_theoretical_flops: Iterable[float] | None = None,
     expected_backend: str | None = None,
-    expected_model: str | None = None,
+    expected_bundle: str | None = None,
 ) -> ComputeProfile:
     directory = _profile_dir(profile_id, profile_root)
     metadata_path = directory / "metadata.json"
@@ -175,9 +176,9 @@ def load_compute_profile(
         raise ComputeProfileError(
             f"Profile backend {metadata.get('backend')!r} != {expected_backend!r}"
         )
-    if expected_model and str(metadata.get("model_name")) != expected_model:
+    if expected_bundle and str(metadata.get("bundle_id")) != expected_bundle:
         raise ComputeProfileError(
-            f"Profile model {metadata.get('model_name')!r} != {expected_model!r}"
+            f"Profile bundle {metadata.get('bundle_id')!r} != {expected_bundle!r}"
         )
     validate_compute_profile(
         metadata,
@@ -195,7 +196,7 @@ def write_compute_profile(
     theoretical_flops: Iterable[float],
     raw_latencies_s: Iterable[float],
     total_latency_s: float,
-    model_name: str,
+    bundle_id: str,
     backend: str,
     profile_root: str | Path | None = None,
     metadata_extra: dict | None = None,
@@ -230,7 +231,7 @@ def write_compute_profile(
     )
     metadata = {
         "profile_id": profile_id,
-        "model_name": model_name,
+        "bundle_id": bundle_id,
         "backend": backend,
         "num_layers": len(names),
         "total_latency_s": total_latency_s,

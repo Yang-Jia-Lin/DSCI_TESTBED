@@ -182,15 +182,11 @@ def _fixed_worker_components(X, P, paras):
     reach_edge = np.zeros(n)
     reach_cloud = np.zeros(n)
 
-    exit_layers = list(paras.E) + [paras.m - 1]
-    exit_boundaries = np.array(
-        [manifest.exit_boundary_for_logical_layer(layer) for layer in exit_layers],
-        dtype=np.int64,
-    )
+    exit_boundaries = np.array(list(paras.E) + [paras.m - 1], dtype=np.int64)
     for i in range(n):
         b1, b2 = int(cuts[i, 0]), int(cuts[i, 1])
         manifest.validate_boundary_pair(b1, b2)
-        exit_probs = np.array([float(P[i, layer]) for layer in exit_layers])
+        exit_probs = np.array([float(P[i, boundary]) for boundary in exit_boundaries])
         segment_reach = np.array(
             [float(exit_probs[exit_boundaries > sid].sum()) for sid in manifest.segment_ids]
         )
@@ -203,19 +199,19 @@ def _fixed_worker_components(X, P, paras):
             boundary_id = int(item["boundary_id"])
             if boundary_id == manifest.final_boundary_id:
                 continue
-            logical_layer = int(item["logical_layer"])
+            exit_id = str(item["exit_id"])
             reach_head = float(exit_probs[exit_boundaries >= boundary_id].sum())
             if boundary_id <= b1:
                 local[i] += reach_head * float(
-                    paras.exit_head_latency_u[i][logical_layer]
+                    paras.exit_head_latency_u[i][exit_id]
                 )
             elif boundary_id <= b2:
                 edge_service[i] += reach_head * float(
-                    paras.exit_head_latency_e[logical_layer]
+                    paras.exit_head_latency_e[exit_id]
                 )
             else:
                 cloud_service[i] += reach_head * float(
-                    paras.exit_head_latency_c[logical_layer]
+                    paras.exit_head_latency_c[exit_id]
                 )
         reach_edge[i] = float(exit_probs[exit_boundaries > b1].sum())
         reach_cloud[i] = float(exit_probs[exit_boundaries > b2].sum())
@@ -431,8 +427,7 @@ if __name__ == "__main__":
     X[0][100] = 1
 
     Y = np.ones((n, m))
-    # Y[0, 57] = 0.9
-    # Y[0, 103] = 0.8
+    # Set thresholds only at boundaries listed in paras.E.
 
     F_e = np.ones((n, 1)) * (paras.f_e_max / n)
     F_c = np.ones((n, 1)) * (paras.f_c_max / n)

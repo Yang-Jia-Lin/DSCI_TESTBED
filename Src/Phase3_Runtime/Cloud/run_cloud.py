@@ -1,65 +1,72 @@
-import pickle
+"""Fixed-worker Cloud runtime for partition-manifest decisions."""
+
+from __future__ import annotations
+
+import argparse
 import threading
 import time
 
-import torch
 from flask import Flask, jsonify
 
+from Src.Phase3_Runtime.Shared.fixed_worker_pool import FixedWorkerPool, WorkerPoolConfig
+from Src.Phase3_Runtime.Shared.segment_worker import (
+    execute_mnn_range,
+    execute_pytorch_range,
+    init_mnn_worker,
+    init_pytorch_worker,
+)
+from Src.Phase3_Runtime.Shared.socket_server import serve_requests
 from Src.Shared.Config.deploy_config import DEFAULT as TESTBED_CFG
-from Src.Phase3_Runtime.Cloud.comm import receive_tensor
-from Src.Phase3_Runtime.Cloud.resource_ctrl import get_max_cpu
-from Src.Phase3_Runtime.Shared.model_loader import load_full_model
-from Src.Shared.Profiles.compute_profile import compute_profile_state
-
-status_app = Flask(__name__)
+from Src.Shared.Config.model_config import get_bundle
+from Src.Shared.Partitioning.manifest import load_partition_manifest
+from Src.Shared.Profiles.segment_profile import segment_profile_state
 
 
-@status_app.route("/status")
-def status():
-    return jsonify(compute_profile_state("cloud", "pytorch"))
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--bundle-id")
+    parser.add_argument("--backend", choices=("pytorch", "mnn"), default="pytorch")
+    args = parser.parse_args(argv)
+    bundle = get_bundle(args.bundle_id)
+    state = segment_profile_state("cloud", args.backend, bundle.bundle_id)
+    manifest = load_partition_manifest(state["bundle_id"])
+    fn = execute_pytorch_range if args.backend == "pytorch" else execute_mnn_range
+    initializer = init_pytorch_worker if args.backend == "pytorch" else init_mnn_worker
+    pool = FixedWorkerPool(
+        WorkerPoolConfig(
+            int(state["worker_count"]), int(state["threads_per_worker"]), 64
+        ),
+        fn,
+        initializer=initializer,
+        initargs=(state["bundle_id"],),
+    )
+    status_app = Flask(__name__)
 
+    @status_app.route("/status")
+    def status():
+        return jsonify({**state, **pool.state()})
 
-def run_feature_server():
-    model = load_full_model()
-
-    while True:
-        payload, conn = receive_tensor(
-            TESTBED_CFG.listen_host, TESTBED_CFG.cloud_feature_port
-        )
-        if payload is None:
-            if conn:
-                conn.close()
-            continue
-
-        tensor = payload["tensor"]
-        meta = payload["meta"]
-        cloud_start = int(meta.get("edge_end", 3)) + 1
-
-        torch.set_num_threads(
-            max(1, int(meta.get("cloud_compute_quota", 1.0) * get_max_cpu()))
-        )
-
-        t_start = time.perf_counter()
-        with torch.no_grad():
-            features, logits, conf, pred = model.forward_partial(tensor, cloud_start, 4)
-        T_cloud = (time.perf_counter() - t_start) * 1000
-
-        result = {
-            "exit_layer": 128,
+    def handle(payload):
+        if payload.get("bundle_id") != state["bundle_id"]:
+            raise ValueError("Request bundle_id does not match Cloud runtime")
+        if payload.get("manifest_id") != state["manifest_id"]:
+            raise ValueError("Request manifest_id does not match Cloud runtime")
+        if payload.get("model_hash") != state["model_hash"]:
+            raise ValueError("Request model_hash does not match Cloud runtime")
+        node_started = time.perf_counter()
+        result = pool.submit(
+            int(payload["boundary_id"]),
+            manifest.final_boundary_id,
+            payload["tensors"],
+            payload.get("meta", {}).get("exit_thresholds", {}),
+        ).result()
+        return {
+            **result,
             "exit_location": "cloud",
-            "exit_confidence": conf,
-            "prediction": pred,
-            "predicted": pred,
-            "T_cloud": T_cloud,
+            "T_compute_cloud": float(result.get("T_compute_s", 0.0)),
+            "T_node_cloud": time.perf_counter() - node_started,
         }
-        send_data = pickle.dumps(result)
-        try:
-            conn.sendall(send_data)
-        finally:
-            conn.close()
 
-
-if __name__ == "__main__":
     threading.Thread(
         target=lambda: status_app.run(
             host=TESTBED_CFG.listen_host,
@@ -69,4 +76,8 @@ if __name__ == "__main__":
         ),
         daemon=True,
     ).start()
-    run_feature_server()
+    serve_requests(TESTBED_CFG.listen_host, TESTBED_CFG.cloud_feature_port, handle)
+
+
+if __name__ == "__main__":
+    main()

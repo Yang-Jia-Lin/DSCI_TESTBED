@@ -8,13 +8,13 @@ _EXECUTOR = None
 _MANIFEST = None
 
 
-def init_pytorch_worker(manifest_id: str):
+def init_pytorch_worker(bundle_id: str):
     global _EXECUTOR, _MANIFEST
     from Src.Phase3_Runtime.Shared.model_loader import load_full_model
     from Src.Shared.Partitioning.manifest import load_partition_manifest
     from Src.Shared.Partitioning.pytorch_executor import PyTorchSegmentExecutor
 
-    _MANIFEST = load_partition_manifest(manifest_id)
+    _MANIFEST = load_partition_manifest(bundle_id)
     _EXECUTOR = PyTorchSegmentExecutor(load_full_model(_MANIFEST), _MANIFEST)
 
 
@@ -36,12 +36,12 @@ def execute_pytorch_range(
     }
 
 
-def init_mnn_worker(manifest_id: str):
+def init_mnn_worker(bundle_id: str):
     global _EXECUTOR, _MANIFEST
     from Src.Phase3_Runtime.Shared.mnn_segment_executor import MNNSegmentExecutor
     from Src.Shared.Partitioning.manifest import load_partition_manifest
 
-    _MANIFEST = load_partition_manifest(manifest_id)
+    _MANIFEST = load_partition_manifest(bundle_id)
     _EXECUTOR = MNNSegmentExecutor(_MANIFEST)
 
 
@@ -53,13 +53,14 @@ def execute_mnn_range(
 ):
     if _EXECUTOR is None:
         raise RuntimeError("MNN worker is not initialized")
+    _MANIFEST.validate_exit_thresholds(exit_thresholds or {})
     started = time.perf_counter()
     import numpy as np
 
     bundle = tensors
     executed_segments = []
     logits = None
-    confidence = prediction = exit_boundary_id = exit_logical_layer = None
+    confidence = prediction = exit_boundary_id = exit_id = None
     for segment_id in range(start_boundary, end_boundary):
         bundle = _EXECUTOR.execute_segment(segment_id, bundle)
         executed_segments.append(segment_id)
@@ -75,12 +76,12 @@ def execute_mnn_range(
             ),
             None,
         )
-        logical_layer = int(item["logical_layer"]) if item is not None else None
+        candidate_exit_id = str(item["exit_id"]) if item is not None else None
         flat = np.asarray(candidate, dtype=np.float64).reshape(-1)
         probabilities = np.exp(flat - np.max(flat))
         probabilities /= probabilities.sum()
         candidate_confidence = float(np.max(probabilities))
-        threshold = (exit_thresholds or {}).get(str(logical_layer))
+        threshold = (exit_thresholds or {}).get(candidate_exit_id)
         if (
             boundary_id == _MANIFEST.final_boundary_id
             or threshold is not None
@@ -90,7 +91,7 @@ def execute_mnn_range(
             confidence = candidate_confidence
             prediction = int(np.argmax(flat))
             exit_boundary_id = boundary_id
-            exit_logical_layer = logical_layer
+            exit_id = candidate_exit_id
             break
     return {
         "tensors": bundle,
@@ -98,7 +99,7 @@ def execute_mnn_range(
         "confidence": confidence,
         "prediction": prediction,
         "exit_boundary_id": exit_boundary_id,
-        "exit_logical_layer": exit_logical_layer,
+        "exit_id": exit_id,
         "T_compute_s": time.perf_counter() - started,
         "executed_segments": executed_segments,
     }
