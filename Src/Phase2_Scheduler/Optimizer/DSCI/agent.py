@@ -452,16 +452,28 @@ class PPOAgent:
             torch.nn.utils.clip_grad_norm_(self.policy.parameters(), max_norm=0.5)
             self.optimizer.step()
 
-    def train(self):
+    def train(self, initial_solution=None):
         best_val = -np.inf
         best_sol = None
         history = []
 
-        min_epochs = 100  # 强制最小训练轮数（观察图表，100次之前仍在快速上升）
-        patience = 20  # 检测窗口大小
-        rel_tolerance = 1e-4  # 相对容忍度（例如：0.01% 的改进）
+        min_epochs = int(self.hparams.get("min_epochs", 100))
+        patience = int(self.hparams.get("patience", 20))
+        rel_tolerance = float(self.hparams.get("rel_tolerance", 1e-4))
 
         F_e, F_c = self.default_resources(self.paras)
+        if initial_solution is not None:
+            X0, Y0, F_e0, F_c0 = initial_solution
+            F_e = np.asarray(F_e0, dtype=np.float32).reshape(self.paras.n, 1)
+            F_c = np.asarray(F_c0, dtype=np.float32).reshape(self.paras.n, 1)
+            X0 = np.asarray(X0, dtype=np.float32)
+            Y0 = np.asarray(Y0, dtype=np.float32)
+            initial_obj = float(objective(X0, Y0, F_e, F_c, self.paras))
+            if np.isfinite(initial_obj):
+                best_val = initial_obj
+                best_sol = (X0.copy(), Y0.copy(), F_e.copy(), F_c.copy())
+                history.append(initial_obj)
+
         target_steps = int(self.hparams["target_steps"])
         outer_ema = float(self.hparams.get("outer_ema", 0.02))
 
@@ -650,7 +662,7 @@ class PPOAgent:
 
             # 收敛检测（窗口内波动很小就停）
 
-            if epoch > min_epochs:
+            if epoch > min_epochs and len(history) >= 2 * patience:
                 current_window = history[-patience:]
                 previous_window = history[-2 * patience : -patience]
                 curr_mean = np.mean(current_window)

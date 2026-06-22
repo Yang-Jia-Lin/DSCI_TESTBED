@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+import torch
 
 from Src.Phase2_Scheduler.algo_config import DEFAULT as DEFAULT_ALGO_CONFIG
 from Src.Phase2_Scheduler.Service.decision_codec import encode
@@ -34,6 +35,9 @@ from Src.Shared.Config.paths import SOLUTION_CACHE_DIR
 INTERFACE_SOLUTION_DIR = SOLUTION_CACHE_DIR
 LATEST_SOLUTION_PATH = INTERFACE_SOLUTION_DIR / "latest_solution.npz"
 LATEST_META_PATH = INTERFACE_SOLUTION_DIR / "latest_solution_meta.json"
+DIRECT_REUSE_DISTANCE = 0.005
+NEAR_WARM_START_DISTANCE = 0.05
+MEDIUM_WARM_START_DISTANCE = 0.15
 
 _PRESET_MODE_ALIASES = {
     "dsci": None,
@@ -68,7 +72,7 @@ class AlgoServiceConfig:
     auto_train: bool = True
     latest_solution_path: str | Path = LATEST_SOLUTION_PATH
     latest_meta_path: str | Path = LATEST_META_PATH
-    max_cached_solutions: int = 3
+    max_cached_solutions: int = 10
     fixed_split: Any = None
     fixed_threshold: Any = None
 
@@ -82,6 +86,18 @@ class CachedSolution:
     objective: float
     state_signature: dict[str, Any]
     created_at: float = field(default_factory=time.time)
+    compat_key: dict[str, Any] | None = None
+    state_vector: list[float] | None = None
+    policy_path: str | None = None
+    training_mode: str | None = None
+
+
+@dataclass
+class CacheMatch:
+    solution: CachedSolution
+    distance: float
+    training_mode: str
+    policy_path: str | None = None
 
 
 @dataclass
@@ -103,6 +119,12 @@ class AlgoService:
     _last_error: str | None = field(default=None, init=False, repr=False)
     _last_reward: RoundRewardResult | None = field(default=None, init=False, repr=False)
     _update_epoch: int = field(default=0, init=False, repr=False)
+    _cache_entries: list[CachedSolution] = field(
+        default_factory=list, init=False, repr=False
+    )
+    _last_reuse_distance: float | None = field(default=None, init=False, repr=False)
+    _last_training_mode: str | None = field(default=None, init=False, repr=False)
+    _last_warm_start_source: str | None = field(default=None, init=False, repr=False)
 
     def __post_init__(self) -> None:
         self.config.latest_solution_path = Path(self.config.latest_solution_path)
@@ -112,6 +134,7 @@ class AlgoService:
             self.config.fixed_threshold
         )
         self._load_latest_solution()
+        self._load_archived_solutions()
 
     def _ppo_params(self) -> dict:
         return _build_ppo_params(self.config.custom_ppo_hyperparams)
@@ -178,6 +201,78 @@ class AlgoService:
         }
 
     @staticmethod
+    def _profile_token(entry: dict[str, Any]) -> Any:
+        return entry.get("execution_profile_id") or entry.get("compute_profile_id")
+
+    @classmethod
+    def _compat_key(cls, signature: dict[str, Any]) -> dict[str, Any]:
+        users = signature.get("users") or []
+        return {
+            "model": copy.deepcopy(signature.get("model") or {}),
+            "num_users": signature.get("num_users"),
+            "resource_mode": signature.get("resource_mode"),
+            "manifest_id": signature.get("manifest_id"),
+            "model_hash": signature.get("model_hash"),
+            "user_profiles": [
+                cls._profile_token(user) for user in users
+            ],
+            "edge_profile": cls._profile_token(signature.get("edge") or {}),
+            "cloud_profile": cls._profile_token(signature.get("cloud") or {}),
+        }
+
+    @staticmethod
+    def _float_or_zero(value: Any) -> float:
+        try:
+            if value is None:
+                return 0.0
+            out = float(value)
+        except (TypeError, ValueError):
+            return 0.0
+        return out if np.isfinite(out) else 0.0
+
+    @classmethod
+    def _state_vector(cls, signature: dict[str, Any]) -> list[float]:
+        vector: list[float] = []
+        for user in signature.get("users") or []:
+            vector.append(cls._float_or_zero(user.get("BW_d2e")))
+            vector.append(cls._float_or_zero(user.get("f_u")))
+
+        edge = signature.get("edge") or {}
+        cloud = signature.get("cloud") or {}
+        vector.extend(
+            [
+                cls._float_or_zero(edge.get("f_e_max")),
+                cls._float_or_zero(edge.get("worker_count")),
+                cls._float_or_zero(cloud.get("f_c_max")),
+                cls._float_or_zero(cloud.get("BW_e2c")),
+                cls._float_or_zero(cloud.get("worker_count")),
+            ]
+        )
+        return vector
+
+    @staticmethod
+    def _state_distance(
+        left: list[float] | None, right: list[float] | None
+    ) -> float:
+        if left is None or right is None or len(left) != len(right):
+            return float("inf")
+        a = np.asarray(left, dtype=np.float64)
+        b = np.asarray(right, dtype=np.float64)
+        scale = np.maximum(np.maximum(np.abs(a), np.abs(b)), 1.0)
+        delta = (a - b) / scale
+        return float(np.sqrt(np.mean(delta * delta))) if delta.size else 0.0
+
+    @staticmethod
+    def _training_mode_for_distance(distance: float) -> str:
+        if distance <= DIRECT_REUSE_DISTANCE:
+            return "reuse"
+        if distance <= NEAR_WARM_START_DISTANCE:
+            return "near"
+        if distance <= MEDIUM_WARM_START_DISTANCE:
+            return "medium"
+        return "cold"
+
+    @staticmethod
     def _extract_user_ids(state: dict, n: int) -> list[int]:
         users = state.get("users") or []
         if len(users) != n:
@@ -193,6 +288,63 @@ class AlgoService:
             and np.asarray(solution.F_e).reshape(-1).shape[0] == int(paras.n)
             and np.asarray(solution.F_c).reshape(-1).shape[0] == int(paras.n)
         )
+
+    def _normalise_cached_solution(
+        self, solution: CachedSolution
+    ) -> CachedSolution:
+        if solution.compat_key is None:
+            solution.compat_key = self._compat_key(solution.state_signature)
+        if solution.state_vector is None:
+            solution.state_vector = self._state_vector(solution.state_signature)
+        return solution
+
+    def _remember_cache_entry(self, solution: CachedSolution) -> None:
+        solution = self._normalise_cached_solution(solution)
+        self._cache_entries = [
+            entry
+            for entry in self._cache_entries
+            if entry.policy_path != solution.policy_path
+            or entry.state_signature != solution.state_signature
+        ]
+        self._cache_entries.append(solution)
+        keep = max(1, int(self.config.max_cached_solutions))
+        self._cache_entries = sorted(
+            self._cache_entries, key=lambda item: item.created_at
+        )[-keep:]
+
+    def _best_cache_match(
+        self, signature: dict[str, Any], paras: Paras
+    ) -> CacheMatch | None:
+        compat_key = self._compat_key(signature)
+        vector = self._state_vector(signature)
+        candidates: list[CacheMatch] = []
+        entries = list(self._cache_entries)
+        if self._cached_solution is not None:
+            entries.append(self._cached_solution)
+
+        seen: set[tuple[str | None, float]] = set()
+        for entry in entries:
+            entry = self._normalise_cached_solution(entry)
+            key = (entry.policy_path, entry.created_at)
+            if key in seen:
+                continue
+            seen.add(key)
+            if not self._arrays_compatible(entry, paras):
+                continue
+            if entry.compat_key != compat_key:
+                continue
+            distance = self._state_distance(entry.state_vector, vector)
+            candidates.append(
+                CacheMatch(
+                    solution=entry,
+                    distance=distance,
+                    training_mode=self._training_mode_for_distance(distance),
+                    policy_path=entry.policy_path,
+                )
+            )
+        if not candidates:
+            return None
+        return min(candidates, key=lambda match: (match.distance, -match.solution.created_at))
 
     @staticmethod
     def _allocate_resources_for_xy(
@@ -224,6 +376,28 @@ class AlgoService:
             F_c=F_c,
             objective=obj,
             state_signature=copy.deepcopy(signature),
+            compat_key=self._compat_key(signature),
+            state_vector=self._state_vector(signature),
+        )
+
+    def _revalue_cached_solution(
+        self, solution: CachedSolution, paras: Paras, signature: dict[str, Any]
+    ) -> CachedSolution:
+        X = solution.X.astype(np.float32, copy=True)
+        Y = solution.Y.astype(np.float32, copy=True)
+        F_e, F_c = self._allocate_resources_for_xy(X, Y, paras)
+        obj = float(objective(X, Y, F_e, F_c, paras))
+        return CachedSolution(
+            X=X,
+            Y=Y,
+            F_e=F_e,
+            F_c=F_c,
+            objective=obj,
+            state_signature=copy.deepcopy(signature),
+            compat_key=self._compat_key(signature),
+            state_vector=self._state_vector(signature),
+            policy_path=solution.policy_path,
+            training_mode=solution.training_mode,
         )
 
     @staticmethod
@@ -463,44 +637,53 @@ class AlgoService:
         )
 
     def _solution_for_response(
-        self, paras: Paras, signature: dict[str, Any]
-    ) -> CachedSolution:
-        cached = self._cached_solution
-        if cached is None or not self._arrays_compatible(cached, paras):
-            return self._default_solution(paras, signature)
+        self,
+        paras: Paras,
+        signature: dict[str, Any],
+        match: CacheMatch | None = None,
+    ) -> tuple[CachedSolution, str]:
+        default = self._default_solution(paras, signature)
+        if match is None:
+            return default, "default"
 
-        X = cached.X.astype(np.float32, copy=True)
-        Y = cached.Y.astype(np.float32, copy=True)
-        F_e, F_c = self._allocate_resources_for_xy(X, Y, paras)
-        obj = float(objective(X, Y, F_e, F_c, paras))
-        return CachedSolution(
-            X=X,
-            Y=Y,
-            F_e=F_e,
-            F_c=F_c,
-            objective=obj,
-            state_signature=copy.deepcopy(signature),
-        )
+        warm = self._revalue_cached_solution(match.solution, paras, signature)
+        if match.solution.state_signature == signature:
+            return warm, "cached_dsci:exact"
+        if match.training_mode == "reuse":
+            return warm, f"cached_dsci:reuse:{match.distance:.6f}"
 
-    def _should_start_training(self, signature: dict[str, Any], paras: Paras) -> bool:
+        if warm.objective >= default.objective:
+            return warm, f"cached_dsci:warm:{match.distance:.6f}"
+        return default, "default"
+
+    def _should_start_training(
+        self, match: CacheMatch | None, paras: Paras
+    ) -> bool:
         if not self.config.auto_train:
             return False
         if self._training_status == "running":
             return False
-        cached = self._cached_solution
-        if cached is None or not self._arrays_compatible(cached, paras):
+        if match is None or not self._arrays_compatible(match.solution, paras):
             return True
-        return cached.state_signature != signature
+        return match.training_mode != "reuse"
 
-    def _start_training_locked(self, state: dict, signature: dict[str, Any]) -> None:
+    def _start_training_locked(
+        self,
+        state: dict,
+        signature: dict[str, Any],
+        match: CacheMatch | None = None,
+    ) -> None:
         self._training_status = "running"
         self._training_signature = copy.deepcopy(signature)
         self._last_error = None
+        self._last_training_mode = match.training_mode if match else "cold"
+        self._last_warm_start_source = match.policy_path if match else None
         train_state = copy.deepcopy(state)
         train_signature = copy.deepcopy(signature)
+        train_match = copy.deepcopy(match)
         thread = threading.Thread(
             target=self._train_background,
-            args=(train_state, train_signature),
+            args=(train_state, train_signature, train_match),
             daemon=True,
             name="DSCIBackgroundTraining",
         )
@@ -521,14 +704,13 @@ class AlgoService:
             decision_source = f"fixed_split:{s1}:{s2}"
         elif preset_mode is None:
             with self._lock:
-                cached = self._cached_solution
-                using_cache = cached is not None and self._arrays_compatible(
-                    cached, paras
+                match = self._best_cache_match(signature, paras)
+                solution, decision_source = self._solution_for_response(
+                    paras, signature, match
                 )
-                solution = self._solution_for_response(paras, signature)
-                if self._should_start_training(signature, paras):
-                    self._start_training_locked(state, signature)
-            decision_source = "cached_dsci" if using_cache else "default"
+                self._last_reuse_distance = match.distance if match else None
+                if self._should_start_training(match, paras):
+                    self._start_training_locked(state, signature, match)
         else:
             placement, early_exit = preset_mode
             solution = self._preset_solution(paras, signature, placement, early_exit)
@@ -555,11 +737,94 @@ class AlgoService:
         decision["decision_source"] = decision_source
         return decision
 
-    def _train_background(self, state: dict, signature: dict[str, Any]) -> None:
+    def _training_params(self, match: CacheMatch | None) -> dict[str, Any]:
+        params = self._ppo_params()
+        custom = self.config.custom_ppo_hyperparams or {}
+        if "outer_ema" not in custom:
+            params["outer_ema"] = float(self.config.outer_ema)
+
+        mode = match.training_mode if match else "cold"
+        if mode == "near":
+            params.update(
+                {
+                    "max_epochs": 30,
+                    "min_epochs": 8,
+                    "target_steps": 400,
+                    "k_epochs": 5,
+                    "lr": 5e-5,
+                    "entropy_coef": 0.003,
+                    "outer_ema": 1.0,
+                }
+            )
+        elif mode == "medium":
+            params.update(
+                {
+                    "max_epochs": 80,
+                    "min_epochs": 20,
+                    "target_steps": 800,
+                    "k_epochs": 8,
+                    "lr": 8e-5,
+                    "entropy_coef": 0.006,
+                    "outer_ema": 0.5,
+                }
+            )
+        return params
+
+    def _load_warm_policy(
+        self, agent: PPOAgent, match: CacheMatch | None
+    ) -> tuple[str, str | None]:
+        if match is not None and match.training_mode in {"near", "medium"}:
+            policy_path = match.policy_path
+            if policy_path:
+                try:
+                    agent.load_checkpoint(policy_path)
+                    return match.training_mode, policy_path
+                except Exception as exc:
+                    self._last_error = f"Warm-start policy load failed: {exc}"
+
+        if self.config.checkpoint_path:
+            try:
+                agent.load_checkpoint(self.config.checkpoint_path)
+                return "checkpoint", str(self.config.checkpoint_path)
+            except Exception as exc:
+                self._last_error = f"Checkpoint policy load failed: {exc}"
+
+        return "cold", None
+
+    @staticmethod
+    def _initial_solution_from_match(
+        match: CacheMatch | None,
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray] | None:
+        if match is None or match.training_mode not in {"near", "medium"}:
+            return None
+        sol = match.solution
+        return (
+            sol.X.astype(np.float32, copy=True),
+            sol.Y.astype(np.float32, copy=True),
+            sol.F_e.astype(np.float32, copy=True),
+            sol.F_c.astype(np.float32, copy=True),
+        )
+
+    def _train_background(
+        self,
+        state: dict,
+        signature: dict[str, Any],
+        match: CacheMatch | None = None,
+    ) -> None:
         try:
             paras = to_paras(state)
-            agent = PPOAgent(paras, self._ppo_params())
-            best_val, best_sol, _history = agent.train()
+            params = self._training_params(match)
+            agent = PPOAgent(paras, params)
+            training_mode, policy_source = self._load_warm_policy(agent, match)
+            if training_mode not in {"near", "medium"} and match is not None:
+                params = self._training_params(None)
+                agent = PPOAgent(paras, params)
+                training_mode, policy_source = self._load_warm_policy(agent, None)
+                match = None
+            initial_solution = self._initial_solution_from_match(match)
+            best_val, best_sol, _history = agent.train(
+                initial_solution=initial_solution
+            )
             if best_sol is None:
                 raise RuntimeError("DSCI training returned no solution")
 
@@ -571,16 +836,28 @@ class AlgoService:
                 F_c=np.asarray(F_c, dtype=np.float32).reshape(paras.n, 1),
                 objective=float(best_val),
                 state_signature=copy.deepcopy(signature),
+                compat_key=self._compat_key(signature),
+                state_vector=self._state_vector(signature),
+                training_mode=training_mode,
             )
 
             with self._lock:
                 self._cached_solution = solution
+                self._remember_cache_entry(solution)
                 self._training_status = "idle"
                 self._training_signature = None
+                self._last_training_mode = training_mode
+                self._last_warm_start_source = policy_source
                 self._update_epoch += 1
 
             try:
-                self._save_latest_solution(solution)
+                policy_state = agent.best_policy_state_dict or {
+                    k: v.detach().cpu().clone()
+                    for k, v in agent.policy.state_dict().items()
+                }
+                self._save_latest_solution(
+                    solution, policy_state_dict=policy_state, training_mode=training_mode
+                )
             except Exception as exc:  # pragma: no cover - filesystem dependent
                 with self._lock:
                     self._training_status = "error"
@@ -591,7 +868,13 @@ class AlgoService:
                 self._training_signature = None
                 self._last_error = str(exc)
 
-    def _save_latest_solution(self, solution: CachedSolution) -> None:
+    def _save_latest_solution(
+        self,
+        solution: CachedSolution,
+        *,
+        policy_state_dict: dict[str, Any] | None = None,
+        training_mode: str | None = None,
+    ) -> None:
         solution_path = Path(self.config.latest_solution_path)
         meta_path = Path(self.config.latest_meta_path)
         solution_path.parent.mkdir(parents=True, exist_ok=True)
@@ -600,15 +883,34 @@ class AlgoService:
         timestamp = f"{timestamp}{int((time.time() % 1) * 1000):03d}"
         archived_solution = solution_path.with_name(f"solution_{timestamp}.npz")
         archived_meta = meta_path.with_name(f"solution_{timestamp}_meta.json")
+        archived_policy = solution_path.with_name(f"solution_{timestamp}_policy.pt")
+        latest_policy = solution_path.with_name(f"{solution_path.stem}_policy.pt")
+
+        solution.compat_key = self._compat_key(solution.state_signature)
+        solution.state_vector = self._state_vector(solution.state_signature)
+        solution.training_mode = training_mode or solution.training_mode
+        if policy_state_dict is not None:
+            torch.save(policy_state_dict, archived_policy)
+            torch.save(policy_state_dict, latest_policy)
+            solution.policy_path = str(archived_policy)
 
         meta = {
             "state_signature": solution.state_signature,
+            "compat_key": solution.compat_key,
+            "state_vector": solution.state_vector,
             "objective": float(solution.objective),
             "created_at": float(solution.created_at),
+            "policy_path": str(archived_policy) if policy_state_dict is not None else solution.policy_path,
+            "training_mode": solution.training_mode,
             "saved_at": time.time(),
         }
         self._write_solution_pair(archived_solution, archived_meta, solution, meta)
-        self._write_solution_pair(solution_path, meta_path, solution, meta)
+
+        latest_meta = dict(meta)
+        latest_meta["policy_path"] = (
+            str(latest_policy) if policy_state_dict is not None else solution.policy_path
+        )
+        self._write_solution_pair(solution_path, meta_path, solution, latest_meta)
         self._prune_archived_solutions(solution_path.parent)
 
     @staticmethod
@@ -641,9 +943,11 @@ class AlgoService:
         for solution_path in stale:
             stem = solution_path.stem
             meta_path = solution_path.with_name(f"{stem}_meta.json")
+            policy_path = solution_path.with_name(f"{stem}_policy.pt")
             try:
                 solution_path.unlink(missing_ok=True)
                 meta_path.unlink(missing_ok=True)
+                policy_path.unlink(missing_ok=True)
             except OSError:
                 pass
 
@@ -654,25 +958,57 @@ class AlgoService:
             return
 
         try:
-            with open(meta_path, "r", encoding="utf-8") as f:
-                meta = json.load(f)
-            signature_model = meta.get("state_signature", {}).get("model", {})
-            if "bundle_id" not in signature_model:
-                raise ValueError("Legacy solution cache without bundle_id is not supported")
-            data = np.load(solution_path, allow_pickle=False)
-            self._cached_solution = CachedSolution(
-                X=np.asarray(data["X"], dtype=np.float32),
-                Y=np.asarray(data["Y"], dtype=np.float32),
-                F_e=np.asarray(data["F_e"], dtype=np.float32),
-                F_c=np.asarray(data["F_c"], dtype=np.float32),
-                objective=float(meta.get("objective", data["objective"])),
-                state_signature=meta["state_signature"],
-                created_at=float(meta.get("created_at", time.time())),
-            )
+            solution = self._load_solution_pair(solution_path, meta_path)
+            self._cached_solution = solution
+            self._remember_cache_entry(solution)
         except Exception as exc:
             self._cached_solution = None
             self._training_status = "error"
             self._last_error = f"Failed to load latest solution: {exc}"
+
+    def _load_archived_solutions(self) -> None:
+        cache_dir = Path(self.config.latest_solution_path).parent
+        if not cache_dir.exists():
+            return
+        for solution_path in sorted(cache_dir.glob("solution_*.npz")):
+            meta_path = solution_path.with_name(f"{solution_path.stem}_meta.json")
+            if not meta_path.exists():
+                continue
+            try:
+                self._remember_cache_entry(
+                    self._load_solution_pair(solution_path, meta_path)
+                )
+            except Exception:
+                continue
+
+    def _load_solution_pair(
+        self, solution_path: Path, meta_path: Path
+    ) -> CachedSolution:
+        with open(meta_path, "r", encoding="utf-8") as f:
+            meta = json.load(f)
+        signature = meta["state_signature"]
+        signature_model = signature.get("model", {})
+        if "bundle_id" not in signature_model:
+            raise ValueError("Legacy solution cache without bundle_id is not supported")
+        data = np.load(solution_path, allow_pickle=False)
+        policy_path = meta.get("policy_path")
+        if policy_path and not Path(policy_path).exists():
+            fallback = solution_path.with_name(f"{solution_path.stem}_policy.pt")
+            policy_path = str(fallback) if fallback.exists() else None
+        solution = CachedSolution(
+            X=np.asarray(data["X"], dtype=np.float32),
+            Y=np.asarray(data["Y"], dtype=np.float32),
+            F_e=np.asarray(data["F_e"], dtype=np.float32),
+            F_c=np.asarray(data["F_c"], dtype=np.float32),
+            objective=float(meta.get("objective", data["objective"])),
+            state_signature=signature,
+            created_at=float(meta.get("created_at", time.time())),
+            compat_key=meta.get("compat_key"),
+            state_vector=meta.get("state_vector"),
+            policy_path=policy_path,
+            training_mode=meta.get("training_mode"),
+        )
+        return self._normalise_cached_solution(solution)
 
     def report_measurements(self, payload: dict) -> dict[str, Any]:
         """Ingest deploy measurements without online PPO buffer updates."""
@@ -702,6 +1038,11 @@ class AlgoService:
                 "has_cached_solution": cached is not None,
                 "cached_state_signature": cached.state_signature if cached else None,
                 "cached_objective": float(cached.objective) if cached else None,
+                "cache_entries": len(self._cache_entries),
+                "last_reuse_distance": self._last_reuse_distance,
+                "last_training_mode": self._last_training_mode,
+                "last_warm_start_source": self._last_warm_start_source,
+                "policy_cache_enabled": True,
                 "fixed_split": self.config.fixed_split,
                 "fixed_threshold": self.config.fixed_threshold,
                 "last_error": self._last_error,

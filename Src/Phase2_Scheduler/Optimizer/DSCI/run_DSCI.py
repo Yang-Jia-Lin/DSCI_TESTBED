@@ -27,6 +27,9 @@ _DEFAULT_PPO_PARAMS: dict[str, Any] = {
     "grad_clip": 0.5,
     "obj_scale": 1000.0,
     "outer_ema": 0.02,
+    "min_epochs": 100,
+    "patience": 20,
+    "rel_tolerance": 1e-4,
 }
 
 
