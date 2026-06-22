@@ -85,7 +85,9 @@ class MultiExitResNet(nn.Module):
         }
         self.exit_heads = nn.ModuleDict(
             {
-                item.exit_id: nn.Linear(channels[item.attach_point], num_classes)
+                item.exit_id: nn.Linear(
+                    channels[item.attach_point.split(".")[0]], num_classes
+                )
                 for item in exits
             }
         )
@@ -115,7 +117,9 @@ class MultiExitResNet(nn.Module):
         features = {}
         x = self.maxpool(self.relu(self.bn1(self.conv1(x))))
         for name in ("layer1", "layer2", "layer3", "layer4"):
-            x = getattr(self, name)(x)
+            for index, block in enumerate(getattr(self, name)):
+                x = block(x)
+                features[f"{name}.{index}"] = x
             features[name] = x
         return features
 
@@ -130,6 +134,7 @@ def build_model(bundle: ModelBundleSpec) -> MultiExitResNet:
     architectures = {
         "resnet18": (BasicBlock, (2, 2, 2, 2)),
         "resnet50": (Bottleneck, (3, 4, 6, 3)),
+        "resnet101": (Bottleneck, (3, 4, 23, 3)),
     }
     try:
         block, blocks = architectures[bundle.architecture]

@@ -51,6 +51,14 @@ def build_dataset(
     raise ValueError(f"Unsupported dataset_id: {bundle.dataset_id}")
 
 
-def build_loader(bundle: ModelBundleSpec, split: str, *, batch_size=64, num_workers=0, data_root=None):
-    dataset = build_dataset(bundle, split, data_root=data_root)
+def build_loader(
+    bundle: ModelBundleSpec,
+    split: str,
+    *,
+    batch_size=64,
+    num_workers=0,
+    data_root=None,
+    download=False,
+):
+    dataset = build_dataset(bundle, split, data_root=data_root, download=download)
     return DataLoader(dataset, batch_size=batch_size, shuffle=split == "train", num_workers=num_workers)

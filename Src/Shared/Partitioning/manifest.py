@@ -201,8 +201,10 @@ def build_partition_manifest(
             )
             boundaries.append(boundary_record(end, name, output_name, x))
             layer_name = name.split(".")[0]
-            if "." in name and name == f"{layer_name}.{len(getattr(model, layer_name)) - 1}":
-                attach_boundaries[layer_name] = end
+            if "." in name:
+                attach_boundaries[name] = end
+                if name == f"{layer_name}.{len(getattr(model, layer_name)) - 1}":
+                    attach_boundaries[layer_name] = end
 
     exits = tuple(
         {

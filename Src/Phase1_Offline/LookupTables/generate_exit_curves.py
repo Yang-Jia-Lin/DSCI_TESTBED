@@ -17,6 +17,7 @@ def main(argv=None):
     parser.add_argument("--data-root")
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--overwrite", action="store_true")
+    parser.add_argument("--download", action="store_true")
     args = parser.parse_args(argv)
     bundle = get_bundle(args.bundle_id)
     paths = bundle_paths(bundle.bundle_id)
@@ -26,7 +27,9 @@ def main(argv=None):
     model = build_model(bundle).to(device)
     model.load_state_dict(torch.load(paths.weight_path, map_location=device, weights_only=True))
     model.eval()
-    loader = build_loader(bundle, "val", batch_size=args.batch_size, data_root=args.data_root)
+    loader = build_loader(
+        bundle, "val", batch_size=args.batch_size, data_root=args.data_root, download=args.download
+    )
     confidences = {item.exit_id: [] for item in bundle.exits}
     correct = {item.exit_id: [] for item in bundle.exits}
     final_correct = []
@@ -44,14 +47,46 @@ def main(argv=None):
     for index in range(101):
         threshold = index / 100
         row = {"threshold": threshold, "final_accuracy": 100 * sum(final_correct) / len(final_correct)}
+        sequential_counts = {item.exit_id: 0 for item in bundle.exits}
+        sequential_correct = {item.exit_id: 0 for item in bundle.exits}
+        final_count = 0
+        total_correct = 0
         for item in bundle.exits:
             mask = [value >= threshold for value in confidences[item.exit_id]]
             row[f"{item.exit_id}_rate"] = 100 * sum(mask) / len(mask)
             selected = [ok for ok, keep in zip(correct[item.exit_id], mask) if keep]
             row[f"{item.exit_id}_accuracy"] = 100 * sum(selected) / max(len(selected), 1)
+        for sample_index, final_ok in enumerate(final_correct):
+            chosen_exit = None
+            for item in bundle.exits:
+                if confidences[item.exit_id][sample_index] >= threshold:
+                    chosen_exit = item.exit_id
+                    break
+            if chosen_exit is None:
+                final_count += 1
+                total_correct += int(final_ok)
+            else:
+                sequential_counts[chosen_exit] += 1
+                ok = correct[chosen_exit][sample_index]
+                sequential_correct[chosen_exit] += int(ok)
+                total_correct += int(ok)
+        for item in bundle.exits:
+            count = sequential_counts[item.exit_id]
+            row[f"{item.exit_id}_sequential_rate"] = 100 * count / len(final_correct)
+            row[f"{item.exit_id}_sequential_accuracy"] = (
+                100 * sequential_correct[item.exit_id] / count if count else 0.0
+            )
+        row["final_rate"] = 100 * final_count / len(final_correct)
+        row["overall_accuracy"] = 100 * total_correct / len(final_correct)
         rows.append(row)
     paths.root.mkdir(parents=True, exist_ok=True)
-    pd.DataFrame(rows).to_csv(paths.offline_table_path, index=False)
+    frame = pd.DataFrame(rows)
+    frame.to_csv(paths.offline_table_path, index=False)
+    paths.analysis_root.mkdir(parents=True, exist_ok=True)
+    analysis_path = paths.analysis_root / "threshold_curves.csv"
+    frame.to_csv(analysis_path, index=False)
+    print(f"Saved exit curves: {paths.offline_table_path}")
+    print(f"Saved analysis copy: {analysis_path}")
 
 
 if __name__ == "__main__":

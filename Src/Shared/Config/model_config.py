@@ -51,13 +51,24 @@ _EXITS = (
     ExitSpec("after_layer2", "layer2"),
     ExitSpec("after_layer3", "layer3"),
 )
+_RESNET101_EXITS = (
+    ExitSpec("after_layer3_block5", "layer3.4"),
+    ExitSpec("after_layer3_block10", "layer3.9"),
+    ExitSpec("after_layer3_block15", "layer3.14"),
+    ExitSpec("after_layer3_block20", "layer3.19"),
+    ExitSpec("after_layer4", "layer4"),
+)
 
 
-def _bundle(architecture: str, dataset: dict) -> ModelBundleSpec:
+def _bundle(
+    architecture: str,
+    dataset: dict,
+    exits: tuple[ExitSpec, ...] = _EXITS,
+) -> ModelBundleSpec:
     return ModelBundleSpec(
         bundle_id=f"{architecture.lower()}-{dataset['dataset_id']}-ee-v1",
         architecture=architecture.lower(),
-        exits=_EXITS,
+        exits=exits,
         **dataset,
     )
 
@@ -67,8 +78,10 @@ BUNDLE_REGISTRY: dict[str, ModelBundleSpec] = {
     for spec in (
         _bundle("resnet18", _CIFAR10),
         _bundle("resnet50", _CIFAR10),
+        _bundle("resnet101", _CIFAR10, _RESNET101_EXITS),
         _bundle("resnet18", _IMAGENET100),
         _bundle("resnet50", _IMAGENET100),
+        _bundle("resnet101", _IMAGENET100, _RESNET101_EXITS),
     )
 }
 
