@@ -39,6 +39,10 @@ class TestbedConfig:
     def algo_decision_url(self) -> str:
         return f"http://{self.algo_host}:{self.algo_server_port}/api/v1/decision"
 
+    @property
+    def algo_base_url(self) -> str:
+        return f"http://{self.algo_host}:{self.algo_server_port}"
+
 
 DEFAULT = TestbedConfig()
 

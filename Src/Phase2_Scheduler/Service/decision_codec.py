@@ -161,6 +161,8 @@ def encode(
 
     result = {
         "decision_id": decision_id or "unknown",
+        "round_id": decision_id or "unknown",
+        "decision_version": 1,
         "bundle_id": bundle_id,
         "num_users": n,
         "num_layers": m,

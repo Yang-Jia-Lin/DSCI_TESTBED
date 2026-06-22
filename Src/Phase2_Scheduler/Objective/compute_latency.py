@@ -423,8 +423,12 @@ if __name__ == "__main__":
 
     # 2. 准备输入数据
     X = np.zeros((n, m))
-    X[0][50] = 1
-    X[0][100] = 1
+    if m < 3:
+        raise ValueError("Latency debug block requires at least three boundaries")
+    debug_cut0 = min(max(1, m // 3), m - 2)
+    debug_cut1 = min(max(debug_cut0 + 1, (2 * m) // 3), m - 1)
+    X[0][debug_cut0] = 1
+    X[0][debug_cut1] = 1
 
     Y = np.ones((n, m))
     # Set thresholds only at boundaries listed in paras.E.

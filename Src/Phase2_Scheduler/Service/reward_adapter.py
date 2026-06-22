@@ -88,14 +88,17 @@ def validate_measurements(
 
 
 def compute_user_reward(
-    is_correct: bool,
+    is_correct: bool | float,
     t_total: float,
     *,
     alpha: float,
     beta: float,
 ) -> float:
     """reward_i = alpha * is_correct_i - beta * T_total_i"""
-    return float(alpha) * float(bool(is_correct)) - float(beta) * float(t_total)
+    accuracy = float(is_correct)
+    if not (0.0 <= accuracy <= 1.0):
+        raise RewardAdapterError(f"is_correct/accuracy must be in [0, 1], got {accuracy}")
+    return float(alpha) * accuracy - float(beta) * float(t_total)
 
 
 def compute_round_reward(
@@ -126,7 +129,7 @@ def compute_round_reward(
     for m in records:
         per_user.append(
             compute_user_reward(
-                bool(m["is_correct"]),
+                m["is_correct"],
                 float(m["T_total"]),
                 alpha=float(alpha),
                 beta=float(beta),

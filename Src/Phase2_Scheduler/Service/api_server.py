@@ -1,8 +1,17 @@
 """Flask HTTP server for testbed deploy ↔ algorithm communication."""
 
+import os
+
+import requests
+
 from Src.Phase2_Scheduler.Service.algo_service import AlgoService, AlgoServiceConfig
 from Src.Phase2_Scheduler.Service.decision_codec import DecisionCodecError
 from Src.Phase2_Scheduler.Service.reward_adapter import RewardAdapterError
+from Src.Phase2_Scheduler.Service.round_coordinator import (
+    RoundConflictError,
+    RoundCoordinator,
+    RoundCoordinatorError,
+)
 from Src.Phase2_Scheduler.Service.state_adapter import to_paras
 from Src.Shared.Config.deploy_config import DEFAULT as TESTBED_CFG
 from Src.Shared.Config.model_config import require_bundle_id
@@ -15,10 +24,34 @@ except ImportError as exc:  # pragma: no cover
     ) from exc
 
 
-def create_app(service: AlgoService | None = None) -> Flask:
+def _node_state_provider() -> tuple[dict, dict]:
+    edge_response = requests.get(
+        f"http://{TESTBED_CFG.edge_host}:{TESTBED_CFG.edge_status_port}/status",
+        timeout=10,
+    )
+    cloud_response = requests.get(
+        f"http://{TESTBED_CFG.cloud_host}:{TESTBED_CFG.cloud_status_port}/status",
+        timeout=10,
+    )
+    edge_response.raise_for_status()
+    cloud_response.raise_for_status()
+    edge = edge_response.json()
+    cloud = cloud_response.json()
+    return edge, {**cloud, "BW_e2c": edge["BW_e2c"]}
+
+
+def create_app(
+    service: AlgoService | None = None,
+    coordinator: RoundCoordinator | None = None,
+) -> Flask:
     """Create Flask app wired to a shared :class:`AlgoService`."""
     app = Flask(__name__)
     svc = service or AlgoService()
+    rounds = coordinator or RoundCoordinator(
+        svc,
+        expected_users=int(os.environ.get("DSCI_EXPECTED_USERS", TESTBED_CFG.num_users)),
+        node_state_provider=_node_state_provider,
+    )
 
     @app.route("/api/v1/health", methods=["GET"])
     def health():
@@ -58,6 +91,63 @@ def create_app(service: AlgoService | None = None) -> Flask:
             return _error(str(exc), 400)
         except Exception as exc:  # pragma: no cover
             return _error(f"Internal error: {exc}", 500)
+
+    @app.route("/api/v2/rounds/<round_id>/devices/register", methods=["POST"])
+    def register_device(round_id: str):
+        payload = request.get_json(silent=True)
+        try:
+            return jsonify(rounds.register(round_id, payload))
+        except RoundCoordinatorError as exc:
+            return _error(str(exc), 400)
+        except RoundConflictError as exc:
+            return _error(str(exc), 409)
+        except Exception as exc:  # pragma: no cover
+            return _error(f"Internal error: {exc}", 500)
+
+    @app.route(
+        "/api/v2/rounds/<round_id>/devices/<int:user_id>/heartbeat",
+        methods=["POST"],
+    )
+    def heartbeat(round_id: str, user_id: int):
+        try:
+            return jsonify(rounds.heartbeat(round_id, user_id))
+        except RoundCoordinatorError as exc:
+            return _error(str(exc), 404)
+        except RoundConflictError as exc:
+            return _error(str(exc), 409)
+
+    @app.route(
+        "/api/v2/rounds/<round_id>/decisions/<int:user_id>", methods=["GET"]
+    )
+    def get_user_decision(round_id: str, user_id: int):
+        try:
+            decision = rounds.decision_for_user(round_id, user_id)
+            if decision is None:
+                return jsonify(rounds.status(round_id)), 202
+            return jsonify(decision)
+        except RoundCoordinatorError as exc:
+            return _error(str(exc), 404)
+        except RoundConflictError as exc:
+            return _error(str(exc), 409)
+
+    @app.route(
+        "/api/v2/rounds/<round_id>/measurements/<int:user_id>", methods=["POST"]
+    )
+    def report_user_measurements(round_id: str, user_id: int):
+        payload = request.get_json(silent=True)
+        try:
+            return jsonify(rounds.submit_measurements(round_id, user_id, payload))
+        except RoundCoordinatorError as exc:
+            return _error(str(exc), 400)
+        except RoundConflictError as exc:
+            return _error(str(exc), 409)
+
+    @app.route("/api/v2/rounds/<round_id>/status", methods=["GET"])
+    def round_status(round_id: str):
+        try:
+            return jsonify(rounds.status(round_id))
+        except RoundCoordinatorError as exc:
+            return _error(str(exc), 404)
 
     return app
 
@@ -147,10 +237,11 @@ def run_server(
     host: str = TESTBED_CFG.listen_host,
     port: int | None = None,
     service: AlgoService | None = None,
+    coordinator: RoundCoordinator | None = None,
     debug: bool = False,
 ) -> None:
     """Blocking entrypoint for the testbed algorithm HTTP server."""
-    app = create_app(service)
+    app = create_app(service, coordinator)
     listen_port = int(port if port is not None else TESTBED_CFG.algo_server_port)
     app.run(host=host, port=listen_port, debug=debug, threaded=True)
 
@@ -185,6 +276,11 @@ if __name__ == "__main__":
     parser.add_argument("--host", default=TESTBED_CFG.listen_host)
     parser.add_argument("--port", type=int, default=None)
     parser.add_argument(
+        "--expected-users",
+        type=int,
+        default=int(os.environ.get("DSCI_EXPECTED_USERS", TESTBED_CFG.num_users)),
+    )
+    parser.add_argument(
         "--fixed-split",
         nargs=2,
         type=int,
@@ -212,9 +308,15 @@ if __name__ == "__main__":
         fixed_split=tuple(args.fixed_split) if args.fixed_split else None,
         fixed_threshold=args.fixed_threshold,
     )
+    coordinator = RoundCoordinator(
+        service,
+        expected_users=args.expected_users,
+        node_state_provider=_node_state_provider,
+    )
     run_server(
         host=args.host,
         port=args.port,
         service=service,
+        coordinator=coordinator,
         debug=args.debug,
     )

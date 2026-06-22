@@ -9,17 +9,29 @@ import time
 from flask import Flask, jsonify
 
 from Src.Phase3_Runtime.Shared.fixed_worker_pool import FixedWorkerPool, WorkerPoolConfig
-from Src.Phase3_Runtime.Shared.segment_worker import (
-    execute_mnn_range,
+from Src.Phase3_Runtime.Shared.mnn_segment_worker import execute_mnn_range, init_mnn_worker
+from Src.Phase3_Runtime.Shared.pytorch_segment_worker import (
     execute_pytorch_range,
-    init_mnn_worker,
     init_pytorch_worker,
 )
+from Src.Phase3_Runtime.Shared.request_identity import request_identity
 from Src.Phase3_Runtime.Shared.socket_server import serve_requests
 from Src.Shared.Config.deploy_config import DEFAULT as TESTBED_CFG
 from Src.Shared.Config.model_config import get_bundle
 from Src.Shared.Partitioning.manifest import load_partition_manifest
 from Src.Shared.Profiles.segment_profile import segment_profile_state
+
+
+def _validate_cloud_request(payload: dict, state: dict, manifest) -> int:
+    if payload.get("bundle_id") != state["bundle_id"]:
+        raise ValueError("Request bundle_id does not match Cloud runtime")
+    if payload.get("manifest_id") != state["manifest_id"]:
+        raise ValueError("Request manifest_id does not match Cloud runtime")
+    if payload.get("model_hash") != state["model_hash"]:
+        raise ValueError("Request model_hash does not match Cloud runtime")
+    boundary_id = int(payload["boundary_id"])
+    manifest.validate_range(boundary_id, manifest.final_boundary_id)
+    return boundary_id
 
 
 def main(argv=None):
@@ -44,24 +56,23 @@ def main(argv=None):
 
     @status_app.route("/status")
     def status():
-        return jsonify({**state, **pool.state()})
+        current = {**state, **pool.state()}
+        current.setdefault("BW_e2c", TESTBED_CFG.default_bw_e2c)
+        return jsonify(current)
 
     def handle(payload):
-        if payload.get("bundle_id") != state["bundle_id"]:
-            raise ValueError("Request bundle_id does not match Cloud runtime")
-        if payload.get("manifest_id") != state["manifest_id"]:
-            raise ValueError("Request manifest_id does not match Cloud runtime")
-        if payload.get("model_hash") != state["model_hash"]:
-            raise ValueError("Request model_hash does not match Cloud runtime")
+        identity = request_identity(payload)
+        boundary_id = _validate_cloud_request(payload, state, manifest)
         node_started = time.perf_counter()
         result = pool.submit(
-            int(payload["boundary_id"]),
+            boundary_id,
             manifest.final_boundary_id,
             payload["tensors"],
             payload.get("meta", {}).get("exit_thresholds", {}),
         ).result()
         return {
             **result,
+            **identity,
             "exit_location": "cloud",
             "T_compute_cloud": float(result.get("T_compute_s", 0.0)),
             "T_node_cloud": time.perf_counter() - node_started,

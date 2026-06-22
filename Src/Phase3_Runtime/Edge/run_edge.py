@@ -10,12 +10,12 @@ from flask import Flask, jsonify
 
 from Src.Phase3_Runtime.Device.comm import send_tensor
 from Src.Phase3_Runtime.Shared.fixed_worker_pool import FixedWorkerPool, WorkerPoolConfig
-from Src.Phase3_Runtime.Shared.segment_worker import (
-    execute_mnn_range,
+from Src.Phase3_Runtime.Shared.mnn_segment_worker import execute_mnn_range, init_mnn_worker
+from Src.Phase3_Runtime.Shared.pytorch_segment_worker import (
     execute_pytorch_range,
-    init_mnn_worker,
     init_pytorch_worker,
 )
+from Src.Phase3_Runtime.Shared.request_identity import request_identity
 from Src.Phase3_Runtime.Shared.socket_server import serve_requests
 from Src.Shared.Config.deploy_config import DEFAULT as TESTBED_CFG
 from Src.Shared.Config.model_config import get_bundle
@@ -25,9 +25,8 @@ from Src.Shared.Profiles.segment_profile import segment_profile_state
 
 def create_runtime(bundle_id: str, backend: str):
     state = segment_profile_state("edge", backend, bundle_id)
-    state["final_boundary_id"] = load_partition_manifest(
-        state["bundle_id"]
-    ).final_boundary_id
+    manifest = load_partition_manifest(state["bundle_id"])
+    state["final_boundary_id"] = manifest.final_boundary_id
     config = WorkerPoolConfig(
         worker_count=int(state["worker_count"]),
         threads_per_worker=int(state["threads_per_worker"]),
@@ -38,7 +37,21 @@ def create_runtime(bundle_id: str, backend: str):
     pool = FixedWorkerPool(
         config, fn, initializer=initializer, initargs=(state["bundle_id"],)
     )
-    return state, pool
+    return state, pool, manifest
+
+
+def _validate_edge_request(payload: dict, state: dict, manifest) -> tuple[dict, int, int]:
+    if payload.get("bundle_id") != state["bundle_id"]:
+        raise ValueError("Request bundle_id does not match Edge runtime")
+    if payload.get("manifest_id") != state["manifest_id"]:
+        raise ValueError("Request manifest_id does not match Edge runtime")
+    if payload.get("model_hash") != state["model_hash"]:
+        raise ValueError("Request model_hash does not match Edge runtime")
+    meta = payload["meta"]
+    b1 = int(payload["boundary_id"])
+    b2 = int(meta["partition_boundary_2"])
+    manifest.validate_boundary_pair(b1, b2)
+    return meta, b1, b2
 
 
 def main(argv=None):
@@ -47,7 +60,7 @@ def main(argv=None):
     parser.add_argument("--backend", choices=("pytorch", "mnn"), default="pytorch")
     args = parser.parse_args(argv)
     bundle = get_bundle(args.bundle_id)
-    state, pool = create_runtime(bundle.bundle_id, args.backend)
+    state, pool, manifest = create_runtime(bundle.bundle_id, args.backend)
     status_app = Flask(__name__)
 
     @status_app.route("/status")
@@ -57,15 +70,8 @@ def main(argv=None):
         return jsonify(current)
 
     def handle(payload):
-        if payload.get("bundle_id") != state["bundle_id"]:
-            raise ValueError("Request bundle_id does not match Edge runtime")
-        if payload.get("manifest_id") != state["manifest_id"]:
-            raise ValueError("Request manifest_id does not match Edge runtime")
-        if payload.get("model_hash") != state["model_hash"]:
-            raise ValueError("Request model_hash does not match Edge runtime")
-        meta = payload["meta"]
-        b1 = int(payload["boundary_id"])
-        b2 = int(meta["partition_boundary_2"])
+        identity = request_identity(payload)
+        meta, b1, b2 = _validate_edge_request(payload, state, manifest)
         node_started = time.perf_counter()
         result = pool.submit(
             b1, b2, payload["tensors"], meta.get("exit_thresholds", {})
@@ -74,6 +80,7 @@ def main(argv=None):
         if result.get("prediction") is not None:
             return {
                 **result,
+                **identity,
                 "exit_location": "edge",
                 "T_compute_edge": float(result.get("T_compute_s", 0.0)),
                 "T_node_edge": t_node_edge,
@@ -81,11 +88,13 @@ def main(argv=None):
         if b2 == int(state.get("final_boundary_id", -1)):
             return {
                 **result,
+                **identity,
                 "exit_location": "edge",
                 "T_compute_edge": float(result.get("T_compute_s", 0.0)),
                 "T_node_edge": t_node_edge,
             }
         cloud_payload = {
+            **identity,
             "bundle_id": state["bundle_id"],
             "manifest_id": state["manifest_id"],
             "model_hash": state["model_hash"],
@@ -100,6 +109,7 @@ def main(argv=None):
         cloud["T_edge_cloud_roundtrip"] = time.perf_counter() - tx_started
         return {
             **cloud,
+            **identity,
             "T_compute_edge": float(result.get("T_compute_s", 0.0)),
             "T_node_edge": t_node_edge,
         }
