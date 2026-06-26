@@ -153,7 +153,13 @@ def main(argv=None):
         ),
         daemon=True,
     ).start()
-    serve_requests(TESTBED_CFG.listen_host, TESTBED_CFG.edge_feature_port, handle)
+    try:
+        serve_requests(TESTBED_CFG.listen_host, TESTBED_CFG.edge_feature_port, handle)
+    except KeyboardInterrupt:
+        print("[edge] shutdown requested")
+    finally:
+        pool.shutdown(wait=False)
+        print("[edge] worker pool shutdown requested")
 
 
 if __name__ == "__main__":

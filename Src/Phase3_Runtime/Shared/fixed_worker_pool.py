@@ -80,5 +80,5 @@ class FixedWorkerPool:
                 "inflight_requests": self._inflight,
             }
 
-    def shutdown(self) -> None:
-        self._executor.shutdown(wait=True, cancel_futures=True)
+    def shutdown(self, *, wait: bool = True) -> None:
+        self._executor.shutdown(wait=wait, cancel_futures=True)
