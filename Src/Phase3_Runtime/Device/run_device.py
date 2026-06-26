@@ -18,13 +18,23 @@ from Src.Shared.Data.registry import build_loader, build_test_package_loader
 from Src.Shared.Profiles.segment_profile import segment_profile_state
 
 
-def collect_device_state(bundle_id: str, backend: str):
+def collect_device_state(
+    bundle_id: str,
+    backend: str,
+    *,
+    bw_d2e_override: float | None = None,
+):
     device = segment_profile_state("device", backend, bundle_id)
+    bw_d2e = (
+        float(bw_d2e_override)
+        if bw_d2e_override is not None
+        else measure_bandwidth_iperf(
+            TESTBED_CFG.edge_host, TESTBED_CFG.edge_iperf_port
+        )
+    )
     return {
         **device,
-        "BW_d2e": measure_bandwidth_iperf(
-            TESTBED_CFG.edge_host, TESTBED_CFG.edge_iperf_port
-        ),
+        "BW_d2e": bw_d2e,
     }
 
 
@@ -100,9 +110,18 @@ def _print_measurement_summary(measurements: list[dict], *, correct: int, total:
         print(f"{key}_avg_ms={mean_ms:.3f}")
 
 
-def collect_state(bundle_id: str, backend: str):
+def collect_state(
+    bundle_id: str,
+    backend: str,
+    *,
+    bw_d2e_override: float | None = None,
+):
     """Backward-compatible one-user v1 state builder."""
-    device = collect_device_state(bundle_id, backend)
+    device = collect_device_state(
+        bundle_id,
+        backend,
+        bw_d2e_override=bw_d2e_override,
+    )
     edge = requests.get(
         f"http://{TESTBED_CFG.edge_host}:{TESTBED_CFG.edge_status_port}/status", timeout=10
     ).json()
@@ -165,10 +184,20 @@ def main(argv=None):
     parser.add_argument("--test-samples", type=int)
     parser.add_argument("--heartbeat-interval", type=float, default=5.0)
     parser.add_argument("--decision-timeout", type=float, default=90.0)
+    parser.add_argument(
+        "--override-bw-d2e",
+        type=float,
+        help="Use this Device->Edge bandwidth in Mbps instead of iperf.",
+    )
     args = parser.parse_args(argv)
     bundle = get_bundle(args.bundle_id)
     test_package_root = _resolve_test_package_root(bundle, args)
-    device = collect_device_state(bundle.bundle_id, args.backend)
+    device = collect_device_state(
+        bundle.bundle_id,
+        args.backend,
+        bw_d2e_override=args.override_bw_d2e,
+    )
+    print(f"Device state BW_d2e={float(device['BW_d2e']):.4f} Mbps")
     client = RoundClient(TESTBED_CFG.algo_base_url, args.round_id, args.user_id)
     client.register(registration_payload(args.user_id, device))
     heartbeat_stop = threading.Event()
@@ -182,6 +211,14 @@ def main(argv=None):
     measurements = []
     try:
         decision = client.wait_for_decision(timeout_s=args.decision_timeout)
+        user_decision = decision.get("user", {})
+        print(
+            "Decision summary: "
+            f"source={decision.get('decision_source')}, "
+            f"objective={decision.get('objective')}, "
+            f"b1={user_decision.get('partition_boundary_1')}, "
+            f"b2={user_decision.get('partition_boundary_2')}"
+        )
         print(json.dumps(decision, indent=2))
         if test_package_root:
             loader = build_test_package_loader(bundle, test_package_root, batch_size=1)

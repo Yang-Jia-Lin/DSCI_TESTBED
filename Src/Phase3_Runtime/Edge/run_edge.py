@@ -65,15 +65,25 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--bundle-id")
     parser.add_argument("--backend", choices=("pytorch", "mnn"), default="pytorch")
+    parser.add_argument(
+        "--override-bw-e2c",
+        type=float,
+        help="Report this Edge->Cloud bandwidth in Mbps instead of the default.",
+    )
     args = parser.parse_args(argv)
     bundle = get_bundle(args.bundle_id)
     state, pool, manifest = create_runtime(bundle.bundle_id, args.backend)
+    bw_e2c = (
+        float(args.override_bw_e2c)
+        if args.override_bw_e2c is not None
+        else TESTBED_CFG.default_bw_e2c
+    )
     status_app = Flask(__name__)
 
     @status_app.route("/status")
     def status():
         current = {**state, **pool.state()}
-        current["BW_e2c"] = TESTBED_CFG.default_bw_e2c
+        current["BW_e2c"] = bw_e2c
         return jsonify(current)
 
     def handle(payload):

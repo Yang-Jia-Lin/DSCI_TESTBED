@@ -243,6 +243,8 @@ class RoundCoordinator:
                     "manifest_id": decision.get("manifest_id"),
                     "model_hash": decision.get("model_hash"),
                     "resource_mode": decision.get("resource_mode"),
+                    "decision_source": decision.get("decision_source"),
+                    "objective": decision.get("objective"),
                     "user": copy.deepcopy(user),
                 }
                 for user in decision["users"]
