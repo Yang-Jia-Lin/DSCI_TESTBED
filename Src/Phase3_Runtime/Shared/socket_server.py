@@ -43,5 +43,6 @@ def _handle_connection(conn: socket.socket, handler, addr) -> None:
             traceback.print_exc()
             response = {"status": "error", "message": str(exc)}
         response_bytes = pickle.dumps(response, protocol=pickle.HIGHEST_PROTOCOL)
+        conn.sendall(len(response_bytes).to_bytes(4, byteorder="big"))
         conn.sendall(response_bytes)
         print(f"[socket_server] responded {addr}, response={len(response_bytes)} bytes")
