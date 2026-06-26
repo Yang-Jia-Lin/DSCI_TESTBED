@@ -35,6 +35,7 @@ from Src.Shared.Config.paths import SOLUTION_CACHE_DIR
 INTERFACE_SOLUTION_DIR = SOLUTION_CACHE_DIR
 LATEST_SOLUTION_PATH = INTERFACE_SOLUTION_DIR / "latest_solution.npz"
 LATEST_META_PATH = INTERFACE_SOLUTION_DIR / "latest_solution_meta.json"
+TRAINING_EVENTS_PATH = INTERFACE_SOLUTION_DIR / "training_events.jsonl"
 DIRECT_REUSE_DISTANCE = 0.005
 NEAR_WARM_START_DISTANCE = 0.05
 MEDIUM_WARM_START_DISTANCE = 0.15
@@ -72,6 +73,7 @@ class AlgoServiceConfig:
     auto_train: bool = True
     latest_solution_path: str | Path = LATEST_SOLUTION_PATH
     latest_meta_path: str | Path = LATEST_META_PATH
+    training_events_path: str | Path = TRAINING_EVENTS_PATH
     max_cached_solutions: int = 10
     fixed_split: Any = None
     fixed_threshold: Any = None
@@ -125,10 +127,16 @@ class AlgoService:
     _last_reuse_distance: float | None = field(default=None, init=False, repr=False)
     _last_training_mode: str | None = field(default=None, init=False, repr=False)
     _last_warm_start_source: str | None = field(default=None, init=False, repr=False)
+    _training_started_at: float | None = field(default=None, init=False, repr=False)
+    _last_training_started_at: float | None = field(default=None, init=False, repr=False)
+    _last_training_finished_at: float | None = field(default=None, init=False, repr=False)
+    _last_training_duration_s: float | None = field(default=None, init=False, repr=False)
+    _last_training_round_id: str | None = field(default=None, init=False, repr=False)
 
     def __post_init__(self) -> None:
         self.config.latest_solution_path = Path(self.config.latest_solution_path)
         self.config.latest_meta_path = Path(self.config.latest_meta_path)
+        self.config.training_events_path = Path(self.config.training_events_path)
         self.config.fixed_split = self._parse_fixed_split(self.config.fixed_split)
         self.config.fixed_threshold = self._parse_fixed_threshold(
             self.config.fixed_threshold
@@ -673,17 +681,20 @@ class AlgoService:
         signature: dict[str, Any],
         match: CacheMatch | None = None,
     ) -> None:
+        started_at = time.time()
         self._training_status = "running"
         self._training_signature = copy.deepcopy(signature)
         self._last_error = None
         self._last_training_mode = match.training_mode if match else "cold"
         self._last_warm_start_source = match.policy_path if match else None
+        self._training_started_at = started_at
+        self._last_training_round_id = str(state.get("round_id") or "")
         train_state = copy.deepcopy(state)
         train_signature = copy.deepcopy(signature)
         train_match = copy.deepcopy(match)
         thread = threading.Thread(
             target=self._train_background,
-            args=(train_state, train_signature, train_match),
+            args=(train_state, train_signature, train_match, started_at),
             daemon=True,
             name="DSCIBackgroundTraining",
         )
@@ -810,7 +821,12 @@ class AlgoService:
         state: dict,
         signature: dict[str, Any],
         match: CacheMatch | None = None,
+        started_at: float | None = None,
     ) -> None:
+        started_at = float(started_at or time.time())
+        round_id = str(state.get("round_id") or "")
+        training_mode = match.training_mode if match else "cold"
+        policy_source = match.policy_path if match else None
         try:
             paras = to_paras(state)
             params = self._training_params(match)
@@ -827,6 +843,8 @@ class AlgoService:
             )
             if best_sol is None:
                 raise RuntimeError("DSCI training returned no solution")
+            finished_at = time.time()
+            duration_s = finished_at - started_at
 
             X, Y, F_e, F_c = best_sol
             solution = CachedSolution(
@@ -848,6 +866,11 @@ class AlgoService:
                 self._training_signature = None
                 self._last_training_mode = training_mode
                 self._last_warm_start_source = policy_source
+                self._training_started_at = None
+                self._last_training_started_at = started_at
+                self._last_training_finished_at = finished_at
+                self._last_training_duration_s = duration_s
+                self._last_training_round_id = round_id
                 self._update_epoch += 1
 
             try:
@@ -856,17 +879,66 @@ class AlgoService:
                     for k, v in agent.policy.state_dict().items()
                 }
                 self._save_latest_solution(
-                    solution, policy_state_dict=policy_state, training_mode=training_mode
+                    solution,
+                    policy_state_dict=policy_state,
+                    training_mode=training_mode,
+                    training_started_at=started_at,
+                    training_finished_at=finished_at,
+                    training_duration_s=duration_s,
+                )
+                self._append_training_event(
+                    {
+                        "event": "training_complete",
+                        "round_id": round_id,
+                        "training_mode": training_mode,
+                        "policy_source": policy_source,
+                        "objective": float(best_val),
+                        "started_at": started_at,
+                        "finished_at": finished_at,
+                        "duration_s": duration_s,
+                        "update_epoch": self._update_epoch,
+                    }
                 )
             except Exception as exc:  # pragma: no cover - filesystem dependent
                 with self._lock:
                     self._training_status = "error"
                     self._last_error = f"Failed to persist latest solution: {exc}"
         except Exception as exc:  # pragma: no cover - long-running training path
+            finished_at = time.time()
+            duration_s = finished_at - started_at
             with self._lock:
                 self._training_status = "error"
                 self._training_signature = None
+                self._training_started_at = None
+                self._last_training_started_at = started_at
+                self._last_training_finished_at = finished_at
+                self._last_training_duration_s = duration_s
+                self._last_training_round_id = round_id
                 self._last_error = str(exc)
+            self._append_training_event(
+                {
+                    "event": "training_error",
+                    "round_id": round_id,
+                    "training_mode": training_mode,
+                    "policy_source": policy_source,
+                    "started_at": started_at,
+                    "finished_at": finished_at,
+                    "duration_s": duration_s,
+                    "error": str(exc),
+                }
+            )
+
+    def _append_training_event(self, event: dict[str, Any]) -> None:
+        try:
+            path = Path(self.config.training_events_path)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            record = {"logged_at": time.time(), **event}
+            with path.open("a", encoding="utf-8") as f:
+                json.dump(record, f, ensure_ascii=False)
+                f.write("\n")
+        except Exception as exc:  # pragma: no cover - logging should not break service
+            with self._lock:
+                self._last_error = f"Failed to write training event: {exc}"
 
     def _save_latest_solution(
         self,
@@ -874,6 +946,9 @@ class AlgoService:
         *,
         policy_state_dict: dict[str, Any] | None = None,
         training_mode: str | None = None,
+        training_started_at: float | None = None,
+        training_finished_at: float | None = None,
+        training_duration_s: float | None = None,
     ) -> None:
         solution_path = Path(self.config.latest_solution_path)
         meta_path = Path(self.config.latest_meta_path)
@@ -902,6 +977,9 @@ class AlgoService:
             "created_at": float(solution.created_at),
             "policy_path": str(archived_policy) if policy_state_dict is not None else solution.policy_path,
             "training_mode": solution.training_mode,
+            "training_started_at": training_started_at,
+            "training_finished_at": training_finished_at,
+            "training_duration_s": training_duration_s,
             "saved_at": time.time(),
         }
         self._write_solution_pair(archived_solution, archived_meta, solution, meta)
@@ -1035,6 +1113,12 @@ class AlgoService:
                 "auto_train": self.config.auto_train,
                 "training_status": self._training_status,
                 "training_state_signature": self._training_signature,
+                "training_started_at": self._training_started_at,
+                "last_training_started_at": self._last_training_started_at,
+                "last_training_finished_at": self._last_training_finished_at,
+                "last_training_duration_s": self._last_training_duration_s,
+                "last_training_round_id": self._last_training_round_id,
+                "training_events_path": str(self.config.training_events_path),
                 "has_cached_solution": cached is not None,
                 "cached_state_signature": cached.state_signature if cached else None,
                 "cached_objective": float(cached.objective) if cached else None,
