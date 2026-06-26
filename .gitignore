@@ -38,3 +38,4 @@ venv/
 __pycache__
 
 .agents
+.vscode/
