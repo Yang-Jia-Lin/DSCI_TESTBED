@@ -1,20 +1,25 @@
-import socket
 import pickle
+import socket
 
 
-def send_tensor(tensor, host, port):
-    """通过 socket 发送序列化张量"""
+def send_tensor(tensor, host, port, timeout_s=30):
+    """Send a length-prefixed pickle payload and wait for the peer response."""
     data = pickle.dumps(tensor, protocol=pickle.HIGHEST_PROTOCOL)
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.connect((host, port))
-        # 发送长度头
+    print(f"[send_tensor] connect {host}:{port}, payload={len(data)} bytes")
+    with socket.create_connection((host, port), timeout=float(timeout_s)) as s:
+        s.settimeout(float(timeout_s))
         s.sendall(len(data).to_bytes(4, byteorder="big"))
         s.sendall(data)
-        # 循环接收，直到对端关闭连接（Cloud 以 conn.close() 表示响应结束）
+        print(f"[send_tensor] sent {host}:{port}, waiting response")
         chunks = []
         while True:
             chunk = s.recv(4096)
             if not chunk:
                 break
             chunks.append(chunk)
-        return pickle.loads(b"".join(chunks))
+        response_bytes = b"".join(chunks)
+        print(
+            f"[send_tensor] received {host}:{port}, "
+            f"response={len(response_bytes)} bytes"
+        )
+        return pickle.loads(response_bytes)

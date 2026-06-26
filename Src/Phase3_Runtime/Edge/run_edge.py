@@ -77,6 +77,10 @@ def main(argv=None):
             b1, b2, payload["tensors"], meta.get("exit_thresholds", {})
         ).result()
         t_node_edge = time.perf_counter() - node_started
+        print(
+            f"[edge] local range {b1}->{b2} done, "
+            f"prediction={result.get('prediction')}"
+        )
         if result.get("prediction") is not None:
             return {
                 **result,
@@ -103,9 +107,15 @@ def main(argv=None):
             "meta": meta,
         }
         tx_started = time.perf_counter()
+        print(
+            f"[edge] forwarding to cloud "
+            f"{TESTBED_CFG.cloud_host}:{TESTBED_CFG.cloud_feature_port}, "
+            f"boundary={b2}"
+        )
         cloud = send_tensor(
             cloud_payload, TESTBED_CFG.cloud_host, TESTBED_CFG.cloud_feature_port
         )
+        print("[edge] cloud response received")
         cloud["T_edge_cloud_roundtrip"] = time.perf_counter() - tx_started
         return {
             **cloud,

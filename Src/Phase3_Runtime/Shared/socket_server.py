@@ -26,17 +26,22 @@ def serve_requests(host: str, port: int, handler, *, backlog: int = 128) -> None
         while True:
             conn, _addr = server.accept()
             threading.Thread(
-                target=_handle_connection, args=(conn, handler), daemon=True
+                target=_handle_connection, args=(conn, handler, _addr), daemon=True
             ).start()
 
 
-def _handle_connection(conn: socket.socket, handler) -> None:
+def _handle_connection(conn: socket.socket, handler, addr) -> None:
     with conn:
         try:
             length = int.from_bytes(_recv_exact(conn, 4), "big")
+            print(f"[socket_server] accepted {addr}, payload={length} bytes")
             payload = pickle.loads(_recv_exact(conn, length))
+            print(f"[socket_server] handling {addr}")
             response = handler(payload)
+            print(f"[socket_server] handled {addr}")
         except Exception as exc:
             traceback.print_exc()
             response = {"status": "error", "message": str(exc)}
-        conn.sendall(pickle.dumps(response, protocol=pickle.HIGHEST_PROTOCOL))
+        response_bytes = pickle.dumps(response, protocol=pickle.HIGHEST_PROTOCOL)
+        conn.sendall(response_bytes)
+        print(f"[socket_server] responded {addr}, response={len(response_bytes)} bytes")
