@@ -18,13 +18,24 @@ def _recv_exact(conn: socket.socket, size: int) -> bytes:
     return bytes(chunks)
 
 
-def serve_requests(host: str, port: int, handler, *, backlog: int = 128) -> None:
+def serve_requests(
+    host: str,
+    port: int,
+    handler,
+    *,
+    backlog: int = 128,
+    accept_timeout_s: float = 0.5,
+) -> None:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server:
         server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         server.bind((host, port))
         server.listen(backlog)
+        server.settimeout(float(accept_timeout_s))
         while True:
-            conn, _addr = server.accept()
+            try:
+                conn, _addr = server.accept()
+            except socket.timeout:
+                continue
             threading.Thread(
                 target=_handle_connection, args=(conn, handler, _addr), daemon=True
             ).start()

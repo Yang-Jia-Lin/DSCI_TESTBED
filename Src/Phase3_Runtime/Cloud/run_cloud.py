@@ -100,7 +100,7 @@ def main(argv=None):
     except KeyboardInterrupt:
         print("[cloud] shutdown requested")
     finally:
-        pool.shutdown(wait=False)
+        pool.shutdown(wait=False, terminate=True)
         print("[cloud] worker pool shutdown requested")
 
 

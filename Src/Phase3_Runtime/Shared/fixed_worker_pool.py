@@ -80,5 +80,15 @@ class FixedWorkerPool:
                 "inflight_requests": self._inflight,
             }
 
-    def shutdown(self, *, wait: bool = True) -> None:
+    def shutdown(self, *, wait: bool = True, terminate: bool = False) -> None:
+        processes = []
+        if terminate:
+            processes = list((getattr(self._executor, "_processes", None) or {}).values())
         self._executor.shutdown(wait=wait, cancel_futures=True)
+        if not terminate:
+            return
+        for process in processes:
+            if process.is_alive():
+                process.terminate()
+        for process in processes:
+            process.join(timeout=1.0)
