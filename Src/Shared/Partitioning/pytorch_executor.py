@@ -50,7 +50,8 @@ class PyTorchSegmentExecutor:
             return None
         if item.get("final"):
             return tensors.get("logits")
-        return self.model.classify_exit(str(item["exit_id"]), tensors["main"])
+        with torch.no_grad():
+            return self.model.classify_exit(str(item["exit_id"]), tensors["main"])
 
     def execute_range_with_exits(self, start_boundary, end_boundary, tensors, exit_thresholds):
         self.manifest.validate_range(start_boundary, end_boundary)
@@ -65,6 +66,8 @@ class PyTorchSegmentExecutor:
             if item is None:
                 continue
             logits = self.exit_logits(boundary_id, bundle)
+            if logits is not None:
+                logits = logits.detach()
             confidence, prediction = torch.softmax(logits, dim=1).max(dim=1)
             threshold = exit_thresholds.get(str(item["exit_id"]))
             if item.get("final") or threshold is not None and confidence.item() >= float(threshold):

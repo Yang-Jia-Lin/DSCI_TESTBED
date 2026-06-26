@@ -5,6 +5,7 @@ from __future__ import annotations
 import pickle
 import socket
 import threading
+import traceback
 
 
 def _recv_exact(conn: socket.socket, size: int) -> bytes:
@@ -36,5 +37,6 @@ def _handle_connection(conn: socket.socket, handler) -> None:
             payload = pickle.loads(_recv_exact(conn, length))
             response = handler(payload)
         except Exception as exc:
+            traceback.print_exc()
             response = {"status": "error", "message": str(exc)}
         conn.sendall(pickle.dumps(response, protocol=pickle.HIGHEST_PROTOCOL))
