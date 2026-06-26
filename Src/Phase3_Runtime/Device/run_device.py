@@ -38,13 +38,21 @@ def collect_device_state(
     }
 
 
-def registration_payload(user_id: int, device: dict) -> dict:
-    return {
+def registration_payload(
+    user_id: int,
+    device: dict,
+    *,
+    decision_mode: str | None = None,
+) -> dict:
+    payload = {
         "user_id": int(user_id),
         "bundle_id": device["bundle_id"],
         "resource_mode": "fixed_worker_pool",
         "device": device,
     }
+    if decision_mode:
+        payload["decision_mode"] = str(decision_mode)
+    return payload
 
 
 def _heartbeat_loop(client: RoundClient, stop: threading.Event, interval_s: float):
@@ -189,6 +197,19 @@ def main(argv=None):
         type=float,
         help="Use this Device->Edge bandwidth in Mbps instead of iperf.",
     )
+    parser.add_argument(
+        "--decision-mode",
+        choices=(
+            "dsci",
+            "device",
+            "device_early_exit",
+            "edge",
+            "edge_early_exit",
+            "cloud",
+            "cloud_early_exit",
+        ),
+        help="Request a preset placement instead of DSCI for this round.",
+    )
     args = parser.parse_args(argv)
     bundle = get_bundle(args.bundle_id)
     test_package_root = _resolve_test_package_root(bundle, args)
@@ -199,7 +220,13 @@ def main(argv=None):
     )
     print(f"Device state BW_d2e={float(device['BW_d2e']):.4f} Mbps")
     client = RoundClient(TESTBED_CFG.algo_base_url, args.round_id, args.user_id)
-    client.register(registration_payload(args.user_id, device))
+    client.register(
+        registration_payload(
+            args.user_id,
+            device,
+            decision_mode=args.decision_mode,
+        )
+    )
     heartbeat_stop = threading.Event()
     heartbeat = threading.Thread(
         target=_heartbeat_loop,

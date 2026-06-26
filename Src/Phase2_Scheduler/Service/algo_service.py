@@ -682,10 +682,13 @@ class AlgoService:
         match: CacheMatch | None = None,
     ) -> None:
         started_at = time.time()
+        planned_mode = match.training_mode if match else "cold"
+        if match is not None and planned_mode == "cold" and match.policy_path:
+            planned_mode = "cold_warm"
         self._training_status = "running"
         self._training_signature = copy.deepcopy(signature)
         self._last_error = None
-        self._last_training_mode = match.training_mode if match else "cold"
+        self._last_training_mode = planned_mode
         self._last_warm_start_source = match.policy_path if match else None
         self._training_started_at = started_at
         self._last_training_round_id = str(state.get("round_id") or "")
@@ -784,14 +787,15 @@ class AlgoService:
     def _load_warm_policy(
         self, agent: PPOAgent, match: CacheMatch | None
     ) -> tuple[str, str | None]:
-        if match is not None and match.training_mode in {"near", "medium"}:
-            policy_path = match.policy_path
-            if policy_path:
-                try:
-                    agent.load_checkpoint(policy_path)
-                    return match.training_mode, policy_path
-                except Exception as exc:
-                    self._last_error = f"Warm-start policy load failed: {exc}"
+        if match is not None and match.policy_path:
+            try:
+                agent.load_checkpoint(match.policy_path)
+                mode = match.training_mode
+                if mode == "cold":
+                    mode = "cold_warm"
+                return mode, match.policy_path
+            except Exception as exc:
+                self._last_error = f"Warm-start policy load failed: {exc}"
 
         if self.config.checkpoint_path:
             try:
@@ -806,7 +810,7 @@ class AlgoService:
     def _initial_solution_from_match(
         match: CacheMatch | None,
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray] | None:
-        if match is None or match.training_mode not in {"near", "medium"}:
+        if match is None:
             return None
         sol = match.solution
         return (
@@ -832,11 +836,6 @@ class AlgoService:
             params = self._training_params(match)
             agent = PPOAgent(paras, params)
             training_mode, policy_source = self._load_warm_policy(agent, match)
-            if training_mode not in {"near", "medium"} and match is not None:
-                params = self._training_params(None)
-                agent = PPOAgent(paras, params)
-                training_mode, policy_source = self._load_warm_policy(agent, None)
-                match = None
             initial_solution = self._initial_solution_from_match(match)
             best_val, best_sol, _history = agent.train(
                 initial_solution=initial_solution
@@ -1111,6 +1110,8 @@ class AlgoService:
                 else None,
                 "enable_training": self.config.enable_training,
                 "auto_train": self.config.auto_train,
+                "objective_alpha": float(DEFAULT_ALGO_CONFIG.alpha),
+                "objective_beta": float(DEFAULT_ALGO_CONFIG.beta),
                 "training_status": self._training_status,
                 "training_state_signature": self._training_signature,
                 "training_started_at": self._training_started_at,

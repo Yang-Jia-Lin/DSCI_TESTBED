@@ -25,6 +25,7 @@ class DeviceRegistration:
     user_id: int
     device: dict
     last_heartbeat: float
+    decision_mode: str | None = None
 
 
 @dataclass
@@ -66,7 +67,7 @@ class RoundCoordinator:
         self._round: SchedulingRound | None = None
 
     def register(self, round_id: str, payload: dict) -> dict:
-        user_id, device = self._parse_registration(payload)
+        user_id, device, decision_mode = self._parse_registration(payload)
         now = self.clock()
         with self._lock:
             current = self._get_or_create_round(round_id, now)
@@ -77,7 +78,9 @@ class RoundCoordinator:
                 )
 
             existing = current.registered_devices.get(user_id)
-            if existing is not None and existing.device != device:
+            if existing is not None and (
+                existing.device != device or existing.decision_mode != decision_mode
+            ):
                 raise RoundConflictError(
                     f"user_id {user_id} is already registered with different state"
                 )
@@ -85,6 +88,7 @@ class RoundCoordinator:
                 user_id=user_id,
                 device=copy.deepcopy(device),
                 last_heartbeat=now,
+                decision_mode=decision_mode,
             )
             if len(current.registered_devices) == current.expected_users:
                 round_id, users = self._start_optimization_locked(current)
@@ -216,6 +220,7 @@ class RoundCoordinator:
             {
                 **copy.deepcopy(current.registered_devices[user_id].device),
                 "user_id": user_id,
+                "decision_mode": current.registered_devices[user_id].decision_mode,
             }
             for user_id in sorted(current.registered_devices)
         ]
@@ -232,6 +237,17 @@ class RoundCoordinator:
                 "edge": copy.deepcopy(edge),
                 "cloud": copy.deepcopy(cloud),
             }
+            decision_modes = {
+                str(user.get("decision_mode"))
+                for user in users
+                if user.get("decision_mode")
+            }
+            if len(decision_modes) > 1:
+                raise RoundCoordinatorError(
+                    f"All users in one round must use the same decision_mode: {sorted(decision_modes)}"
+                )
+            if decision_modes:
+                state["decision_mode"] = decision_modes.pop()
             self._validate_batch_state(state)
             decision = self.service.make_decision(state)
             per_user_decisions = {
@@ -267,7 +283,7 @@ class RoundCoordinator:
             current.status = "ready"
 
     @staticmethod
-    def _parse_registration(payload: dict) -> tuple[int, dict]:
+    def _parse_registration(payload: dict) -> tuple[int, dict, str | None]:
         if not isinstance(payload, dict):
             raise RoundCoordinatorError("Registration payload must be an object")
         if "user_id" not in payload or "device" not in payload:
@@ -297,7 +313,10 @@ class RoundCoordinator:
         missing = sorted(required - set(device))
         if missing:
             raise RoundCoordinatorError(f"device missing fields: {missing}")
-        return user_id, device
+        decision_mode = payload.get("decision_mode")
+        if decision_mode is not None:
+            decision_mode = str(decision_mode)
+        return user_id, device, decision_mode
 
     @staticmethod
     def _validate_batch_state(state: dict) -> None:
