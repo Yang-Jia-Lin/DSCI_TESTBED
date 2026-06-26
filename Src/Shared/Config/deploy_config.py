@@ -17,9 +17,9 @@ class TestbedConfig:
 
     # 本地测试
     device_host: str = "100.72.118.57"
-    edge_host: str = "127.0.0.1"
+    edge_host: str = "172.16.105.139"
     cloud_host: str = "172.16.6.101"
-    algo_host: str = "127.0.0.1"
+    algo_host: str = "172.16.105.139"
 
     edge_feature_port: int = 9001
     edge_status_port: int = 9002

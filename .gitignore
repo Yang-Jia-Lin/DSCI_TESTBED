@@ -13,6 +13,9 @@ Data/Runtime/SolutionCache/*
 Data/Runtime/DeviceResults/*
 !Data/Runtime/DeviceResults/.gitkeep
 Data/Archive/Runtime/
+
+Src/Shared/Config/deploy_config.py
+
 *.pth
 *.pt
 *.h5
