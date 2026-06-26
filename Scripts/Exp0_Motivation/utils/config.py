@@ -1,0 +1,13 @@
+"""Shared hardware, network, scheduling, and experiment parameters."""
+
+DEVICE_GFLOPS = 0.16
+EDGE_GFLOPS = 8.0
+RTT_MS = 20.0
+
+DECISION_LATENCY_MS = 2.0
+OPTIMIZATION_LATENCY_MS = 500.0
+SCHEDULE_PERIOD_S = 30.0
+
+N_SAMPLES = 1000
+RANDOM_SEED = 42
+DECOUPLED_NARROW_BW_MBPS = 2.0

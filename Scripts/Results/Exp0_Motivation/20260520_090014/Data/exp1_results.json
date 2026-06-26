@@ -1,0 +1,940 @@
+{
+  "model_info": {
+    "exit_layer_indices": [
+      57,
+      103
+    ],
+    "final_layer": 127,
+    "total_flops": 167476224.0,
+    "rates_from_csv": true
+  },
+  "threshold_groups": {
+    "easy": [
+      0.85,
+      0.88,
+      0.9,
+      0.92
+    ],
+    "hard": [
+      0.55,
+      0.6,
+      0.65,
+      0.7
+    ]
+  },
+  "bandwidths": [
+    0.25,
+    0.5,
+    1.0,
+    2.0,
+    4.0,
+    8.0
+  ],
+  "inversions": [
+    "easy@0.25Mbps",
+    "easy@0.5Mbps",
+    "easy@1.0Mbps"
+  ],
+  "results": [
+    {
+      "group": "easy",
+      "bandwidth_mbps": 0.25,
+      "strategy": "Local",
+      "avg_latency_ms": 1046.73,
+      "split_layer_chosen": 0,
+      "exit_threshold_used": 1.0,
+      "actual_transmission_ratio": 0.0,
+      "tau_grid": [
+        0.85,
+        0.88,
+        0.9,
+        0.92
+      ]
+    },
+    {
+      "group": "easy",
+      "bandwidth_mbps": 0.25,
+      "strategy": "EE-Only",
+      "avg_latency_ms": 1049.42,
+      "split_layer_chosen": 127,
+      "exit_threshold_used": 0.85,
+      "actual_transmission_ratio": 0.1264,
+      "tau_grid": [
+        0.85,
+        0.88,
+        0.9,
+        0.92
+      ]
+    },
+    {
+      "group": "easy",
+      "bandwidth_mbps": 0.25,
+      "strategy": "SC-Only",
+      "avg_latency_ms": 498.35,
+      "split_layer_chosen": 58,
+      "exit_threshold_used": 1.0,
+      "actual_transmission_ratio": 1.0,
+      "tau_grid": [
+        0.85,
+        0.88,
+        0.9,
+        0.92
+      ]
+    },
+    {
+      "group": "easy",
+      "bandwidth_mbps": 0.25,
+      "strategy": "Decoupled",
+      "avg_latency_ms": 1049.42,
+      "split_layer_chosen": 127,
+      "exit_threshold_used": 0.85,
+      "actual_transmission_ratio": 0.1264,
+      "tau_grid": [
+        0.85,
+        0.88,
+        0.9,
+        0.92
+      ]
+    },
+    {
+      "group": "easy",
+      "bandwidth_mbps": 0.25,
+      "strategy": "DSCI",
+      "avg_latency_ms": 493.56,
+      "split_layer_chosen": 58,
+      "exit_threshold_used": 0.85,
+      "actual_transmission_ratio": 0.8543,
+      "tau_grid": [
+        0.85,
+        0.88,
+        0.9,
+        0.92
+      ]
+    },
+    {
+      "group": "easy",
+      "bandwidth_mbps": 0.5,
+      "strategy": "Local",
+      "avg_latency_ms": 1046.73,
+      "split_layer_chosen": 0,
+      "exit_threshold_used": 1.0,
+      "actual_transmission_ratio": 0.0,
+      "tau_grid": [
+        0.85,
+        0.88,
+        0.9,
+        0.92
+      ]
+    },
+    {
+      "group": "easy",
+      "bandwidth_mbps": 0.5,
+      "strategy": "EE-Only",
+      "avg_latency_ms": 1049.33,
+      "split_layer_chosen": 127,
+      "exit_threshold_used": 0.85,
+      "actual_transmission_ratio": 0.1264,
+      "tau_grid": [
+        0.85,
+        0.88,
+        0.9,
+        0.92
+      ]
+    },
+    {
+      "group": "easy",
+      "bandwidth_mbps": 0.5,
+      "strategy": "SC-Only",
+      "avg_latency_ms": 332.88,
+      "split_layer_chosen": 3,
+      "exit_threshold_used": 1.0,
+      "actual_transmission_ratio": 1.0,
+      "tau_grid": [
+        0.85,
+        0.88,
+        0.9,
+        0.92
+      ]
+    },
+    {
+      "group": "easy",
+      "bandwidth_mbps": 0.5,
+      "strategy": "Decoupled",
+      "avg_latency_ms": 1049.33,
+      "split_layer_chosen": 127,
+      "exit_threshold_used": 0.85,
+      "actual_transmission_ratio": 0.1264,
+      "tau_grid": [
+        0.85,
+        0.88,
+        0.9,
+        0.92
+      ]
+    },
+    {
+      "group": "easy",
+      "bandwidth_mbps": 0.5,
+      "strategy": "DSCI",
+      "avg_latency_ms": 332.88,
+      "split_layer_chosen": 3,
+      "exit_threshold_used": 0.85,
+      "actual_transmission_ratio": 1.0,
+      "tau_grid": [
+        0.85,
+        0.88,
+        0.9,
+        0.92
+      ]
+    },
+    {
+      "group": "easy",
+      "bandwidth_mbps": 1.0,
+      "strategy": "Local",
+      "avg_latency_ms": 1046.73,
+      "split_layer_chosen": 0,
+      "exit_threshold_used": 1.0,
+      "actual_transmission_ratio": 0.0,
+      "tau_grid": [
+        0.85,
+        0.88,
+        0.9,
+        0.92
+      ]
+    },
+    {
+      "group": "easy",
+      "bandwidth_mbps": 1.0,
+      "strategy": "EE-Only",
+      "avg_latency_ms": 1049.29,
+      "split_layer_chosen": 127,
+      "exit_threshold_used": 0.85,
+      "actual_transmission_ratio": 0.1264,
+      "tau_grid": [
+        0.85,
+        0.88,
+        0.9,
+        0.92
+      ]
+    },
+    {
+      "group": "easy",
+      "bandwidth_mbps": 1.0,
+      "strategy": "SC-Only",
+      "avg_latency_ms": 201.81,
+      "split_layer_chosen": 3,
+      "exit_threshold_used": 1.0,
+      "actual_transmission_ratio": 1.0,
+      "tau_grid": [
+        0.85,
+        0.88,
+        0.9,
+        0.92
+      ]
+    },
+    {
+      "group": "easy",
+      "bandwidth_mbps": 1.0,
+      "strategy": "Decoupled",
+      "avg_latency_ms": 1049.29,
+      "split_layer_chosen": 127,
+      "exit_threshold_used": 0.85,
+      "actual_transmission_ratio": 0.1264,
+      "tau_grid": [
+        0.85,
+        0.88,
+        0.9,
+        0.92
+      ]
+    },
+    {
+      "group": "easy",
+      "bandwidth_mbps": 1.0,
+      "strategy": "DSCI",
+      "avg_latency_ms": 201.81,
+      "split_layer_chosen": 3,
+      "exit_threshold_used": 0.85,
+      "actual_transmission_ratio": 1.0,
+      "tau_grid": [
+        0.85,
+        0.88,
+        0.9,
+        0.92
+      ]
+    },
+    {
+      "group": "easy",
+      "bandwidth_mbps": 2.0,
+      "strategy": "Local",
+      "avg_latency_ms": 1046.73,
+      "split_layer_chosen": 0,
+      "exit_threshold_used": 1.0,
+      "actual_transmission_ratio": 0.0,
+      "tau_grid": [
+        0.85,
+        0.88,
+        0.9,
+        0.92
+      ]
+    },
+    {
+      "group": "easy",
+      "bandwidth_mbps": 2.0,
+      "strategy": "EE-Only",
+      "avg_latency_ms": 1049.27,
+      "split_layer_chosen": 127,
+      "exit_threshold_used": 0.85,
+      "actual_transmission_ratio": 0.1264,
+      "tau_grid": [
+        0.85,
+        0.88,
+        0.9,
+        0.92
+      ]
+    },
+    {
+      "group": "easy",
+      "bandwidth_mbps": 2.0,
+      "strategy": "SC-Only",
+      "avg_latency_ms": 136.28,
+      "split_layer_chosen": 3,
+      "exit_threshold_used": 1.0,
+      "actual_transmission_ratio": 1.0,
+      "tau_grid": [
+        0.85,
+        0.88,
+        0.9,
+        0.92
+      ]
+    },
+    {
+      "group": "easy",
+      "bandwidth_mbps": 2.0,
+      "strategy": "Decoupled",
+      "avg_latency_ms": 520.39,
+      "split_layer_chosen": 57,
+      "exit_threshold_used": 0.85,
+      "actual_transmission_ratio": 0.8543,
+      "tau_grid": [
+        0.85,
+        0.88,
+        0.9,
+        0.92
+      ]
+    },
+    {
+      "group": "easy",
+      "bandwidth_mbps": 2.0,
+      "strategy": "DSCI",
+      "avg_latency_ms": 136.28,
+      "split_layer_chosen": 3,
+      "exit_threshold_used": 0.85,
+      "actual_transmission_ratio": 1.0,
+      "tau_grid": [
+        0.85,
+        0.88,
+        0.9,
+        0.92
+      ]
+    },
+    {
+      "group": "easy",
+      "bandwidth_mbps": 4.0,
+      "strategy": "Local",
+      "avg_latency_ms": 1046.73,
+      "split_layer_chosen": 0,
+      "exit_threshold_used": 1.0,
+      "actual_transmission_ratio": 0.0,
+      "tau_grid": [
+        0.85,
+        0.88,
+        0.9,
+        0.92
+      ]
+    },
+    {
+      "group": "easy",
+      "bandwidth_mbps": 4.0,
+      "strategy": "EE-Only",
+      "avg_latency_ms": 1049.26,
+      "split_layer_chosen": 127,
+      "exit_threshold_used": 0.85,
+      "actual_transmission_ratio": 0.1264,
+      "tau_grid": [
+        0.85,
+        0.88,
+        0.9,
+        0.92
+      ]
+    },
+    {
+      "group": "easy",
+      "bandwidth_mbps": 4.0,
+      "strategy": "SC-Only",
+      "avg_latency_ms": 103.51,
+      "split_layer_chosen": 3,
+      "exit_threshold_used": 1.0,
+      "actual_transmission_ratio": 1.0,
+      "tau_grid": [
+        0.85,
+        0.88,
+        0.9,
+        0.92
+      ]
+    },
+    {
+      "group": "easy",
+      "bandwidth_mbps": 4.0,
+      "strategy": "Decoupled",
+      "avg_latency_ms": 506.4,
+      "split_layer_chosen": 57,
+      "exit_threshold_used": 0.85,
+      "actual_transmission_ratio": 0.8543,
+      "tau_grid": [
+        0.85,
+        0.88,
+        0.9,
+        0.92
+      ]
+    },
+    {
+      "group": "easy",
+      "bandwidth_mbps": 4.0,
+      "strategy": "DSCI",
+      "avg_latency_ms": 103.51,
+      "split_layer_chosen": 3,
+      "exit_threshold_used": 0.85,
+      "actual_transmission_ratio": 1.0,
+      "tau_grid": [
+        0.85,
+        0.88,
+        0.9,
+        0.92
+      ]
+    },
+    {
+      "group": "easy",
+      "bandwidth_mbps": 8.0,
+      "strategy": "Local",
+      "avg_latency_ms": 1046.73,
+      "split_layer_chosen": 0,
+      "exit_threshold_used": 1.0,
+      "actual_transmission_ratio": 0.0,
+      "tau_grid": [
+        0.85,
+        0.88,
+        0.9,
+        0.92
+      ]
+    },
+    {
+      "group": "easy",
+      "bandwidth_mbps": 8.0,
+      "strategy": "EE-Only",
+      "avg_latency_ms": 1049.26,
+      "split_layer_chosen": 127,
+      "exit_threshold_used": 0.85,
+      "actual_transmission_ratio": 0.1264,
+      "tau_grid": [
+        0.85,
+        0.88,
+        0.9,
+        0.92
+      ]
+    },
+    {
+      "group": "easy",
+      "bandwidth_mbps": 8.0,
+      "strategy": "SC-Only",
+      "avg_latency_ms": 87.12,
+      "split_layer_chosen": 3,
+      "exit_threshold_used": 1.0,
+      "actual_transmission_ratio": 1.0,
+      "tau_grid": [
+        0.85,
+        0.88,
+        0.9,
+        0.92
+      ]
+    },
+    {
+      "group": "easy",
+      "bandwidth_mbps": 8.0,
+      "strategy": "Decoupled",
+      "avg_latency_ms": 499.4,
+      "split_layer_chosen": 57,
+      "exit_threshold_used": 0.85,
+      "actual_transmission_ratio": 0.8543,
+      "tau_grid": [
+        0.85,
+        0.88,
+        0.9,
+        0.92
+      ]
+    },
+    {
+      "group": "easy",
+      "bandwidth_mbps": 8.0,
+      "strategy": "DSCI",
+      "avg_latency_ms": 87.12,
+      "split_layer_chosen": 3,
+      "exit_threshold_used": 0.85,
+      "actual_transmission_ratio": 1.0,
+      "tau_grid": [
+        0.85,
+        0.88,
+        0.9,
+        0.92
+      ]
+    },
+    {
+      "group": "hard",
+      "bandwidth_mbps": 0.25,
+      "strategy": "Local",
+      "avg_latency_ms": 1046.73,
+      "split_layer_chosen": 0,
+      "exit_threshold_used": 1.0,
+      "actual_transmission_ratio": 0.0,
+      "tau_grid": [
+        0.55,
+        0.6,
+        0.65,
+        0.7
+      ]
+    },
+    {
+      "group": "hard",
+      "bandwidth_mbps": 0.25,
+      "strategy": "EE-Only",
+      "avg_latency_ms": 1046.73,
+      "split_layer_chosen": 127,
+      "exit_threshold_used": 0.55,
+      "actual_transmission_ratio": 0.0,
+      "tau_grid": [
+        0.55,
+        0.6,
+        0.65,
+        0.7
+      ]
+    },
+    {
+      "group": "hard",
+      "bandwidth_mbps": 0.25,
+      "strategy": "SC-Only",
+      "avg_latency_ms": 498.35,
+      "split_layer_chosen": 58,
+      "exit_threshold_used": 1.0,
+      "actual_transmission_ratio": 1.0,
+      "tau_grid": [
+        0.55,
+        0.6,
+        0.65,
+        0.7
+      ]
+    },
+    {
+      "group": "hard",
+      "bandwidth_mbps": 0.25,
+      "strategy": "Decoupled",
+      "avg_latency_ms": 1046.73,
+      "split_layer_chosen": 127,
+      "exit_threshold_used": 0.55,
+      "actual_transmission_ratio": 0.0,
+      "tau_grid": [
+        0.55,
+        0.6,
+        0.65,
+        0.7
+      ]
+    },
+    {
+      "group": "hard",
+      "bandwidth_mbps": 0.25,
+      "strategy": "DSCI",
+      "avg_latency_ms": 480.7,
+      "split_layer_chosen": 58,
+      "exit_threshold_used": 0.55,
+      "actual_transmission_ratio": 0.4636,
+      "tau_grid": [
+        0.55,
+        0.6,
+        0.65,
+        0.7
+      ]
+    },
+    {
+      "group": "hard",
+      "bandwidth_mbps": 0.5,
+      "strategy": "Local",
+      "avg_latency_ms": 1046.73,
+      "split_layer_chosen": 0,
+      "exit_threshold_used": 1.0,
+      "actual_transmission_ratio": 0.0,
+      "tau_grid": [
+        0.55,
+        0.6,
+        0.65,
+        0.7
+      ]
+    },
+    {
+      "group": "hard",
+      "bandwidth_mbps": 0.5,
+      "strategy": "EE-Only",
+      "avg_latency_ms": 1046.73,
+      "split_layer_chosen": 127,
+      "exit_threshold_used": 0.55,
+      "actual_transmission_ratio": 0.0,
+      "tau_grid": [
+        0.55,
+        0.6,
+        0.65,
+        0.7
+      ]
+    },
+    {
+      "group": "hard",
+      "bandwidth_mbps": 0.5,
+      "strategy": "SC-Only",
+      "avg_latency_ms": 332.88,
+      "split_layer_chosen": 3,
+      "exit_threshold_used": 1.0,
+      "actual_transmission_ratio": 1.0,
+      "tau_grid": [
+        0.55,
+        0.6,
+        0.65,
+        0.7
+      ]
+    },
+    {
+      "group": "hard",
+      "bandwidth_mbps": 0.5,
+      "strategy": "Decoupled",
+      "avg_latency_ms": 1046.73,
+      "split_layer_chosen": 127,
+      "exit_threshold_used": 0.55,
+      "actual_transmission_ratio": 0.0,
+      "tau_grid": [
+        0.55,
+        0.6,
+        0.65,
+        0.7
+      ]
+    },
+    {
+      "group": "hard",
+      "bandwidth_mbps": 0.5,
+      "strategy": "DSCI",
+      "avg_latency_ms": 332.88,
+      "split_layer_chosen": 3,
+      "exit_threshold_used": 0.55,
+      "actual_transmission_ratio": 1.0,
+      "tau_grid": [
+        0.55,
+        0.6,
+        0.65,
+        0.7
+      ]
+    },
+    {
+      "group": "hard",
+      "bandwidth_mbps": 1.0,
+      "strategy": "Local",
+      "avg_latency_ms": 1046.73,
+      "split_layer_chosen": 0,
+      "exit_threshold_used": 1.0,
+      "actual_transmission_ratio": 0.0,
+      "tau_grid": [
+        0.55,
+        0.6,
+        0.65,
+        0.7
+      ]
+    },
+    {
+      "group": "hard",
+      "bandwidth_mbps": 1.0,
+      "strategy": "EE-Only",
+      "avg_latency_ms": 1046.73,
+      "split_layer_chosen": 127,
+      "exit_threshold_used": 0.55,
+      "actual_transmission_ratio": 0.0,
+      "tau_grid": [
+        0.55,
+        0.6,
+        0.65,
+        0.7
+      ]
+    },
+    {
+      "group": "hard",
+      "bandwidth_mbps": 1.0,
+      "strategy": "SC-Only",
+      "avg_latency_ms": 201.81,
+      "split_layer_chosen": 3,
+      "exit_threshold_used": 1.0,
+      "actual_transmission_ratio": 1.0,
+      "tau_grid": [
+        0.55,
+        0.6,
+        0.65,
+        0.7
+      ]
+    },
+    {
+      "group": "hard",
+      "bandwidth_mbps": 1.0,
+      "strategy": "Decoupled",
+      "avg_latency_ms": 1046.73,
+      "split_layer_chosen": 127,
+      "exit_threshold_used": 0.55,
+      "actual_transmission_ratio": 0.0,
+      "tau_grid": [
+        0.55,
+        0.6,
+        0.65,
+        0.7
+      ]
+    },
+    {
+      "group": "hard",
+      "bandwidth_mbps": 1.0,
+      "strategy": "DSCI",
+      "avg_latency_ms": 201.81,
+      "split_layer_chosen": 3,
+      "exit_threshold_used": 0.55,
+      "actual_transmission_ratio": 1.0,
+      "tau_grid": [
+        0.55,
+        0.6,
+        0.65,
+        0.7
+      ]
+    },
+    {
+      "group": "hard",
+      "bandwidth_mbps": 2.0,
+      "strategy": "Local",
+      "avg_latency_ms": 1046.73,
+      "split_layer_chosen": 0,
+      "exit_threshold_used": 1.0,
+      "actual_transmission_ratio": 0.0,
+      "tau_grid": [
+        0.55,
+        0.6,
+        0.65,
+        0.7
+      ]
+    },
+    {
+      "group": "hard",
+      "bandwidth_mbps": 2.0,
+      "strategy": "EE-Only",
+      "avg_latency_ms": 1046.73,
+      "split_layer_chosen": 127,
+      "exit_threshold_used": 0.55,
+      "actual_transmission_ratio": 0.0,
+      "tau_grid": [
+        0.55,
+        0.6,
+        0.65,
+        0.7
+      ]
+    },
+    {
+      "group": "hard",
+      "bandwidth_mbps": 2.0,
+      "strategy": "SC-Only",
+      "avg_latency_ms": 136.28,
+      "split_layer_chosen": 3,
+      "exit_threshold_used": 1.0,
+      "actual_transmission_ratio": 1.0,
+      "tau_grid": [
+        0.55,
+        0.6,
+        0.65,
+        0.7
+      ]
+    },
+    {
+      "group": "hard",
+      "bandwidth_mbps": 2.0,
+      "strategy": "Decoupled",
+      "avg_latency_ms": 495.23,
+      "split_layer_chosen": 57,
+      "exit_threshold_used": 0.55,
+      "actual_transmission_ratio": 0.4636,
+      "tau_grid": [
+        0.55,
+        0.6,
+        0.65,
+        0.7
+      ]
+    },
+    {
+      "group": "hard",
+      "bandwidth_mbps": 2.0,
+      "strategy": "DSCI",
+      "avg_latency_ms": 136.28,
+      "split_layer_chosen": 3,
+      "exit_threshold_used": 0.55,
+      "actual_transmission_ratio": 1.0,
+      "tau_grid": [
+        0.55,
+        0.6,
+        0.65,
+        0.7
+      ]
+    },
+    {
+      "group": "hard",
+      "bandwidth_mbps": 4.0,
+      "strategy": "Local",
+      "avg_latency_ms": 1046.73,
+      "split_layer_chosen": 0,
+      "exit_threshold_used": 1.0,
+      "actual_transmission_ratio": 0.0,
+      "tau_grid": [
+        0.55,
+        0.6,
+        0.65,
+        0.7
+      ]
+    },
+    {
+      "group": "hard",
+      "bandwidth_mbps": 4.0,
+      "strategy": "EE-Only",
+      "avg_latency_ms": 1046.73,
+      "split_layer_chosen": 127,
+      "exit_threshold_used": 0.55,
+      "actual_transmission_ratio": 0.0,
+      "tau_grid": [
+        0.55,
+        0.6,
+        0.65,
+        0.7
+      ]
+    },
+    {
+      "group": "hard",
+      "bandwidth_mbps": 4.0,
+      "strategy": "SC-Only",
+      "avg_latency_ms": 103.51,
+      "split_layer_chosen": 3,
+      "exit_threshold_used": 1.0,
+      "actual_transmission_ratio": 1.0,
+      "tau_grid": [
+        0.55,
+        0.6,
+        0.65,
+        0.7
+      ]
+    },
+    {
+      "group": "hard",
+      "bandwidth_mbps": 4.0,
+      "strategy": "Decoupled",
+      "avg_latency_ms": 487.64,
+      "split_layer_chosen": 57,
+      "exit_threshold_used": 0.55,
+      "actual_transmission_ratio": 0.4636,
+      "tau_grid": [
+        0.55,
+        0.6,
+        0.65,
+        0.7
+      ]
+    },
+    {
+      "group": "hard",
+      "bandwidth_mbps": 4.0,
+      "strategy": "DSCI",
+      "avg_latency_ms": 103.51,
+      "split_layer_chosen": 3,
+      "exit_threshold_used": 0.55,
+      "actual_transmission_ratio": 1.0,
+      "tau_grid": [
+        0.55,
+        0.6,
+        0.65,
+        0.7
+      ]
+    },
+    {
+      "group": "hard",
+      "bandwidth_mbps": 8.0,
+      "strategy": "Local",
+      "avg_latency_ms": 1046.73,
+      "split_layer_chosen": 0,
+      "exit_threshold_used": 1.0,
+      "actual_transmission_ratio": 0.0,
+      "tau_grid": [
+        0.55,
+        0.6,
+        0.65,
+        0.7
+      ]
+    },
+    {
+      "group": "hard",
+      "bandwidth_mbps": 8.0,
+      "strategy": "EE-Only",
+      "avg_latency_ms": 1046.73,
+      "split_layer_chosen": 127,
+      "exit_threshold_used": 0.55,
+      "actual_transmission_ratio": 0.0,
+      "tau_grid": [
+        0.55,
+        0.6,
+        0.65,
+        0.7
+      ]
+    },
+    {
+      "group": "hard",
+      "bandwidth_mbps": 8.0,
+      "strategy": "SC-Only",
+      "avg_latency_ms": 87.12,
+      "split_layer_chosen": 3,
+      "exit_threshold_used": 1.0,
+      "actual_transmission_ratio": 1.0,
+      "tau_grid": [
+        0.55,
+        0.6,
+        0.65,
+        0.7
+      ]
+    },
+    {
+      "group": "hard",
+      "bandwidth_mbps": 8.0,
+      "strategy": "Decoupled",
+      "avg_latency_ms": 483.84,
+      "split_layer_chosen": 57,
+      "exit_threshold_used": 0.55,
+      "actual_transmission_ratio": 0.4636,
+      "tau_grid": [
+        0.55,
+        0.6,
+        0.65,
+        0.7
+      ]
+    },
+    {
+      "group": "hard",
+      "bandwidth_mbps": 8.0,
+      "strategy": "DSCI",
+      "avg_latency_ms": 87.12,
+      "split_layer_chosen": 3,
+      "exit_threshold_used": 0.55,
+      "actual_transmission_ratio": 1.0,
+      "tau_grid": [
+        0.55,
+        0.6,
+        0.65,
+        0.7
+      ]
+    }
+  ]
+}

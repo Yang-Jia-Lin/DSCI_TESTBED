@@ -1,0 +1,124 @@
+{
+  "config": {
+    "concurrent_users": [
+      1,
+      2,
+      4,
+      8,
+      16,
+      32
+    ],
+    "inference_latency_ms": 50.0,
+    "bandwidth_mbps": 4.0
+  },
+  "results": [
+    {
+      "n_users": 1,
+      "scheduler": "Per-Request",
+      "scheduling_overhead_ms_round": 22.192,
+      "scheduling_overhead_per_request_ms": 22.192,
+      "scheduling_overhead_ratio_pct": 30.74,
+      "effective_throughput_rps": 13.85,
+      "config_drift": 0.0016
+    },
+    {
+      "n_users": 1,
+      "scheduler": "DSCI",
+      "scheduling_overhead_ms_round": 510.032,
+      "scheduling_overhead_per_request_ms": 0.8501,
+      "scheduling_overhead_ratio_pct": 1.67,
+      "effective_throughput_rps": 19.67,
+      "config_drift": 0.0
+    },
+    {
+      "n_users": 2,
+      "scheduler": "Per-Request",
+      "scheduling_overhead_ms_round": 34.224,
+      "scheduling_overhead_per_request_ms": 17.112,
+      "scheduling_overhead_ratio_pct": 25.5,
+      "effective_throughput_rps": 29.8,
+      "config_drift": 0.0023
+    },
+    {
+      "n_users": 2,
+      "scheduler": "DSCI",
+      "scheduling_overhead_ms_round": 510.032,
+      "scheduling_overhead_per_request_ms": 0.425,
+      "scheduling_overhead_ratio_pct": 0.84,
+      "effective_throughput_rps": 39.66,
+      "config_drift": 0.0
+    },
+    {
+      "n_users": 4,
+      "scheduler": "Per-Request",
+      "scheduling_overhead_ms_round": 58.288,
+      "scheduling_overhead_per_request_ms": 14.572,
+      "scheduling_overhead_ratio_pct": 22.57,
+      "effective_throughput_rps": 61.95,
+      "config_drift": 0.0054
+    },
+    {
+      "n_users": 4,
+      "scheduler": "DSCI",
+      "scheduling_overhead_ms_round": 510.032,
+      "scheduling_overhead_per_request_ms": 0.2125,
+      "scheduling_overhead_ratio_pct": 0.42,
+      "effective_throughput_rps": 79.66,
+      "config_drift": 0.0
+    },
+    {
+      "n_users": 8,
+      "scheduler": "Per-Request",
+      "scheduling_overhead_ms_round": 106.416,
+      "scheduling_overhead_per_request_ms": 13.302,
+      "scheduling_overhead_ratio_pct": 21.01,
+      "effective_throughput_rps": 126.38,
+      "config_drift": 0.0114
+    },
+    {
+      "n_users": 8,
+      "scheduler": "DSCI",
+      "scheduling_overhead_ms_round": 510.032,
+      "scheduling_overhead_per_request_ms": 0.1063,
+      "scheduling_overhead_ratio_pct": 0.21,
+      "effective_throughput_rps": 159.66,
+      "config_drift": 0.0
+    },
+    {
+      "n_users": 16,
+      "scheduler": "Per-Request",
+      "scheduling_overhead_ms_round": 202.672,
+      "scheduling_overhead_per_request_ms": 12.667,
+      "scheduling_overhead_ratio_pct": 20.21,
+      "effective_throughput_rps": 255.32,
+      "config_drift": 0.0256
+    },
+    {
+      "n_users": 16,
+      "scheduler": "DSCI",
+      "scheduling_overhead_ms_round": 510.032,
+      "scheduling_overhead_per_request_ms": 0.0531,
+      "scheduling_overhead_ratio_pct": 0.11,
+      "effective_throughput_rps": 319.66,
+      "config_drift": 0.0
+    },
+    {
+      "n_users": 32,
+      "scheduler": "Per-Request",
+      "scheduling_overhead_ms_round": 395.184,
+      "scheduling_overhead_per_request_ms": 12.3495,
+      "scheduling_overhead_ratio_pct": 19.81,
+      "effective_throughput_rps": 513.24,
+      "config_drift": 0.0667
+    },
+    {
+      "n_users": 32,
+      "scheduler": "DSCI",
+      "scheduling_overhead_ms_round": 510.032,
+      "scheduling_overhead_per_request_ms": 0.0266,
+      "scheduling_overhead_ratio_pct": 0.05,
+      "effective_throughput_rps": 639.66,
+      "config_drift": 0.0
+    }
+  ]
+}

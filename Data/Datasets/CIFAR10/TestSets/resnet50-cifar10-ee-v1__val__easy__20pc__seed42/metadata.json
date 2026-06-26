@@ -1,0 +1,27 @@
+{
+  "bundle_id": "resnet50-cifar10-ee-v1",
+  "dataset_id": "cifar10",
+  "split": "val",
+  "mode": "easy",
+  "num_classes": 10,
+  "samples_per_class": 20,
+  "total_samples": 200,
+  "seed": 42,
+  "difficulty_thresholds": {
+    "easy_min_confidence": 0.9,
+    "hard_max_confidence": 0.6
+  },
+  "class_counts": {
+    "0": 20,
+    "1": 20,
+    "2": 20,
+    "3": 20,
+    "4": 20,
+    "5": 20,
+    "6": 20,
+    "7": 20,
+    "8": 20,
+    "9": 20
+  },
+  "created_at": "2026-06-26T05:56:34.546766+00:00"
+}

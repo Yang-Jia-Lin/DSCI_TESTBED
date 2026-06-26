@@ -1,0 +1,34 @@
+Data/Datasets/*
+!Data/Datasets/CIFAR10/
+Data/Datasets/CIFAR10/*
+!Data/Datasets/CIFAR10/TestSets/
+!Data/Datasets/CIFAR10/TestSets/**
+!Data/Datasets/ImageNet100/
+Data/Datasets/ImageNet100/*
+!Data/Datasets/ImageNet100/TestSets/
+!Data/Datasets/ImageNet100/TestSets/**
+Data/TestPackages/
+Data/Runtime/SolutionCache/*
+!Data/Runtime/SolutionCache/.gitkeep
+Data/Runtime/DeviceResults/*
+!Data/Runtime/DeviceResults/.gitkeep
+Data/Archive/Runtime/
+*.pth
+*.pt
+*.h5
+*.ckpt
+*.safetensors
+*.onnx
+*.tar.gz
+*.zip
+# Python caches and environments
+__pycache__/
+*.pyc
+.env
+venv/
+.ipynb_checkpoints/
+
+# PyCharm files
+.idea/
+.idea
+__pycache__
