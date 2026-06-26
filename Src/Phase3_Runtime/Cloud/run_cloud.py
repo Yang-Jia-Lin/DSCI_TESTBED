@@ -22,6 +22,13 @@ from Src.Shared.Partitioning.manifest import load_partition_manifest
 from Src.Shared.Profiles.segment_profile import segment_profile_state
 
 
+def _strip_tensors_if_terminal(result: dict) -> dict:
+    if result.get("prediction") is not None:
+        result = dict(result)
+        result.pop("tensors", None)
+    return result
+
+
 def _validate_cloud_request(payload: dict, state: dict, manifest) -> int:
     if payload.get("bundle_id") != state["bundle_id"]:
         raise ValueError("Request bundle_id does not match Cloud runtime")
@@ -70,6 +77,7 @@ def main(argv=None):
             payload["tensors"],
             payload.get("meta", {}).get("exit_thresholds", {}),
         ).result()
+        result = _strip_tensors_if_terminal(result)
         return {
             **result,
             **identity,

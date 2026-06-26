@@ -23,6 +23,13 @@ from Src.Shared.Partitioning.manifest import load_partition_manifest
 from Src.Shared.Profiles.segment_profile import segment_profile_state
 
 
+def _strip_tensors_if_terminal(result: dict) -> dict:
+    if result.get("prediction") is not None:
+        result = dict(result)
+        result.pop("tensors", None)
+    return result
+
+
 def create_runtime(bundle_id: str, backend: str):
     state = segment_profile_state("edge", backend, bundle_id)
     manifest = load_partition_manifest(state["bundle_id"])
@@ -82,6 +89,7 @@ def main(argv=None):
             f"prediction={result.get('prediction')}"
         )
         if result.get("prediction") is not None:
+            result = _strip_tensors_if_terminal(result)
             return {
                 **result,
                 **identity,
@@ -90,6 +98,7 @@ def main(argv=None):
                 "T_node_edge": t_node_edge,
             }
         if b2 == int(state.get("final_boundary_id", -1)):
+            result = _strip_tensors_if_terminal(result)
             return {
                 **result,
                 **identity,
@@ -116,6 +125,7 @@ def main(argv=None):
             cloud_payload, TESTBED_CFG.cloud_host, TESTBED_CFG.cloud_feature_port
         )
         print("[edge] cloud response received")
+        cloud = _strip_tensors_if_terminal(cloud)
         cloud["T_edge_cloud_roundtrip"] = time.perf_counter() - tx_started
         return {
             **cloud,

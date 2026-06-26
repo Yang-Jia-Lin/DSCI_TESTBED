@@ -2,7 +2,7 @@ import pickle
 import socket
 
 
-def send_tensor(tensor, host, port, timeout_s=30):
+def send_tensor(tensor, host, port, timeout_s=120):
     """Send a length-prefixed pickle payload and wait for the peer response."""
     data = pickle.dumps(tensor, protocol=pickle.HIGHEST_PROTOCOL)
     print(f"[send_tensor] connect {host}:{port}, payload={len(data)} bytes")
