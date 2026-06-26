@@ -54,6 +54,10 @@ class BundleArtifactPaths:
         return DATASET_DIR / directory
 
     @property
+    def test_package_root(self) -> Path:
+        return self.dataset_root / "TestSets"
+
+    @property
     def analysis_root(self) -> Path:
         return self.root / "analysis"
 

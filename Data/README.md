@@ -7,6 +7,8 @@ Only the following top-level directories are part of the active data contract:
 - `Bundles/<bundle_id>/`: weights, manifest, exit curves, optional simulation
   layer statistics, MNN segments, and bundle-specific analysis.
 - `Profiles/{Compute,Segments}/`: measured device profiles.
+- `Datasets/<dataset>/TestSets/`: small Git-trackable test packages for
+  device-side balanced, easy, and hard sample evaluation.
 - `Runtime/`: disposable current-run caches and device output.
 - `Archive/`: preserved legacy inputs and historical runtime output. Active code
   must never read assets from this directory.
