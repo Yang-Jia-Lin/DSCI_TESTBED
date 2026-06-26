@@ -23,15 +23,27 @@ def collect_device_state(
     backend: str,
     *,
     bw_d2e_override: float | None = None,
+    iperf_duration: float | None = None,
+    iperf_timeout: float | None = None,
 ):
     device = segment_profile_state("device", backend, bundle_id)
-    bw_d2e = (
-        float(bw_d2e_override)
-        if bw_d2e_override is not None
-        else measure_bandwidth_iperf(
-            TESTBED_CFG.edge_host, TESTBED_CFG.edge_iperf_port
+    if bw_d2e_override is not None:
+        bw_d2e = float(bw_d2e_override)
+    else:
+        measured_bw = measure_bandwidth_iperf(
+            TESTBED_CFG.edge_host,
+            TESTBED_CFG.edge_iperf_port,
+            duration=iperf_duration,
+            timeout_s=iperf_timeout,
         )
-    )
+        if measured_bw is None or float(measured_bw) <= 0:
+            bw_d2e = float(TESTBED_CFG.default_bw_d2e)
+            print(
+                "Device->Edge iperf failed; "
+                f"using fallback BW_d2e={bw_d2e:.4f} Mbps"
+            )
+        else:
+            bw_d2e = float(measured_bw)
     return {
         **device,
         "BW_d2e": bw_d2e,
@@ -123,12 +135,16 @@ def collect_state(
     backend: str,
     *,
     bw_d2e_override: float | None = None,
+    iperf_duration: float | None = None,
+    iperf_timeout: float | None = None,
 ):
     """Backward-compatible one-user v1 state builder."""
     device = collect_device_state(
         bundle_id,
         backend,
         bw_d2e_override=bw_d2e_override,
+        iperf_duration=iperf_duration,
+        iperf_timeout=iperf_timeout,
     )
     edge = requests.get(
         f"http://{TESTBED_CFG.edge_host}:{TESTBED_CFG.edge_status_port}/status", timeout=10
@@ -198,6 +214,16 @@ def main(argv=None):
         help="Use this Device->Edge bandwidth in Mbps instead of iperf.",
     )
     parser.add_argument(
+        "--iperf-duration",
+        type=float,
+        help="iperf3 measurement duration in seconds; default is 8 or DSCI_IPERF_DURATION_S.",
+    )
+    parser.add_argument(
+        "--iperf-timeout",
+        type=float,
+        help="iperf3 subprocess timeout in seconds; default is duration + 15.",
+    )
+    parser.add_argument(
         "--decision-mode",
         choices=(
             "dsci",
@@ -217,6 +243,8 @@ def main(argv=None):
         bundle.bundle_id,
         args.backend,
         bw_d2e_override=args.override_bw_d2e,
+        iperf_duration=args.iperf_duration,
+        iperf_timeout=args.iperf_timeout,
     )
     print(f"Device state BW_d2e={float(device['BW_d2e']):.4f} Mbps")
     client = RoundClient(TESTBED_CFG.algo_base_url, args.round_id, args.user_id)

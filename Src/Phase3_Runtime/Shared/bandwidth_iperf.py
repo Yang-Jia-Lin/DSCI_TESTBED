@@ -1,36 +1,89 @@
-# deploy/monitor/bandwidth.py
+"""iperf3 bandwidth measurement helpers."""
+
+from __future__ import annotations
+
 import json
+import os
 import subprocess
 
-# 请确保这个路径指向你的 iperf3.exe（根据实际情况调整）
-IPERF_EXE = "iperf3"
-# 如果你放在了其他位置，例如 C:\iperf3\iperf3.exe，就改成那个路径。
+IPERF_EXE = os.environ.get("DSCI_IPERF_EXE", "iperf3")
 
 
-def measure_bandwidth_iperf(server_ip, port=5001, duration=2):
-    """使用 iperf3 客户端测量到指定服务端的上行带宽 (Mbps)"""
-    cmd = [IPERF_EXE, "-c", server_ip, "-p",
-           str(port), "-t", str(duration), "-J"]
+def _env_float(name: str, default: float) -> float:
+    value = os.environ.get(name)
+    if value is None or value == "":
+        return float(default)
     try:
-        result = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=duration + 5
+        return float(value)
+    except ValueError:
+        return float(default)
+
+
+DEFAULT_IPERF_DURATION_S = _env_float("DSCI_IPERF_DURATION_S", 8.0)
+DEFAULT_IPERF_TIMEOUT_MARGIN_S = _env_float("DSCI_IPERF_TIMEOUT_MARGIN_S", 15.0)
+
+
+def measure_bandwidth_iperf(
+    server_ip: str,
+    port: int = 5001,
+    duration: float | None = None,
+    timeout_s: float | None = None,
+) -> float | None:
+    """Measure upload bandwidth to an iperf3 server and return Mbps.
+
+    Slow overlay networks such as Tailscale can spend the first couple of seconds
+    ramping up, so the default duration is intentionally longer than a LAN probe.
+    ``None`` is returned on failure so callers can apply their own fallback.
+    """
+    duration = float(DEFAULT_IPERF_DURATION_S if duration is None else duration)
+    timeout_s = float(
+        duration + DEFAULT_IPERF_TIMEOUT_MARGIN_S
+        if timeout_s is None
+        else timeout_s
+    )
+    cmd = [
+        IPERF_EXE,
+        "-c",
+        str(server_ip),
+        "-p",
+        str(int(port)),
+        "-t",
+        str(duration),
+        "-J",
+    ]
+    try:
+        print(
+            f"iperf3 measuring {server_ip}:{int(port)}, "
+            f"duration={duration:.1f}s, timeout={timeout_s:.1f}s"
         )
-        if result.returncode == 0 and result.stdout:
-            data = json.loads(result.stdout)
-            # 提取发送速率 (bits_per_second) 并转换为 Mbps
-            bw_bps = data["end"]["sum_sent"]["bits_per_second"]
-            return bw_bps / 1e6
-        else:
-            print("iperf3 测量失败，返回码:", result.returncode)
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=timeout_s,
+        )
+        if result.returncode != 0 or not result.stdout:
+            print("iperf3 measurement failed, return code:", result.returncode)
             if result.stderr:
-                print("错误详情:", result.stderr)
-            return 0.0
+                print("iperf3 stderr:", result.stderr)
+            return None
+
+        data = json.loads(result.stdout)
+        bw_bps = float(data["end"]["sum_sent"]["bits_per_second"])
+        bw_mbps = bw_bps / 1e6
+        if bw_mbps <= 0:
+            print("iperf3 measured non-positive bandwidth")
+            return None
+        return bw_mbps
     except subprocess.TimeoutExpired:
-        print("iperf3 测量超时")
-        return 0.0
+        print(
+            f"iperf3 measurement timed out: target={server_ip}:{int(port)}, "
+            f"duration={duration:.1f}s, timeout={timeout_s:.1f}s"
+        )
+        return None
     except FileNotFoundError:
-        print(f"找不到 iperf3 程序，请检查路径: {IPERF_EXE}")
-        return 0.0
-    except Exception as e:
-        print(f"iperf3 测量异常: {e}")
-        return 0.0
+        print(f"iperf3 executable not found: {IPERF_EXE}")
+        return None
+    except Exception as exc:
+        print(f"iperf3 measurement error: {exc}")
+        return None
