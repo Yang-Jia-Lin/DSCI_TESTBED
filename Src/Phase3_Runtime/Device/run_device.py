@@ -79,6 +79,27 @@ def _measurement_record(result: dict, *, is_correct: bool, sample_metadata: dict
     return record
 
 
+def _print_measurement_summary(measurements: list[dict], *, correct: int, total: int) -> None:
+    if not measurements:
+        print("samples=0 accuracy=0.0000")
+        return
+    print(f"samples={total} accuracy={correct / max(total, 1):.4f}")
+    latency_keys = sorted(
+        {
+            key
+            for record in measurements
+            for key in record
+            if key.startswith("T_")
+        }
+    )
+    for key in latency_keys:
+        values = [float(record[key]) for record in measurements if key in record]
+        if not values:
+            continue
+        mean_ms = 1000.0 * sum(values) / len(values)
+        print(f"{key}_avg_ms={mean_ms:.3f}")
+
+
 def collect_state(bundle_id: str, backend: str):
     """Backward-compatible one-user v1 state builder."""
     device = collect_device_state(bundle_id, backend)
@@ -200,7 +221,7 @@ def main(argv=None):
     finally:
         heartbeat_stop.set()
         heartbeat.join(timeout=args.heartbeat_interval + 1.0)
-    print(f"samples={total} accuracy={correct / max(total, 1):.4f}")
+    _print_measurement_summary(measurements, correct=correct, total=total)
 
 
 if __name__ == "__main__":
