@@ -45,6 +45,39 @@ def compute_layer_exit_probs(Y, paras):
     return P
 
 
+def compute_layer_exit_probs(Y, paras):
+    """Compute unconditional exit probabilities, including final fallback.
+
+    The exit curve gives conditional probabilities for each early-exit head.
+    Any probability mass that does not leave through an early-exit head must
+    reach the final classifier. Keeping that residual is important for latency:
+    otherwise the scheduler can incorrectly treat offloaded tensors as never
+    transmitted when thresholds are close to 1.0.
+    """
+    n, m = Y.shape
+    p = np.zeros((n, m))
+    P = np.zeros((n, m))
+    exit_layers = [int(layer) for layer in paras.E]
+    final_layer = m - 1
+
+    for i in range(n):
+        for j in exit_layers:
+            p[i, j] = _get_independent_prob(Y[i, j], j, paras.rates)
+
+        remaining = 1.0
+        for j in exit_layers:
+            P[i, j] = remaining * p[i, j]
+            remaining *= 1.0 - p[i, j]
+        P[i, final_layer] = max(0.0, remaining)
+
+        total = P[i].sum()
+        if total > 0:
+            P[i] = P[i] / total
+        else:
+            P[i, final_layer] = 1.0
+    return P
+
+
 # ==========================================
 # Test Block
 # ==========================================

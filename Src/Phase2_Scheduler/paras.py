@@ -126,6 +126,10 @@ class Paras:
                 return profile
             user_profiles = [execution_profile(user) for user in users]
             edge_profile, cloud_profile = execution_profile(edge), execution_profile(cloud)
+            d2e_overheads = [
+                float(user.get("protocol_overhead_s", 0.0))
+                for user in users
+            ]
             zero_work = np.zeros(m)
             return cls(
                 n=len(users), m=m, E=exits, exit_ids=exit_ids, bundle=bundle,
@@ -143,6 +147,8 @@ class Paras:
                 exit_head_latency_c=cloud_profile.exit_head_latencies,
                 edge_worker_count=edge_profile.worker_count,
                 cloud_worker_count=cloud_profile.worker_count,
+                protocol_overhead_d2e_s=max(d2e_overheads, default=0.0),
+                protocol_overhead_e2c_s=float(edge.get("protocol_overhead_s", 0.0)),
             )
 
         stats = pd.read_csv(bundle_paths(bundle.bundle_id).layer_stats_path)

@@ -85,9 +85,11 @@ def run_partitioned_inference(
             "exit_thresholds": user.get("exit_thresholds", {}),
         },
     }
+    tx_started = time.perf_counter()
     response = send_tensor(
         payload, TESTBED_CFG.edge_host, TESTBED_CFG.edge_feature_port
     )
+    response["T_device_edge_roundtrip"] = time.perf_counter() - tx_started
     response["T_compute_device"] = t_device
     response["T_total"] = time.perf_counter() - total_started
     if request_identity(response) != identity:
