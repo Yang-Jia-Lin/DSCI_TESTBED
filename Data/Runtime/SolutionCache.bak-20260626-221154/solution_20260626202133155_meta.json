@@ -1,0 +1,74 @@
+{
+  "state_signature": {
+    "model": {
+      "bundle_id": "resnet50-cifar10-ee-v1",
+      "m": 20,
+      "exit_ids": [
+        "after_layer2",
+        "after_layer3"
+      ]
+    },
+    "num_users": 1,
+    "resource_mode": "fixed_worker_pool",
+    "manifest_id": "resnet50-cifar10-ee-v1-partition-v1",
+    "model_hash": "14f5febd0a7bdc8f3bd024729f8c7f81f0f0ca400dc4cd899fc22f8b7da68b18",
+    "users": [
+      {
+        "user_id": 0,
+        "f_u": 1.0,
+        "BW_d2e": 25.0,
+        "compute_profile_id": null,
+        "execution_profile_id": "nx-pytorch-resnet50-cifar10"
+      }
+    ],
+    "edge": {
+      "f_e_max": 1.0,
+      "compute_profile_id": null,
+      "execution_profile_id": "edge-pytorch-resnet50-cifar10",
+      "worker_count": 1
+    },
+    "cloud": {
+      "f_c_max": 1.0,
+      "BW_e2c": 50.0,
+      "compute_profile_id": null,
+      "execution_profile_id": "v100-pytorch-resnet50-cifar10",
+      "worker_count": 1
+    }
+  },
+  "compat_key": {
+    "model": {
+      "bundle_id": "resnet50-cifar10-ee-v1",
+      "m": 20,
+      "exit_ids": [
+        "after_layer2",
+        "after_layer3"
+      ]
+    },
+    "num_users": 1,
+    "resource_mode": "fixed_worker_pool",
+    "manifest_id": "resnet50-cifar10-ee-v1-partition-v1",
+    "model_hash": "14f5febd0a7bdc8f3bd024729f8c7f81f0f0ca400dc4cd899fc22f8b7da68b18",
+    "user_profiles": [
+      "nx-pytorch-resnet50-cifar10"
+    ],
+    "edge_profile": "edge-pytorch-resnet50-cifar10",
+    "cloud_profile": "v100-pytorch-resnet50-cifar10"
+  },
+  "state_vector": [
+    25.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    50.0,
+    1.0
+  ],
+  "objective": 0.8342374311363011,
+  "created_at": 1782476493.1554537,
+  "policy_path": "D:\\Coding\\Python\\DSCI_testbed\\Data\\Runtime\\SolutionCache\\solution_20260626202133155_policy.pt",
+  "training_mode": "medium",
+  "training_started_at": 1782476443.1210976,
+  "training_finished_at": 1782476493.1554537,
+  "training_duration_s": 50.034356117248535,
+  "saved_at": 1782476493.191947
+}
