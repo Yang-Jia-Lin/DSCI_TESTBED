@@ -1,3 +1,30 @@
+# 简单测试
+1. **Cloud**
+```bash
+export DSCI_CLOUD_PYTORCH_SEGMENT_PROFILE_ID=v100-pytorch-resnet50-cifar10
+python -m Src.Phase3_Runtime.Cloud.run_cloud --bundle-id resnet50-cifar10-ee-v1 --backend pytorch
+```
+
+2. **Edge**
+```powershell
+$env:DSCI_EDGE_PYTORCH_SEGMENT_PROFILE_ID="edge-pytorch-resnet50-cifar10"
+python -m Src.Phase3_Runtime.Edge.run_edge --bundle-id resnet50-cifar10-ee-v1 --backend pytorch
+```
+
+3. **Scheduler**
+```powershell
+$env:DSCI_EXPECTED_USERS="1"
+python -m Src.Phase2_Scheduler.Service.api_server --expected-users 1
+```
+
+4. **Jetson**
+```bash
+export DSCI_DEVICE_PYTORCH_SEGMENT_PROFILE_ID=nx-pytorch-resnet50-cifar10
+python -m Src.Phase3_Runtime.Device.run_device --bundle-id resnet50-cifar10-ee-v1 --backend pytorch --round-id r50-cifar10-cloud-002 --user-id 0 --test-samples 1
+```
+
+---
+
 > [!info] SEAM 原型系统
 > - 实现 Device → Edge → Cloud 三级协同推理。
 > - 核心思想：将一个带有早退出口的 DNN 模型按原子 Segment 切分，由 PPO 强化学习优化器（DSCI）为每个用户决定最优的切分点和早退阈值，使延迟与精度的加权（`Reward = α × accuracy − β × latency`）奖励最大化。。
@@ -381,6 +408,50 @@ Scheduler 在优化时有两种时延估算模式：
 | `DSCI_{DEVICE\|EDGE\|CLOUD}_MNN_SEGMENT_PROFILE_ID` | MNN 后端的 Profile ID |
 | `DSCI_SEGMENT_PROFILE_ROOT` | 自定义 Profile 存储路径 |
 | `DSCI_{EDGE\|CLOUD}_PROTOCOL_OVERHEAD_S` | 协议额外时延（秒） |
+
+## 近期真机适配更新
+
+以下内容用于 Device/Edge/Cloud 三端真机测试，尤其是慢速远程链路或 Tailscale 环境：
+
+| 项目 | 用法 | 说明 |
+|------|------|------|
+| Device 带宽覆盖 | `--override-bw-d2e <Mbps>` | 跳过 iperf3，手动指定 Device -> Edge 带宽 |
+| Edge 带宽覆盖 | `--override-bw-e2c <Mbps>` | Edge 状态上报时手动指定 Edge -> Cloud 带宽 |
+| iperf 时长 | `--iperf-duration <seconds>` / `DSCI_IPERF_DURATION_S` | 默认 8 秒；远程链路建议 8-10 秒以上 |
+| iperf 超时 | `--iperf-timeout <seconds>` / `DSCI_IPERF_TIMEOUT_MARGIN_S` | 避免低速链路下 iperf 过早超时 |
+| iperf 路径 | `DSCI_IPERF_EXE` | 指定自定义 iperf3 可执行文件 |
+| 固定策略测试 | `--decision-mode device\|edge\|cloud\|device_early_exit\|edge_early_exit\|cloud_early_exit` | Device 注册时请求预设策略，便于做基线测试 |
+| 目标函数权重 | `DSCI_OBJECTIVE_ALPHA` / `DSCI_OBJECTIVE_BETA` | 调整 `alpha * accuracy - beta * latency` 中精度和时延权重 |
+| 协议额外时延 | `DSCI_{DEVICE\|EDGE\|CLOUD}_PROTOCOL_OVERHEAD_S` | 传入 fixed-worker 延迟模型，用于校准真机协议开销 |
+
+真机运行时 Device 会打印 `Decision summary`，其中包含：
+
+```text
+source=<decision_source>, objective=<objective>, b1=<partition_boundary_1>, b2=<partition_boundary_2>
+```
+
+常见 `decision_source`：
+
+| 来源 | 含义 |
+|------|------|
+| `default` | 当前轮先返回默认解，后台启动 DSCI/PPO 训练 |
+| `cached_dsci:exact` | 当前状态与缓存完全匹配，直接复用策略 |
+| `cached_dsci:reuse:<distance>` | 状态距离较近，复用历史策略 |
+| `cached_dsci:warm:<distance>` | 先返回 warm-start 策略，同时后台继续训练 |
+| `fixed_split:<b1>:<b2>` | Scheduler 使用固定切分点 |
+| `preset:<mode>:...` | Device 请求了预设策略 |
+
+Scheduler 会把 PPO 训练事件写入：
+
+```text
+Data/Runtime/SolutionCache/training_events.jsonl
+```
+
+`GET /api/v1/health` 可查看 `training_status`、`update_epochs`、`last_training_mode`、`last_training_duration_s`、`training_events_path` 等字段，用于判断新策略何时训练完成。
+
+真机 socket 传输已改为“4 字节大端长度头 + pickle payload”的双向长度前缀协议。Device 汇总输出中会包含 `T_device_edge_roundtrip_avg_ms`，用于观察 Device -> Edge 的真实传输/等待开销；当早退在 Device 侧发生时，该字段可能不会出现。
+
+DSCI/PPO 的早退概率模型已修正：早退表给出的是各 early-exit head 的条件退出概率，未早退的剩余概率必须进入 final classifier。这个修正会显著影响慢网下的大 tensor offload 策略选择，避免把 final 样本误当成已经早退。
 
 ## 实验脚本
 
