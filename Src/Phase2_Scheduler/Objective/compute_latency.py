@@ -62,6 +62,10 @@ def _compute_edge_to_cloud_delay_for_paras(feature_bytes, paras):
     return _compute_edge_to_cloud_delay(feature_bytes, paras.b_c)
 
 
+def _effective_feature_bytes(feature_bytes, paras):
+    return float(feature_bytes) * float(getattr(paras, "transport_byte_scale", 1.0))
+
+
 def _final_boundary_for_latency(paras, m: int) -> int:
     manifest = getattr(paras, "partition_manifest", None)
     if manifest is not None:
@@ -177,7 +181,10 @@ def _fixed_worker_components(X, P, paras):
         raise ValueError("fixed_worker_pool requires a partition manifest")
     cuts = compute_exit_points(X, paras)
     n = X.shape[0]
-    boundary_bytes = np.asarray(paras.boundary_bytes, dtype=np.float64)
+    boundary_bytes = (
+        np.asarray(paras.boundary_bytes, dtype=np.float64)
+        * float(getattr(paras, "transport_byte_scale", 1.0))
+    )
     user_latency = np.asarray(paras.segment_latency_u, dtype=np.float64)
     edge_latency = np.asarray(paras.segment_latency_e, dtype=np.float64)
     cloud_latency = np.asarray(paras.segment_latency_c, dtype=np.float64)
@@ -271,7 +278,7 @@ def compute_total_latency(X, P, F_e, F_c, paras):
         # ---- U->E transmission & Edge computation ----
         if 0 <= cut0 < m and prob_reach_edge > 0:
             T[i] += prob_reach_edge * _compute_device_to_edge_delay(
-                float(D[cut0]), i, paras
+                _effective_feature_bytes(D[cut0], paras), i, paras
             )
             T[i] += _compute_edge_computation_delay((cut0, cut1), P_i, C_e, f_e)
 
@@ -282,7 +289,7 @@ def compute_total_latency(X, P, F_e, F_c, paras):
 
         # ---- E->C transmission & Cloud computation ----
         if 0 <= cut1 < final_boundary and prob_reach_cloud > 0:
-            d_i_2 = float(D[cut1])
+            d_i_2 = _effective_feature_bytes(D[cut1], paras)
             T[i] += prob_reach_cloud * _compute_edge_to_cloud_delay_for_paras(
                 d_i_2, paras
             )
@@ -331,7 +338,7 @@ def compute_5_latency(X, P, F_e, F_c, paras):
         # ---- U->E transmission & Edge computation ----
         if 0 <= cut0 < m and prob_reach_edge > 0:
             T2[i] = prob_reach_edge * _compute_device_to_edge_delay(
-                float(D[cut0]), i, paras
+                _effective_feature_bytes(D[cut0], paras), i, paras
             )
             T3[i] = _compute_edge_computation_delay((cut0, cut1), P_i, C_e, f_e)
 
@@ -342,7 +349,7 @@ def compute_5_latency(X, P, F_e, F_c, paras):
 
         # ---- E->C transmission & Cloud computation ----
         if 0 <= cut1 < final_boundary and prob_reach_cloud > 0:
-            d_i_2 = float(D[cut1])
+            d_i_2 = _effective_feature_bytes(D[cut1], paras)
             T4[i] = prob_reach_cloud * _compute_edge_to_cloud_delay_for_paras(
                 d_i_2, paras
             )
@@ -411,7 +418,9 @@ def compute_user_latency(
 
     # ---- U->E transmission & Edge computation ----
     if 0 <= cut0 < m and prob_reach_edge > 0:
-        T += prob_reach_edge * _compute_device_to_edge_delay(float(D[cut0]), u, paras)
+        T += prob_reach_edge * _compute_device_to_edge_delay(
+            _effective_feature_bytes(D[cut0], paras), u, paras
+        )
         T += _compute_edge_computation_delay((cut0, cut1), P_i, C_e, f_e)
 
     # 只有 b2 位于 final 之前时，才会发送到 Cloud。
@@ -422,7 +431,7 @@ def compute_user_latency(
     # ---- E->C transmission & Cloud computation ----
     if 0 <= cut1 < final_boundary and prob_reach_cloud > 0:
         T += prob_reach_cloud * _compute_edge_to_cloud_delay_for_paras(
-            float(D[cut1]), paras
+            _effective_feature_bytes(D[cut1], paras), paras
         )
         T += _compute_cloud_computation_delay((cut0, cut1), P_i, C_c, f_c)
 

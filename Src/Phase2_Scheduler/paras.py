@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -53,6 +54,8 @@ class Paras:
     cloud_worker_count: int = 1
     protocol_overhead_d2e_s: float = 0.0
     protocol_overhead_e2c_s: float = 0.0
+    tensor_transport_dtype: str = "float32"
+    transport_byte_scale: float = 1.0
     rates: np.ndarray | None = field(init=False, default=None)
     accs: np.ndarray | None = field(init=False, default=None)
 
@@ -92,6 +95,50 @@ class Paras:
         from Src.Phase2_Scheduler.Utils.parsing_data import parsing_rate_and_acc
         self.rates, self.accs = parsing_rate_and_acc(self)
 
+    @staticmethod
+    def _normalise_transport_dtype(value: Any) -> str:
+        value = str(value or "float32").strip().lower()
+        if value in {"", "none", "fp32", "float32"}:
+            return "float32"
+        if value in {"fp16", "float16"}:
+            return "float16"
+        raise ValueError(
+            "tensor_transport_dtype must be one of: float32, fp32, none, "
+            "float16, fp16"
+        )
+
+    @classmethod
+    def _transport_dtype_from_state(cls, state: dict) -> str:
+        if state.get("tensor_transport_dtype") is not None:
+            return cls._normalise_transport_dtype(state.get("tensor_transport_dtype"))
+        scheduler_override = os.environ.get("DSCI_SCHEDULER_TRANSPORT_DTYPE")
+        if scheduler_override is not None:
+            return cls._normalise_transport_dtype(scheduler_override)
+        owner_values = [
+            owner.get("tensor_transport_dtype")
+            for owner in [
+                *(state.get("users") or []),
+                state.get("edge") or {},
+                state.get("cloud") or {},
+            ]
+            if owner.get("tensor_transport_dtype") is not None
+        ]
+        if owner_values:
+            normalised = {cls._normalise_transport_dtype(value) for value in owner_values}
+            if len(normalised) != 1:
+                raise ValueError(
+                f"Inconsistent tensor_transport_dtype across nodes: {sorted(normalised)}"
+                )
+            return normalised.pop()
+        return cls._normalise_transport_dtype(
+            os.environ.get("DSCI_TENSOR_TRANSPORT_DTYPE") or "float32"
+        )
+
+    @classmethod
+    def _transport_byte_scale(cls, dtype: str) -> float:
+        dtype = cls._normalise_transport_dtype(dtype)
+        return 0.5 if dtype == "float16" else 1.0
+
     @classmethod
     def from_state(cls, state: dict, algo_cfg=None):
         algo_cfg = algo_cfg or ALGO_CFG
@@ -110,6 +157,8 @@ class Paras:
         m = len(manifest.boundaries)
         exits = list(manifest.exit_boundary_ids)
         exit_ids = list(manifest.exit_ids)
+        transport_dtype = cls._transport_dtype_from_state(state)
+        transport_byte_scale = cls._transport_byte_scale(transport_dtype)
         curves = pd.read_csv(bundle_paths(bundle.bundle_id).offline_table_path)
         if not {"threshold", "final_accuracy"}.issubset(curves.columns):
             raise ValueError("Legacy offline tables are not supported")
@@ -149,6 +198,8 @@ class Paras:
                 cloud_worker_count=cloud_profile.worker_count,
                 protocol_overhead_d2e_s=max(d2e_overheads, default=0.0),
                 protocol_overhead_e2c_s=float(edge.get("protocol_overhead_s", 0.0)),
+                tensor_transport_dtype=transport_dtype,
+                transport_byte_scale=transport_byte_scale,
             )
 
         stats = pd.read_csv(bundle_paths(bundle.bundle_id).layer_stats_path)
@@ -170,4 +221,6 @@ class Paras:
             B_u=np.array([float(user["BW_d2e"]) for user in users]),
             b_c=float(cloud["BW_e2c"]), alpha=algo_cfg.alpha, beta=algo_cfg.beta,
             resource_mode=resource_mode,
+            tensor_transport_dtype=transport_dtype,
+            transport_byte_scale=transport_byte_scale,
         )

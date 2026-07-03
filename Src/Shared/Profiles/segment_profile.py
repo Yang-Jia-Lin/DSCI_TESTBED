@@ -247,6 +247,7 @@ def segment_profile_state(role: str, backend: str, bundle_id: str) -> dict:
         manifest=load_partition_manifest(str(profile.metadata["bundle_id"])),
     )
     overhead_key = f"DSCI_{role.upper()}_PROTOCOL_OVERHEAD_S"
+    transport_dtype = os.environ.get("DSCI_TENSOR_TRANSPORT_DTYPE", "float32")
     return {
         "resource_mode": "fixed_worker_pool",
         "bundle_id": str(profile.metadata["bundle_id"]),
@@ -257,4 +258,5 @@ def segment_profile_state(role: str, backend: str, bundle_id: str) -> dict:
         "worker_count": profile.worker_count,
         "threads_per_worker": profile.threads_per_worker,
         "protocol_overhead_s": float(os.environ.get(overhead_key, "0")),
+        "tensor_transport_dtype": transport_dtype,
     }

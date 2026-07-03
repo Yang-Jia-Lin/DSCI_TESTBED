@@ -179,6 +179,12 @@ class AlgoService:
             },
             "num_users": int(paras.n),
             "resource_mode": paras.resource_mode,
+            "tensor_transport_dtype": getattr(
+                paras, "tensor_transport_dtype", "float32"
+            ),
+            "transport_byte_scale": cls._round_float(
+                getattr(paras, "transport_byte_scale", 1.0)
+            ),
             "manifest_id": paras.manifest_id,
             "model_hash": (
                 paras.partition_manifest.model_hash
@@ -220,6 +226,10 @@ class AlgoService:
             "model": copy.deepcopy(signature.get("model") or {}),
             "num_users": signature.get("num_users"),
             "resource_mode": signature.get("resource_mode"),
+            "tensor_transport_dtype": signature.get(
+                "tensor_transport_dtype", "float32"
+            ),
+            "transport_byte_scale": signature.get("transport_byte_scale", 1.0),
             "manifest_id": signature.get("manifest_id"),
             "model_hash": signature.get("model_hash"),
             "user_profiles": [
@@ -250,6 +260,7 @@ class AlgoService:
         cloud = signature.get("cloud") or {}
         vector.extend(
             [
+                cls._float_or_zero(signature.get("transport_byte_scale", 1.0)),
                 cls._float_or_zero(edge.get("f_e_max")),
                 cls._float_or_zero(edge.get("worker_count")),
                 cls._float_or_zero(cloud.get("f_c_max")),
