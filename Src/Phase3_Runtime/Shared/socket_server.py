@@ -7,7 +7,10 @@ import socket
 import threading
 import traceback
 
-from Src.Phase3_Runtime.Shared.tensor_codec import tensors_to_cpu
+from Src.Phase3_Runtime.Shared.tensor_codec import (
+    prepare_for_transport,
+    restore_from_transport,
+)
 
 
 def _recv_exact(conn: socket.socket, size: int) -> bytes:
@@ -48,14 +51,16 @@ def _handle_connection(conn: socket.socket, handler, addr) -> None:
         try:
             length = int.from_bytes(_recv_exact(conn, 4), "big")
             print(f"[socket_server] accepted {addr}, payload={length} bytes")
-            payload = pickle.loads(_recv_exact(conn, length))
+            payload = restore_from_transport(pickle.loads(_recv_exact(conn, length)))
             print(f"[socket_server] handling {addr}")
             response = handler(payload)
             print(f"[socket_server] handled {addr}")
         except Exception as exc:
             traceback.print_exc()
             response = {"status": "error", "message": str(exc)}
-        response_bytes = pickle.dumps(tensors_to_cpu(response), protocol=pickle.HIGHEST_PROTOCOL)
+        response_bytes = pickle.dumps(
+            prepare_for_transport(response), protocol=pickle.HIGHEST_PROTOCOL
+        )
         conn.sendall(len(response_bytes).to_bytes(4, byteorder="big"))
         conn.sendall(response_bytes)
         print(f"[socket_server] responded {addr}, response={len(response_bytes)} bytes")
