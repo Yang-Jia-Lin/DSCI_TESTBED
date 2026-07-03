@@ -15,7 +15,23 @@ class PyTorchSegmentExecutor:
     def __init__(self, model: torch.nn.Module, manifest: PartitionManifest):
         self.model = model.eval()
         self.manifest = manifest
+        self.device = self._model_device()
         self._segments = [self._resolve(str(item["name"])) for item in manifest.segments]
+
+    def _model_device(self):
+        try:
+            return next(self.model.parameters()).device
+        except StopIteration:
+            return torch.device("cpu")
+
+    def synchronize(self) -> None:
+        if self.device.type == "cuda":
+            torch.cuda.synchronize(self.device)
+
+    def _to_device(self, tensor: torch.Tensor) -> torch.Tensor:
+        if tensor.device == self.device:
+            return tensor
+        return tensor.to(self.device, non_blocking=True)
 
     def _resolve(self, name):
         if name == "stem":
@@ -33,8 +49,9 @@ class PyTorchSegmentExecutor:
         if segment_id not in self.manifest.segment_ids:
             raise SegmentExecutionError(f"Unknown segment_id: {segment_id}")
         segment = self.manifest.segments[segment_id]
+        main = self._to_device(tensors["main"])
         with torch.no_grad():
-            output = self._segments[segment_id](tensors["main"])
+            output = self._segments[segment_id](main)
         return {str(segment["output_names"][0]): output}
 
     def execute_range(self, start_boundary: int, end_boundary: int, tensors: dict):
@@ -50,8 +67,9 @@ class PyTorchSegmentExecutor:
             return None
         if item.get("final"):
             return tensors.get("logits")
+        main = self._to_device(tensors["main"])
         with torch.no_grad():
-            return self.model.classify_exit(str(item["exit_id"]), tensors["main"])
+            return self.model.classify_exit(str(item["exit_id"]), main)
 
     def execute_range_with_exits(self, start_boundary, end_boundary, tensors, exit_thresholds):
         self.manifest.validate_range(start_boundary, end_boundary)

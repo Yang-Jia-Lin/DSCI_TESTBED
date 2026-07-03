@@ -59,10 +59,12 @@ def run_partitioned_inference(
     b2 = int(user["partition_boundary_2"])
     manifest.validate_boundary_pair(b1, b2)
     executor = PyTorchSegmentExecutor(load_full_model(manifest), manifest)
+    executor.synchronize()
     started = time.perf_counter()
     device_result = executor.execute_range_with_exits(
         0, b1, {"main": input_tensor}, user.get("exit_thresholds", {})
     )
+    executor.synchronize()
     t_device = time.perf_counter() - started
     if device_result["prediction"] is not None:
         return {

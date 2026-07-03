@@ -9,6 +9,7 @@ import torch
 
 from Src.Shared.Config.model_config import get_bundle
 from Src.Shared.Config.paths import bundle_paths
+from Src.Phase3_Runtime.Shared.model_loader import resolve_torch_device
 from Src.Shared.Models.ModelNet.MultiExitResNet import build_model
 from Src.Shared.Partitioning.manifest import load_partition_manifest, validate_model_file
 from Src.Shared.Partitioning.pytorch_executor import PyTorchSegmentExecutor
@@ -26,7 +27,7 @@ def _init_worker(bundle_id, device_name, threads):
     paths = bundle_paths(bundle_id)
     _MANIFEST = load_partition_manifest(bundle_id)
     validate_model_file(_MANIFEST, paths.weight_path)
-    device = torch.device(device_name)
+    device = resolve_torch_device(device_name)
     model = build_model(bundle).to(device)
     model.load_state_dict(torch.load(paths.weight_path, map_location=device, weights_only=True))
     _EXECUTOR = PyTorchSegmentExecutor(model, _MANIFEST)
@@ -37,13 +38,17 @@ def _profile_once():
     bundle = {"main": _SAMPLE}
     elapsed, exit_elapsed = [], {}
     for segment_id in _MANIFEST.segment_ids:
+        _EXECUTOR.synchronize()
         started = time.perf_counter()
         bundle = _EXECUTOR.execute_segment(segment_id, bundle)
+        _EXECUTOR.synchronize()
         elapsed.append(time.perf_counter() - started)
         item = _MANIFEST.exit_for_boundary(segment_id + 1)
         if item is not None and not item.get("final"):
+            _EXECUTOR.synchronize()
             started = time.perf_counter()
             _EXECUTOR.exit_logits(segment_id + 1, bundle)
+            _EXECUTOR.synchronize()
             exit_elapsed[str(item["exit_id"])] = time.perf_counter() - started
     return elapsed, float(sum(elapsed)), exit_elapsed
 
@@ -56,7 +61,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("profile_id")
     parser.add_argument("--bundle-id")
-    parser.add_argument("--device", default="cpu")
+    parser.add_argument("--device", default="auto")
     parser.add_argument("--worker-count", type=int, default=1)
     parser.add_argument("--threads-per-worker", type=int, default=1)
     parser.add_argument("--warmup", type=int, default=5)

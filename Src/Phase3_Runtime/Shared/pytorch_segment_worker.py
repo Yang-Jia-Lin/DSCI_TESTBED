@@ -25,10 +25,12 @@ def execute_pytorch_range(
 ):
     if _EXECUTOR is None:
         raise RuntimeError("PyTorch worker is not initialized")
+    _EXECUTOR.synchronize()
     started = time.perf_counter()
     result = _EXECUTOR.execute_range_with_exits(
         start_boundary, end_boundary, tensors, exit_thresholds or {}
     )
+    _EXECUTOR.synchronize()
     return {
         **result,
         "T_compute_s": time.perf_counter() - started,

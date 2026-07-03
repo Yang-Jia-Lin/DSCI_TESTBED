@@ -1,6 +1,8 @@
 import pickle
 import socket
 
+from Src.Phase3_Runtime.Shared.tensor_codec import tensors_to_cpu
+
 
 def _recv_exact(conn: socket.socket, size: int) -> bytes:
     chunks = bytearray()
@@ -14,7 +16,7 @@ def _recv_exact(conn: socket.socket, size: int) -> bytes:
 
 def send_tensor(tensor, host, port, timeout_s=120):
     """Send a length-prefixed pickle payload and wait for a length-prefixed response."""
-    data = pickle.dumps(tensor, protocol=pickle.HIGHEST_PROTOCOL)
+    data = pickle.dumps(tensors_to_cpu(tensor), protocol=pickle.HIGHEST_PROTOCOL)
     print(f"[send_tensor] connect {host}:{port}, payload={len(data)} bytes")
     with socket.create_connection((host, port), timeout=float(timeout_s)) as s:
         s.settimeout(float(timeout_s))
