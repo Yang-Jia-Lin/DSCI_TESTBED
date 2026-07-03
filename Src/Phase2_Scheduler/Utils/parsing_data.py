@@ -8,6 +8,8 @@ from typing import Tuple
 import numpy as np
 import pandas as pd
 
+from Src.Shared.Partitioning.split_actions import decode_split_row
+
 
 def parsing_rate_and_acc(paras, table_path: str | Path | None = None):
     path = Path(table_path or paras.bundle_paths.offline_table_path)
@@ -35,13 +37,7 @@ def parsing_rate_and_acc(paras, table_path: str | Path | None = None):
 
 
 def _decode_split_points(x_row: np.ndarray) -> Tuple[int, int]:
-    ones = np.flatnonzero(x_row)
-    if len(ones) == 1 and int(ones[0]) == len(x_row) - 1:
-        final = int(ones[0])
-        return final, final
-    if len(ones) != 2:
-        raise ValueError(f"Partition row must contain exactly two boundaries, got {len(ones)}")
-    return int(ones[0]), int(ones[1])
+    return decode_split_row(x_row)
 
 
 def split_points_matrix(X: np.ndarray) -> np.ndarray:

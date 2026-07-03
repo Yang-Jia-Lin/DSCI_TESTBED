@@ -9,6 +9,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from Src.Shared.Partitioning.split_actions import enumerate_deployment_pairs
+
 
 class ActorCritic(nn.Module):
     def __init__(
@@ -45,20 +47,16 @@ class ActorCritic(nn.Module):
             nn.Tanh(),
         )
 
-        # -------- X: categorical over valid (k1,k2) pairs --------
-        # 预先列出所有合法 (k1,k2) 组合，k1 < k2
+        # -------- X: categorical over explicit deployment pairs --------
         # pair_index -> (k1, k2)
         boundaries = (
             list(partition_boundary_ids)
             if partition_boundary_ids is not None
             else list(range(num_layers))
         )
-        pairs = [
-            (k1, k2)
-            for k1 in boundaries
-            for k2 in boundaries
-            if 0 <= k1 < k2 < num_layers
-        ]
+        pairs = enumerate_deployment_pairs(boundaries)
+        if not pairs:
+            raise ValueError("No valid deployment split pairs were generated")
         pair_tensor = torch.tensor(pairs, dtype=torch.long)  # [num_pairs, 2]
         self.register_buffer(
             "x_pairs", pair_tensor

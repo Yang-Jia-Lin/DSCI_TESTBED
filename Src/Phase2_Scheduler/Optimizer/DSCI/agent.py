@@ -3,7 +3,7 @@ Src/Optimizer/DSCI/agent.py
 
 改动：
 1) Episode 包含 n 个 steps（每步一个用户）
-2) X: categorical index over all valid (k1,k2) pairs（来自 network.x_pairs）
+2) X: categorical index over explicit deployment (k1,k2) pairs（来自 network.x_pairs）
 3) Y: Beta 分布，仅对早退层集合 |E| 输出/采样（无需硬裁剪）
 4) 数值稳定：adv norm、grad clip、严格 on-policy，移除 TopK/off-policy 等机制
 """
@@ -22,6 +22,7 @@ from Src.Phase2_Scheduler.Objective.objective import get_lat_and_acc, objective
 from Src.Phase2_Scheduler.Optimizer.DSCI.buffer import RolloutBuffer
 from Src.Phase2_Scheduler.Optimizer.DSCI.networks import ActorCritic
 from Src.Phase2_Scheduler.Utils.parsing_data import split_points_matrix
+from Src.Shared.Partitioning.split_actions import encode_split_row
 
 
 # ---------- 状态构造（紧凑 Markov） ----------
@@ -59,21 +60,17 @@ def _build_state(
 def _init_feasible_XY(paras):
     """
     生成一个“默认可行”的 X, Y，用作 episode 初始基线和未决策用户的占位。
-    - X: 每行两个切分点 (k1,k2)，这里用 (m//3, 2m//3)
+    - X: 每行一个合法部署 pair (k1,k2)，这里用 (m//3, 2m//3)
     - Y: 全 1，早退层也先设为 1（表示阈值高，倾向不早退）
     """
     n, m = paras.n, paras.m
     X = np.zeros((n, m), dtype=np.float32)
-    boundaries = list(getattr(paras, "partition_boundary_ids", None) or range(m))
-    usable = [value for value in boundaries if 0 <= int(value) < m]
-    k1 = int(usable[max(0, len(usable) // 3)])
-    k2 = int(usable[min(len(usable) - 1, (2 * len(usable)) // 3)])
-    if k1 == k2:
-        k2 = min(m - 1, k1 + 1)
+    final = m - 1
+    k1 = max(0, min(final - 1, final // 3))
+    k2 = max(k1 + 1, min(final, (2 * final) // 3))
 
     for i in range(n):
-        X[i, k1] = 1.0
-        X[i, k2] = 1.0
+        X[i] = encode_split_row(k1, k2, m, dtype=np.float32)
 
     Y = np.ones((n, m), dtype=np.float32)
     # 早退层也先设 1（不强制），RL 会学到更优的阈值
@@ -91,19 +88,15 @@ def compute_iota_kappa(X, edge_compute_sizes, cloud_compute_sizes, exit_prob):
     iota = np.zeros(n)
     kappa = np.zeros(n)
     split_pts = split_points_matrix(X)
+    final = m - 1
     for i in range(n):
         p1, p2 = split_pts[i]
-        effective_p2 = m if p2 == -1 else p2
-        for j in range(p1, effective_p2):
-            iota[i] += exit_prob[i, j] * c_e[p1 : j + 1].sum()
-        if effective_p2 < m:
-            iota[i] += (
-                exit_prob[i, effective_p2:].sum()
-                * c_e[p1:effective_p2].sum()
-            )
-        if 0 <= p2 < m:
-            for j in range(p2, m):
-                kappa[i] += exit_prob[i, j] * c_c[p2 : j + 1].sum()
+        for segment_id in range(int(p1), int(p2)):
+            reach_prob = float(exit_prob[i, segment_id + 1 :].sum())
+            iota[i] += reach_prob * float(c_e[segment_id])
+        for segment_id in range(int(p2), final):
+            reach_prob = float(exit_prob[i, segment_id + 1 :].sum())
+            kappa[i] += reach_prob * float(c_c[segment_id])
     return iota, kappa
 
 
@@ -361,13 +354,10 @@ class PPOAgent:
         n, m = self.paras.n, self.paras.m
         assert 0 <= user_i < n
 
-        # ---- 写 X：清空后置 2 个切分点 ----
-        X[user_i, :] = 0.0
         x_pairs = cast(torch.Tensor, self.policy.x_pairs)
         pair = x_pairs[x_idx].detach().cpu().numpy()  # [k1,k2]
         k1, k2 = int(pair[0]), int(pair[1])
-        X[user_i, k1] = 1.0
-        X[user_i, k2] = 1.0
+        X[user_i, :] = encode_split_row(k1, k2, m, dtype=np.float32)
 
         # ---- 写 Y：默认全 1，只写早退层阈值 ----
         Y[user_i, :] = 1.0

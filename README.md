@@ -346,6 +346,13 @@ Scheduler 启动时可指定固定策略，跳过优化器直接返回预设决�
 # 固定切分点（所有用户使用 b1=3, b2=10）
 python -m Src.Phase2_Scheduler.Service.api_server --fixed-split 3 10
 
+# 退化部署也可精确表达：
+# 纯端 b1=final,b2=final；纯边 b1=0,b2=final；纯云 b1=0,b2=0
+# ResNet50-CIFAR10 当前 final boundary 为 19
+python -m Src.Phase2_Scheduler.Service.api_server --fixed-split 19 19
+python -m Src.Phase2_Scheduler.Service.api_server --fixed-split 0 19
+python -m Src.Phase2_Scheduler.Service.api_server --fixed-split 0 0
+
 # 固定早退阈值
 python -m Src.Phase2_Scheduler.Service.api_server --fixed-threshold 0.7
 
@@ -363,6 +370,10 @@ python -m Src.Phase2_Scheduler.Service.api_server --no-auto-train
 | `cloud` | 全部在 Cloud 执行 |
 | `device_early_exit` | Device 执行 + 启用早退 |
 | `edge_early_exit` | Edge 执行 + 启用早退 |
+
+PPO 的切分动作空间包含显式部署动作：纯端 `(final, final)`、纯边
+`(0, final)`、纯云 `(0, 0)`、端边 `(b1, final)`、边云 `(0, b2)`、
+以及端边云 `(b1, b2)`。
 
 ## 推理后端
 

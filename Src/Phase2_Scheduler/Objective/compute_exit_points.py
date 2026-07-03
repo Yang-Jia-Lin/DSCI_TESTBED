@@ -5,25 +5,12 @@ Src/Objective/compute_exit_points.py
 
 import numpy as np
 
+from Src.Shared.Partitioning.split_actions import decode_split_row
+
 
 # one user exit points
 def _compute_one_exit_points(X_i):
-    ones = np.where(X_i == 1)[0]
-
-    if len(ones) == 0:
-        L = len(X_i)
-        return L, L
-
-    # 第一个分割点
-    p_i1 = ones[0]
-    # 第二个分割点（如果有的话）
-    tail = X_i[p_i1 + 1 :]
-    next_ones = np.where(tail == 1)[0]
-    if len(next_ones) > 0:
-        p_i2 = next_ones[0] + p_i1 + 1
-    else:
-        p_i2 = -1
-    return p_i1, p_i2
+    return decode_split_row(X_i)
 
 
 # all users exit points

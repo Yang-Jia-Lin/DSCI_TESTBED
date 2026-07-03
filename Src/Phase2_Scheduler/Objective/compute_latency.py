@@ -62,6 +62,13 @@ def _compute_edge_to_cloud_delay_for_paras(feature_bytes, paras):
     return _compute_edge_to_cloud_delay(feature_bytes, paras.b_c)
 
 
+def _final_boundary_for_latency(paras, m: int) -> int:
+    manifest = getattr(paras, "partition_manifest", None)
+    if manifest is not None:
+        return int(manifest.final_boundary_id)
+    return int(m) - 1
+
+
 def _compute_local_computation_delay(cut_points_i, P_i, C_i, f_u):
     """
     Local Range: [0, cut0)
@@ -240,6 +247,7 @@ def compute_total_latency(X, P, F_e, F_c, paras):
 
     T = np.zeros(n, dtype=np.float64)
     cut_points = compute_exit_points(X, paras)
+    final_boundary = _final_boundary_for_latency(paras, m)
 
     for i in range(n):
         T[i] = 0
@@ -255,8 +263,10 @@ def compute_total_latency(X, P, F_e, F_c, paras):
         if cut0 > 0:
             T[i] += _compute_local_computation_delay((cut0, cut1), P_i, C_u[i], f_u)
 
-        # 进入 edge 的概率（退出层 >= cut0）
-        prob_reach_edge = float(sum(P_i[cut0:])) if 0 <= cut0 < m else 0.0
+        # 只有 Device 后面确实还有 Edge/Cloud 段时，才会发送到 Edge。
+        prob_reach_edge = (
+            float(sum(P_i[cut0:])) if 0 <= cut0 < final_boundary else 0.0
+        )
 
         # ---- U->E transmission & Edge computation ----
         if 0 <= cut0 < m and prob_reach_edge > 0:
@@ -265,11 +275,13 @@ def compute_total_latency(X, P, F_e, F_c, paras):
             )
             T[i] += _compute_edge_computation_delay((cut0, cut1), P_i, C_e, f_e)
 
-        # 进入 cloud 的概率（退出层 >= cut1），仅当 cut1 有效且存在 cloud 段
-        prob_reach_cloud = float(sum(P_i[cut1:])) if 0 <= cut1 < m else 0.0
+        # 只有 b2 位于 final 之前时，才会发送到 Cloud。
+        prob_reach_cloud = (
+            float(sum(P_i[cut1:])) if 0 <= cut1 < final_boundary else 0.0
+        )
 
         # ---- E->C transmission & Cloud computation ----
-        if 0 <= cut1 < m and cut1 != -1 and prob_reach_cloud > 0:
+        if 0 <= cut1 < final_boundary and prob_reach_cloud > 0:
             d_i_2 = float(D[cut1])
             T[i] += prob_reach_cloud * _compute_edge_to_cloud_delay_for_paras(
                 d_i_2, paras
@@ -296,6 +308,7 @@ def compute_5_latency(X, P, F_e, F_c, paras):
     T4 = np.zeros(n, dtype=np.float64)
     T5 = np.zeros(n, dtype=np.float64)
     cut_points = compute_exit_points(X, paras)
+    final_boundary = _final_boundary_for_latency(paras, m)
 
     for i in range(n):
         cut0 = int(cut_points[i][0])
@@ -310,8 +323,10 @@ def compute_5_latency(X, P, F_e, F_c, paras):
         if cut0 > 0:
             T1[i] = _compute_local_computation_delay((cut0, cut1), P_i, C_u[i], f_u)
 
-        # 进入 edge 的概率（退出层 >= cut0）
-        prob_reach_edge = float(sum(P_i[cut0:])) if 0 <= cut0 < m else 0.0
+        # 只有 Device 后面确实还有 Edge/Cloud 段时，才会发送到 Edge。
+        prob_reach_edge = (
+            float(sum(P_i[cut0:])) if 0 <= cut0 < final_boundary else 0.0
+        )
 
         # ---- U->E transmission & Edge computation ----
         if 0 <= cut0 < m and prob_reach_edge > 0:
@@ -320,11 +335,13 @@ def compute_5_latency(X, P, F_e, F_c, paras):
             )
             T3[i] = _compute_edge_computation_delay((cut0, cut1), P_i, C_e, f_e)
 
-        # 进入 cloud 的概率（退出层 >= cut1），仅当 cut1 有效且存在 cloud 段
-        prob_reach_cloud = float(sum(P_i[cut1:])) if 0 <= cut1 < m else 0.0
+        # 只有 b2 位于 final 之前时，才会发送到 Cloud。
+        prob_reach_cloud = (
+            float(sum(P_i[cut1:])) if 0 <= cut1 < final_boundary else 0.0
+        )
 
         # ---- E->C transmission & Cloud computation ----
-        if 0 <= cut1 < m and cut1 != -1 and prob_reach_cloud > 0:
+        if 0 <= cut1 < final_boundary and prob_reach_cloud > 0:
             d_i_2 = float(D[cut1])
             T4[i] = prob_reach_cloud * _compute_edge_to_cloud_delay_for_paras(
                 d_i_2, paras
@@ -370,6 +387,7 @@ def compute_user_latency(
     F_u = np.asarray(paras.F_u, dtype=np.float64).reshape(-1)
 
     m = len(C_e)
+    final_boundary = _final_boundary_for_latency(paras, m)
 
     cut0 = int(cut0)
     cut1 = int(cut1)
@@ -386,19 +404,23 @@ def compute_user_latency(
     if cut0 > 0:
         T += _compute_local_computation_delay((cut0, cut1), P_i, C_u[u], f_u)
 
-    # 进入 edge 的概率（退出层 >= cut0）
-    prob_reach_edge = float(np.sum(P_i[cut0:])) if 0 <= cut0 < m else 0.0
+    # 只有 Device 后面确实还有 Edge/Cloud 段时，才会发送到 Edge。
+    prob_reach_edge = (
+        float(np.sum(P_i[cut0:])) if 0 <= cut0 < final_boundary else 0.0
+    )
 
     # ---- U->E transmission & Edge computation ----
     if 0 <= cut0 < m and prob_reach_edge > 0:
         T += prob_reach_edge * _compute_device_to_edge_delay(float(D[cut0]), u, paras)
         T += _compute_edge_computation_delay((cut0, cut1), P_i, C_e, f_e)
 
-    # 进入 cloud 的概率（退出层 >= cut1），仅当 cut1 有效且存在 cloud 段
-    prob_reach_cloud = float(np.sum(P_i[cut1:])) if 0 <= cut1 < m else 0.0
+    # 只有 b2 位于 final 之前时，才会发送到 Cloud。
+    prob_reach_cloud = (
+        float(np.sum(P_i[cut1:])) if 0 <= cut1 < final_boundary else 0.0
+    )
 
     # ---- E->C transmission & Cloud computation ----
-    if 0 <= cut1 < m and cut1 != -1 and prob_reach_cloud > 0:
+    if 0 <= cut1 < final_boundary and prob_reach_cloud > 0:
         T += prob_reach_cloud * _compute_edge_to_cloud_delay_for_paras(
             float(D[cut1]), paras
         )
@@ -440,6 +462,7 @@ if __name__ == "__main__":
     cut_points = compute_exit_points(X, paras)
     c0 = int(cut_points[0][0])
     c1 = int(cut_points[0][1])
+    final_boundary = _final_boundary_for_latency(paras, m)
 
     # 3. 手动拆解时延计算 (使用刚算出来的 c0, c1)
     print(f"\n{'=' * 20} User 0 Latency Breakdown {'=' * 20}")
@@ -461,7 +484,7 @@ if __name__ == "__main__":
         print("1. Local Comp (None): \t0 s")
 
     # B. Trans U->E
-    if c0 < m:
+    if 0 <= c0 < final_boundary:
         data_u2e = float(paras.D[c0])
         if b_u_i is not None:
             t_trans_1 = _compute_measured_transmission_delay(data_u2e, b_u_i)
@@ -478,7 +501,7 @@ if __name__ == "__main__":
         print("2. Trans U->E (None):   \t0 s")
 
     # C. Edge Comp
-    if c0 < m:
+    if 0 <= c0 < final_boundary:
         t_edge = _compute_edge_computation_delay(cut_tuple, P_i, paras.C_e, f_e)
         print(f"3. Edge Comp Layers [{c0}, {c1}): \t{t_edge:.12f} s")
     else:
@@ -486,7 +509,7 @@ if __name__ == "__main__":
         print("3. Edge Comp Layers (None): \t0 s")
 
     # D. Trans E->C
-    if 0 < c1 < m:
+    if 0 <= c1 < final_boundary:
         data_e2c = float(paras.D[c1])
         t_trans_2 = _compute_edge_to_cloud_delay(data_e2c, paras.b_c)
         print(f"4. Trans E->C (Data D[{c1}]):   \t{t_trans_2:.12f} s")
@@ -495,7 +518,7 @@ if __name__ == "__main__":
         print("4. Trans E->C (None):   \t0 s")
 
     # E. Cloud Comp
-    if 0 < c1 < m:
+    if 0 <= c1 < final_boundary:
         t_cloud = _compute_cloud_computation_delay(cut_tuple, P_i, paras.C_c, f_c)
         print(f"5. Cloud Comp Layers [{c1}, m): \t{t_cloud:.12f} s")
     else:
@@ -515,16 +538,20 @@ if __name__ == "__main__":
     print(f"  f_c = {f_c:.6e} FLOP/s")
 
     # ---- 概率质量：到达切点概率 ----
-    prob_reach_edge = float(np.sum(P_i[c0:])) if 0 <= c0 < m else 0.0
-    prob_reach_cloud = float(np.sum(P_i[c1:])) if 0 <= c1 < m else 0.0
+    prob_reach_edge = (
+        float(np.sum(P_i[c0:])) if 0 <= c0 < final_boundary else 0.0
+    )
+    prob_reach_cloud = (
+        float(np.sum(P_i[c1:])) if 0 <= c1 < final_boundary else 0.0
+    )
 
     print("\n[Exit Probabilities]")
     print(f"  sum(P_i) = {float(np.sum(P_i)):.6f}")
-    if 0 <= c0 < m:
+    if 0 <= c0 < final_boundary:
         print(f"  Pr(reach edge)  = sum(P_i[{c0}:]) = {prob_reach_edge:.6f}")
     else:
         print("  Pr(reach edge)  = 0.000000 (invalid c0)")
-    if 0 <= c1 < m:
+    if 0 <= c1 < final_boundary:
         print(f"  Pr(reach cloud) = sum(P_i[{c1}:]) = {prob_reach_cloud:.6f}")
     else:
         print("  Pr(reach cloud) = 0.000000 (invalid c1)")
@@ -545,7 +572,7 @@ if __name__ == "__main__":
         print("\n1. Local Comp (None):\n   - result   = 0 s")
 
     # B. Trans U->E (按到达 edge 概率加权，与 compute_total_latency 对齐)
-    if 0 <= c0 < m and prob_reach_edge > 0:
+    if 0 <= c0 < final_boundary and prob_reach_edge > 0:
         data_u2e = float(paras.D[c0])
         if b_u_i is not None:
             t_trans_1_raw = _compute_measured_transmission_delay(data_u2e, b_u_i)
@@ -572,7 +599,7 @@ if __name__ == "__main__":
         print("\n2. Trans U->E (None):\n   - expected = 0 s")
 
     # C. Edge computation（只有可能到达 edge 才有意义；函数内部已按 P_i 做期望）
-    if 0 <= c0 < m and prob_reach_edge > 0:
+    if 0 <= c0 < final_boundary and prob_reach_edge > 0:
         t_edge = _compute_edge_computation_delay(cut_tuple, P_i, paras.C_e, f_e)
         print(f"\n3. Edge Comp Layers [{c0}, {c1}):")
         print(f"   - used f_e = {f_e:.6e} FLOP/s")
@@ -582,8 +609,7 @@ if __name__ == "__main__":
         print("\n3. Edge Comp (None):\n   - result   = 0 s")
 
     # D. Trans E->C (按到达 cloud 概率加权，与 compute_total_latency 对齐)
-    # 注意：cut1 == -1 表示 edge 负责到底，无 E->C
-    if 0 <= c1 < m and c1 != -1 and prob_reach_cloud > 0:
+    if 0 <= c1 < final_boundary and prob_reach_cloud > 0:
         data_e2c = float(paras.D[c1])
         t_trans_2_raw = _compute_edge_to_cloud_delay(data_e2c, paras.b_c)
         t_trans_2 = prob_reach_cloud * t_trans_2_raw
@@ -598,7 +624,7 @@ if __name__ == "__main__":
         print("\n4. Trans E->C (None):\n   - expected = 0 s")
 
     # E. Cloud computation（只有可能到达 cloud 才有意义；函数内部已按 P_i 做期望）
-    if 0 <= c1 < m and c1 != -1 and prob_reach_cloud > 0:
+    if 0 <= c1 < final_boundary and prob_reach_cloud > 0:
         t_cloud = _compute_cloud_computation_delay(cut_tuple, P_i, paras.C_c, f_c)
         print(f"\n5. Cloud Comp Layers [{c1}, m):")
         print(f"   - used f_c = {f_c:.6e} FLOP/s")

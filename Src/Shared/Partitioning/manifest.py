@@ -11,6 +11,7 @@ from typing import Any
 
 from Src.Shared.Config.model_config import ModelBundleSpec, get_bundle
 from Src.Shared.Config.paths import bundle_paths
+from Src.Shared.Partitioning.split_actions import is_valid_deployment_pair
 
 
 class PartitionManifestError(ValueError):
@@ -76,11 +77,10 @@ class PartitionManifest:
 
     def validate_boundary_pair(self, first: int, second: int) -> None:
         valid = set(self.boundary_ids)
-        terminal_pair = first == second == self.final_boundary_id
         if (
             first not in valid
             or second not in valid
-            or not (0 <= first < second <= self.final_boundary_id or terminal_pair)
+            or not is_valid_deployment_pair(first, second, self.final_boundary_id)
         ):
             raise PartitionManifestError(
                 f"Invalid partition boundaries ({first}, {second}) for {self.manifest_id}"

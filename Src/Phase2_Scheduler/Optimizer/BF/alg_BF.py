@@ -2,20 +2,19 @@
 
 from __future__ import annotations
 
-from itertools import combinations, product
+from itertools import product
 
 import numpy as np
 
 from Src.Phase2_Scheduler.Objective.objective import objective
 from Src.Phase2_Scheduler.paras import Paras
+from Src.Shared.Partitioning.split_actions import encode_split_row, enumerate_deployment_pairs
 
 
 def _candidates(paras: Paras):
     rows = []
-    for first, second in combinations(paras.partition_boundary_ids, 2):
-        row = np.zeros(paras.m, dtype=np.float64)
-        row[first] = row[second] = 1.0
-        rows.append(row)
+    for first, second in enumerate_deployment_pairs(paras.partition_boundary_ids):
+        rows.append(encode_split_row(first, second, paras.m, dtype=np.float64))
     return rows
 
 

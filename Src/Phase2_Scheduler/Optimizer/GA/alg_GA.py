@@ -5,6 +5,11 @@ Src/Optimizer/GA/alg_GA.py
 import random
 import numpy as np
 from Src.Phase2_Scheduler.Objective.objective import objective
+from Src.Shared.Partitioning.split_actions import (
+    decode_split_row,
+    encode_split_row,
+    enumerate_deployment_pairs,
+)
 
 
 def optimize_GA(
@@ -38,23 +43,28 @@ def optimize_GA(
         for value in (paras.partition_boundary_ids or range(n_cols))
         if 0 <= int(value) < n_cols
     ]
+    valid_x_rows = [
+        encode_split_row(first, second, n_cols, dtype=int).tolist()
+        for first, second in enumerate_deployment_pairs(valid_boundaries)
+    ]
 
     # 早退层布尔表
     early_exit_flags = [j in paras.E for j in range(n_cols)]
 
     # ---------- 2. 约束修复工具 ----------
     def repair_X(mat):
-        """修复X使每行最多只有2个1"""
-        for r in mat:
+        """修复 X，使每行是一个合法部署 split。"""
+        for row_index, r in enumerate(mat):
             for j in range(n_cols):
                 if j not in valid_boundaries:
                     r[j] = 0
-            while sum(r) > 2:
-                idx = random.choice([j for j, v in enumerate(r) if v == 1])
-                r[idx] = 0
-            while sum(r) < 2:
-                idx = random.choice([j for j in valid_boundaries if r[j] == 0])
-                r[idx] = 1
+                else:
+                    r[j] = 1 if r[j] else 0
+            try:
+                first, second = decode_split_row(np.asarray(r, dtype=float))
+                mat[row_index] = encode_split_row(first, second, n_cols, dtype=int).tolist()
+            except ValueError:
+                mat[row_index] = random.choice(valid_x_rows).copy()
         return mat
 
     def repair_Y(y):
@@ -81,8 +91,7 @@ def optimize_GA(
         # X
         X = [[0] * n_cols for _ in range(n_rows)]
         for i in range(n_rows):
-            for j in random.sample(valid_boundaries, k=2):
-                X[i][j] = 1
+            X[i] = random.choice(valid_x_rows).copy()
         X = repair_X(X)
 
         # Y（只存一行）

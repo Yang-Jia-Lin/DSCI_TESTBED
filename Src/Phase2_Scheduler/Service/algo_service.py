@@ -31,6 +31,7 @@ from Src.Phase2_Scheduler.Optimizer.DSCI.agent import (
 from Src.Phase2_Scheduler.Optimizer.DSCI.run_DSCI import _build_ppo_params
 from Src.Phase2_Scheduler.paras import Paras
 from Src.Shared.Config.paths import SOLUTION_CACHE_DIR
+from Src.Shared.Partitioning.split_actions import encode_split_row, is_valid_deployment_pair
 
 INTERFACE_SOLUTION_DIR = SOLUTION_CACHE_DIR
 LATEST_SOLUTION_PATH = INTERFACE_SOLUTION_DIR / "latest_solution.npz"
@@ -483,9 +484,10 @@ class AlgoService:
             paras.partition_manifest.validate_boundary_pair(s1, s2)
             return s1, s2
         m = int(paras.m)
-        if not (0 <= s1 < s2 < m):
+        if not is_valid_deployment_pair(s1, s2, m - 1):
             raise ValueError(
-                f"fixed_split requires 0 <= s1 < s2 < {m}, got ({s1}, {s2})"
+                f"fixed_split is not a valid deployment pair for final boundary {m - 1}: "
+                f"({s1}, {s2})"
             )
         return s1, s2
 
@@ -526,34 +528,32 @@ class AlgoService:
     ) -> CachedSolution:
         n, m = int(paras.n), int(paras.m)
         last = m - 1
-        penultimate = max(0, m - 2)
 
         if paras.resource_mode == "fixed_worker_pool":
             final = int(paras.partition_manifest.final_boundary_id)
-            exit_1 = int(paras.E[0])
-            exit_2 = int(paras.E[-1])
+            exit_1 = int(paras.E[0]) if paras.E else final
+            exit_2 = int(paras.E[-1]) if paras.E else final
             if placement == "device":
                 s1, s2 = (exit_1, final) if early_exit else (final, final)
             elif placement == "edge":
                 s1, s2 = (0, exit_2) if early_exit else (0, final)
             else:
-                s1, s2 = (0, 1)
+                s1, s2 = (0, 0)
         elif placement == "device":
-            s1, s2 = (int(paras.E[0]), last) if early_exit and paras.E else (penultimate, last)
+            s1, s2 = (int(paras.E[0]), last) if early_exit and paras.E else (last, last)
         elif placement == "edge":
-            s1, s2 = (0, int(paras.E[-1])) if early_exit and paras.E else (0, penultimate)
+            s1, s2 = (0, int(paras.E[-1])) if early_exit and paras.E else (0, last)
         else:
-            s1, s2 = (0, 4 if m > 5 else 1)
+            s1, s2 = (0, 0)
 
-        terminal_split = paras.resource_mode == "fixed_worker_pool" and s1 == s2 == last
-        if not (0 <= s1 < s2 < m or terminal_split):
+        if not is_valid_deployment_pair(s1, s2, last):
             s1, s2 = max(0, m // 3), min(last, (2 * m) // 3)
             if s1 == s2:
                 s2 = min(last, s1 + 1)
 
         X = np.zeros((n, m), dtype=np.float32)
-        X[:, s1] = 1.0
-        X[:, s2] = 1.0
+        row = encode_split_row(s1, s2, m, dtype=np.float32)
+        X[:, :] = row
 
         Y = np.ones((n, m), dtype=np.float32)
         if early_exit:
@@ -597,8 +597,8 @@ class AlgoService:
     ) -> CachedSolution:
         n, m = int(paras.n), int(paras.m)
         X = np.zeros((n, m), dtype=np.float32)
-        X[:, s1] = 1.0
-        X[:, s2] = 1.0
+        row = encode_split_row(s1, s2, m, dtype=np.float32)
+        X[:, :] = row
 
         Y = np.ones((n, m), dtype=np.float32)
         F_e, F_c = self._allocate_resources_for_xy(X, Y, paras)

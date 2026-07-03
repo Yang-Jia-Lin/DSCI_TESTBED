@@ -6,6 +6,7 @@ import numpy as np
 
 from Src.Phase2_Scheduler.Utils.parsing_data import split_points_matrix
 from Src.Phase2_Scheduler.paras import Paras
+from Src.Shared.Partitioning.split_actions import is_valid_deployment_pair
 
 _ALLOC_TOL = 1e-6
 
@@ -41,23 +42,21 @@ def validate_decision(
     F_c_v = _as_2d_resource(F_c, n)
 
     split_pts = split_points_matrix(X)
+    final_boundary = m - 1
     for i in range(n):
         ones = np.flatnonzero(X[i] > 0.5)
-        final_boundary = m - 1
-        terminal_pair = len(ones) == 1 and int(ones[0]) == final_boundary
-        if len(ones) != 2 and not terminal_pair:
+        equal_pair_marker = len(ones) == 1 and int(ones[0]) in (0, final_boundary)
+        if len(ones) != 2 and not equal_pair_marker:
             raise DecisionCodecError(
-                f"User {i}: X_row must have two 1s, or one final-boundary 1 "
-                f"for a terminal device-only split; got {len(ones)}"
+                f"User {i}: X_row must have two 1s, or one 1 at boundary 0/final "
+                f"for pure cloud/device; got {len(ones)}"
             )
         s1, s2 = int(split_pts[i, 0]), int(split_pts[i, 1])
         if paras.resource_mode == "fixed_worker_pool":
             paras.partition_manifest.validate_boundary_pair(s1, s2)
-        terminal_split = s1 == s2 == final_boundary
-        if not (0 <= s1 < s2 < m or terminal_split):
+        if not is_valid_deployment_pair(s1, s2, final_boundary):
             raise DecisionCodecError(
-                f"User {i}: require 0 <= partition_s1 < partition_s2 < {m}, "
-                f"or partition_s1=partition_s2={final_boundary}, "
+                f"User {i}: invalid deployment split for final boundary {final_boundary}, "
                 f"got ({s1}, {s2})"
             )
         for layer in paras.E:
