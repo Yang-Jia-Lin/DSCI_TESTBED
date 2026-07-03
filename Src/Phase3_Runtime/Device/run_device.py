@@ -1,5 +1,7 @@
 """Bundle-aware Device runner for fixed-worker partition decisions."""
 
+from __future__ import annotations
+
 import argparse
 import json
 import threading

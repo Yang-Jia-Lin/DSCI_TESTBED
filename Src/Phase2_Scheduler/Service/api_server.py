@@ -1,5 +1,7 @@
 """Flask HTTP server for testbed deploy ↔ algorithm communication."""
 
+from __future__ import annotations
+
 import os
 
 import requests

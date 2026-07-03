@@ -8,6 +8,8 @@ Src/Optimizer/DSCI/agent.py
 4) 数值稳定：adv norm、grad clip、严格 on-policy，移除 TopK/off-policy 等机制
 """
 
+from __future__ import annotations
+
 from pathlib import Path
 from typing import cast
 

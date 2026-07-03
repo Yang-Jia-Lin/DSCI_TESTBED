@@ -76,7 +76,12 @@ class PartitionManifest:
 
     def validate_boundary_pair(self, first: int, second: int) -> None:
         valid = set(self.boundary_ids)
-        if first not in valid or second not in valid or not 0 <= first < second <= self.final_boundary_id:
+        terminal_pair = first == second == self.final_boundary_id
+        if (
+            first not in valid
+            or second not in valid
+            or not (0 <= first < second <= self.final_boundary_id or terminal_pair)
+        ):
             raise PartitionManifestError(
                 f"Invalid partition boundaries ({first}, {second}) for {self.manifest_id}"
             )

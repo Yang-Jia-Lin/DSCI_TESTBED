@@ -9,6 +9,7 @@ import time
 from flask import Flask, jsonify
 
 from Src.Phase3_Runtime.Device.comm import send_tensor
+from Src.Phase3_Runtime.Shared.bandwidth_iperf import measure_bandwidth_iperf
 from Src.Phase3_Runtime.Shared.fixed_worker_pool import FixedWorkerPool, WorkerPoolConfig
 from Src.Phase3_Runtime.Shared.mnn_segment_worker import execute_mnn_range, init_mnn_worker
 from Src.Phase3_Runtime.Shared.pytorch_segment_worker import (
@@ -61,6 +62,36 @@ def _validate_edge_request(payload: dict, state: dict, manifest) -> tuple[dict, 
     return meta, b1, b2
 
 
+def _resolve_edge_cloud_bandwidth(
+    override: float | None,
+    *,
+    iperf_duration: float | None = None,
+    iperf_timeout: float | None = None,
+) -> float:
+    if override is not None:
+        bw_e2c = float(override)
+        print(f"Edge state BW_e2c={bw_e2c:.4f} Mbps (override)")
+        return bw_e2c
+
+    measured_bw = measure_bandwidth_iperf(
+        TESTBED_CFG.cloud_host,
+        TESTBED_CFG.cloud_iperf_port,
+        duration=iperf_duration,
+        timeout_s=iperf_timeout,
+    )
+    if measured_bw is None or float(measured_bw) <= 0:
+        bw_e2c = float(TESTBED_CFG.default_bw_e2c)
+        print(
+            "Edge->Cloud iperf failed; "
+            f"using fallback BW_e2c={bw_e2c:.4f} Mbps"
+        )
+        return bw_e2c
+
+    bw_e2c = float(measured_bw)
+    print(f"Edge state BW_e2c={bw_e2c:.4f} Mbps")
+    return bw_e2c
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--bundle-id")
@@ -68,15 +99,25 @@ def main(argv=None):
     parser.add_argument(
         "--override-bw-e2c",
         type=float,
-        help="Report this Edge->Cloud bandwidth in Mbps instead of the default.",
+        help="Use this Edge->Cloud bandwidth in Mbps instead of iperf.",
+    )
+    parser.add_argument(
+        "--iperf-duration",
+        type=float,
+        help="iperf3 measurement duration in seconds; default is 8 or DSCI_IPERF_DURATION_S.",
+    )
+    parser.add_argument(
+        "--iperf-timeout",
+        type=float,
+        help="iperf3 subprocess timeout in seconds; default is duration + 15.",
     )
     args = parser.parse_args(argv)
     bundle = get_bundle(args.bundle_id)
     state, pool, manifest = create_runtime(bundle.bundle_id, args.backend)
-    bw_e2c = (
-        float(args.override_bw_e2c)
-        if args.override_bw_e2c is not None
-        else TESTBED_CFG.default_bw_e2c
+    bw_e2c = _resolve_edge_cloud_bandwidth(
+        args.override_bw_e2c,
+        iperf_duration=args.iperf_duration,
+        iperf_timeout=args.iperf_timeout,
     )
     status_app = Flask(__name__)
 

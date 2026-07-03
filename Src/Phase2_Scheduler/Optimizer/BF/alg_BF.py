@@ -1,5 +1,7 @@
 """Generic coordinate brute-force baseline for any number of exits."""
 
+from __future__ import annotations
+
 from itertools import combinations, product
 
 import numpy as np

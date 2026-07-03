@@ -3,6 +3,8 @@ rollout 缓冲区
 Src/Optimizer/DSCI/buffer.py
 """
 
+from __future__ import annotations
+
 from typing import List
 
 import torch

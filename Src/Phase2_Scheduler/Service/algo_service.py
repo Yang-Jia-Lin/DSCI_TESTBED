@@ -533,9 +533,9 @@ class AlgoService:
             exit_1 = int(paras.E[0])
             exit_2 = int(paras.E[-1])
             if placement == "device":
-                s1, s2 = (exit_1, final) if early_exit else (final - 1, final)
+                s1, s2 = (exit_1, final) if early_exit else (final, final)
             elif placement == "edge":
-                s1, s2 = (0, exit_2) if early_exit else (0, final - 1)
+                s1, s2 = (0, exit_2) if early_exit else (0, final)
             else:
                 s1, s2 = (0, 1)
         elif placement == "device":
@@ -545,7 +545,8 @@ class AlgoService:
         else:
             s1, s2 = (0, 4 if m > 5 else 1)
 
-        if not (0 <= s1 < s2 < m):
+        terminal_split = paras.resource_mode == "fixed_worker_pool" and s1 == s2 == last
+        if not (0 <= s1 < s2 < m or terminal_split):
             s1, s2 = max(0, m // 3), min(last, (2 * m) // 3)
             if s1 == s2:
                 s2 = min(last, s1 + 1)

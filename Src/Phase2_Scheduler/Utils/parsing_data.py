@@ -1,5 +1,7 @@
 """Read bundle-scoped exit curves and decode partition matrices."""
 
+from __future__ import annotations
+
 from pathlib import Path
 from typing import Tuple
 
@@ -34,6 +36,9 @@ def parsing_rate_and_acc(paras, table_path: str | Path | None = None):
 
 def _decode_split_points(x_row: np.ndarray) -> Tuple[int, int]:
     ones = np.flatnonzero(x_row)
+    if len(ones) == 1 and int(ones[0]) == len(x_row) - 1:
+        final = int(ones[0])
+        return final, final
     if len(ones) != 2:
         raise ValueError(f"Partition row must contain exactly two boundaries, got {len(ones)}")
     return int(ones[0]), int(ones[1])

@@ -1,5 +1,7 @@
 """Training-only persistence helpers shared by offline entrypoints."""
 
+from __future__ import annotations
+
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Union
