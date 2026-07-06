@@ -113,6 +113,36 @@ class MultiExitResNet(nn.Module):
     def classify_exit(self, exit_id: str, features: torch.Tensor) -> torch.Tensor:
         return self.exit_heads[exit_id](torch.flatten(self.avgpool(features), 1))
 
+    def partition_segment_names(self) -> list[str]:
+        names = ["stem"]
+        for layer_name in ("layer1", "layer2", "layer3", "layer4"):
+            names.extend(
+                f"{layer_name}.{index}" for index in range(len(getattr(self, layer_name)))
+            )
+        names.extend(("final_pool", "final_classifier"))
+        return names
+
+    def execute_partition_segment(self, name: str, x: torch.Tensor) -> torch.Tensor:
+        if name == "stem":
+            return self.maxpool(self.relu(self.bn1(self.conv1(x))))
+        if name == "final_pool":
+            return torch.flatten(self.avgpool(x), 1)
+        if name == "final_classifier":
+            return self.fc(x)
+        module = self
+        for part in name.split("."):
+            module = module[int(part)] if part.isdigit() else getattr(module, part)
+        return module(x)
+
+    def resolve_partition_segment(self, name: str):
+        return lambda x: self.execute_partition_segment(name, x)
+
+    def final_classifier_module(self) -> nn.Module:
+        return self.fc
+
+    def freeze_for_exit(self, exit_id: str | None) -> None:
+        freeze_for_exit(self, exit_id)
+
     def forward_features(self, x):
         features = {}
         x = self.maxpool(self.relu(self.bn1(self.conv1(x))))

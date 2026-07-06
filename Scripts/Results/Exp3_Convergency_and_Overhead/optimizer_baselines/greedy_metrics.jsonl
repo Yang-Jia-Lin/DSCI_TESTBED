@@ -1,0 +1,2 @@
+{"algorithm": "Greedy", "step": 0, "current_obj": 0.03500549976723821, "best_obj": 0.03500549976723821, "evaluations": 1, "elapsed_s": 0.0}
+{"algorithm": "Greedy", "step": 1, "current_obj": 0.33508925356449104, "best_obj": 0.33508925356449104, "evaluations": 23233, "elapsed_s": 3.7697923998348415}

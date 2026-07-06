@@ -134,19 +134,18 @@ def build_partition_manifest(
 ) -> PartitionManifest:
     import torch
 
-    from Src.Shared.Models.ModelNet.MultiExitResNet import build_model
+    from Src.Shared.Models.factory import build_model
 
     bundle = get_bundle(bundle) if isinstance(bundle, str) else bundle
     model = build_model(bundle).eval()
-    names = ["stem"]
-    for layer_name in ("layer1", "layer2", "layer3", "layer4"):
-        names.extend(f"{layer_name}.{index}" for index in range(len(getattr(model, layer_name))))
-    names.extend(("final_pool", "final_classifier"))
-    modules = {"stem": None, "final_pool": None, "final_classifier": None}
-    for name in names:
-        if "." in name:
-            layer, index = name.split(".")
-            modules[name] = getattr(model, layer)[int(index)]
+    if not hasattr(model, "partition_segment_names") or not hasattr(
+        model, "execute_partition_segment"
+    ):
+        raise PartitionManifestError(
+            f"{bundle.architecture} model must expose partition_segment_names() "
+            "and execute_partition_segment()"
+        )
+    names = list(model.partition_segment_names())
 
     selected_manifest_id = manifest_id or bundle.manifest_id
     x = torch.zeros((1, *bundle.input_shape), dtype=torch.float32)
@@ -181,18 +180,8 @@ def build_partition_manifest(
     boundaries.append(boundary_record(0, "input", "main", x))
     with torch.no_grad():
         for segment_id, name in enumerate(names):
-            if name == "stem":
-                x = model.maxpool(model.relu(model.bn1(model.conv1(x))))
-                output_name = "main"
-            elif name == "final_pool":
-                x = torch.flatten(model.avgpool(x), 1)
-                output_name = "main"
-            elif name == "final_classifier":
-                x = model.fc(x)
-                output_name = "logits"
-            else:
-                x = modules[name](x)
-                output_name = "main"
+            x = model.execute_partition_segment(name, x)
+            output_name = "logits" if name == "final_classifier" else "main"
             end = segment_id + 1
             segments.append(
                 {
@@ -208,8 +197,11 @@ def build_partition_manifest(
             layer_name = name.split(".")[0]
             if "." in name:
                 attach_boundaries[name] = end
-                if name == f"{layer_name}.{len(getattr(model, layer_name)) - 1}":
+                layer = getattr(model, layer_name, None)
+                if layer is not None and name == f"{layer_name}.{len(layer) - 1}":
                     attach_boundaries[layer_name] = end
+            else:
+                attach_boundaries[name] = end
 
     exits = tuple(
         {

@@ -10,10 +10,11 @@ import torch
 from Src.Shared.Config.model_config import get_bundle
 from Src.Shared.Config.paths import bundle_paths
 from Src.Phase3_Runtime.Shared.model_loader import resolve_torch_device
-from Src.Shared.Models.ModelNet.MultiExitResNet import build_model
+from Src.Shared.Models.factory import build_model
 from Src.Shared.Partitioning.manifest import load_partition_manifest, validate_model_file
 from Src.Shared.Partitioning.pytorch_executor import PyTorchSegmentExecutor
 from Src.Shared.Profiles.segment_profile import write_segment_profile
+from Src.Shared.Utils.phase_timing import timed_event
 
 _EXECUTOR = _SAMPLE = _MANIFEST = None
 
@@ -70,36 +71,44 @@ def main(argv=None):
     parser.add_argument("--overwrite", action="store_true")
     args = parser.parse_args(argv)
     bundle = get_bundle(args.bundle_id)
-    manifest = load_partition_manifest(bundle.bundle_id)
-    samples = [[] for _ in manifest.segment_ids]
-    exit_samples = {exit_id: [] for exit_id in manifest.exit_ids}
-    totals = []
-    with ProcessPoolExecutor(
-        max_workers=args.worker_count,
-        initializer=_init_worker,
-        initargs=(bundle.bundle_id, args.device, args.threads_per_worker),
-    ) as pool:
-        for _ in range(args.warmup):
-            list(pool.map(_job, range(args.worker_count)))
-        for _ in range(args.runs):
-            for elapsed, total, heads in pool.map(_job, range(args.worker_count)):
-                totals.append(total)
-                for index, value in enumerate(elapsed):
-                    samples[index].append(value)
-                for exit_id, value in heads.items():
-                    exit_samples[exit_id].append(value)
-    profile = write_segment_profile(
+    with timed_event(
+        phase="phase1",
+        step="profile_segments",
+        bundle_id=bundle.bundle_id,
         profile_id=args.profile_id,
-        manifest=manifest,
-        backend="pytorch",
         worker_count=args.worker_count,
         threads_per_worker=args.threads_per_worker,
-        samples_s=samples,
-        total_model_latency_s=float(sum(totals) / len(totals)),
-        exit_head_samples_s=exit_samples,
-        profile_root=args.profile_root,
-        overwrite=args.overwrite,
-    )
+    ):
+        manifest = load_partition_manifest(bundle.bundle_id)
+        samples = [[] for _ in manifest.segment_ids]
+        exit_samples = {exit_id: [] for exit_id in manifest.exit_ids}
+        totals = []
+        with ProcessPoolExecutor(
+            max_workers=args.worker_count,
+            initializer=_init_worker,
+            initargs=(bundle.bundle_id, args.device, args.threads_per_worker),
+        ) as pool:
+            for _ in range(args.warmup):
+                list(pool.map(_job, range(args.worker_count)))
+            for _ in range(args.runs):
+                for elapsed, total, heads in pool.map(_job, range(args.worker_count)):
+                    totals.append(total)
+                    for index, value in enumerate(elapsed):
+                        samples[index].append(value)
+                    for exit_id, value in heads.items():
+                        exit_samples[exit_id].append(value)
+        profile = write_segment_profile(
+            profile_id=args.profile_id,
+            manifest=manifest,
+            backend="pytorch",
+            worker_count=args.worker_count,
+            threads_per_worker=args.threads_per_worker,
+            samples_s=samples,
+            total_model_latency_s=float(sum(totals) / len(totals)),
+            exit_head_samples_s=exit_samples,
+            profile_root=args.profile_root,
+            overwrite=args.overwrite,
+        )
     print(f"Saved segment profile: {profile.profile_dir}")
 
 

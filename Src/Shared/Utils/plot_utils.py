@@ -58,7 +58,7 @@ def set_ieee_style(mode='single'):
 
     # 4. 更新全局配置
     mpl.rcParams.update(ieee_params)
-    print(f"IEEE Style ({mode}) initialized.")
+    print(f"IEEE style ({mode}) initialized.")
 
 
 def save_fig_for_ieee(save_path, fig=None):
@@ -75,4 +75,4 @@ def save_fig_for_ieee(save_path, fig=None):
                 bbox_inches='tight',
                 pad_inches=0,
                 dpi=300)
-    print(f"图已保存至: {save_path}")
+    print(f"Figure saved to: {save_path}")

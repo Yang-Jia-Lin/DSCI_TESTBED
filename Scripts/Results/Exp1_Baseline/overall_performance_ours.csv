@@ -1,0 +1,2 @@
+﻿group,name,bundle_id,num_users,accuracy_mean,accuracy_sum,latency_mean_s,latency_sum_s,latency_mean_ms,latency_sum_ms,utility,split,thresholds
+ours,Ours,resnet50-cifar10-ee-v1,1,0.8650535042745456,0.8650535042745456,0.10615692294565067,0.10615692294565067,106.15692294565066,106.15692294565066,0.3342688895462923,"b1=19,b2=19,pure_device",after_layer2=0.5674; after_layer3=0.7240

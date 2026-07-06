@@ -1,88 +1,89 @@
-"""
-Src/Experiments/Exp1_SOTA/run_SOTA_baseline.py
+"""Section V.B overall performance output for this work.
+
+This script does not reproduce external-paper baselines.  It exports the
+current work's bundle-aware DSCI result, artifact readiness table, and
+bandwidth solution-index template.
 """
 
+from __future__ import annotations
+
+import argparse
 from pathlib import Path
-from typing import Dict, Tuple
 
-import numpy as np
+from Scripts.EvaluationCommon.artifacts import write_readiness_report
+from Scripts.EvaluationCommon.config import (
+    DEFAULT_SOLUTION_META,
+    DEFAULT_SOLUTION_NPZ,
+    EXP1_RESULT_DIR,
+    iter_bandwidth_cases,
+)
+from Scripts.EvaluationCommon.solutions import (
+    evaluate_solution_row,
+    evaluate_matrices,
+    load_solution_bundle,
+    read_solution_index,
+    write_rows,
+)
 
-from Src.Phase2_Scheduler.Objective.compute_accuracy import compute_expected_accuracy
-from Src.Phase2_Scheduler.Objective.compute_latency import compute_total_latency
-from Src.Phase2_Scheduler.Objective.compute_P import compute_layer_exit_probs
-from Src.Phase2_Scheduler.Objective.objective import objective
-from Src.Phase2_Scheduler.Utils.log_function import load_and_analyze_results
-from Src.Shared.Config.paths import RESULT_ABLATION_PATH, RESULT_DIR
+
+def write_solution_index_template(output_dir: Path) -> Path:
+    return write_rows(
+        iter_bandwidth_cases(),
+        output_dir / "solution_index_template.csv",
+    )
 
 
-def evaluate_strategy(X, Y, F_e, F_c, paras, name: str = "Strategy") -> Dict:
-    P = compute_layer_exit_probs(Y, paras)
-    latency_vec = compute_total_latency(X, P, F_e, F_c, paras)
-    acc_vec = compute_expected_accuracy(Y, P, paras)
-    obj_val = objective(X, Y, F_e, F_c, paras)
-    weighted_latency = paras.beta * np.sum(latency_vec)
-    weighted_acc = paras.alpha * np.sum(acc_vec)
+def run_overall_performance(
+    *,
+    solution_npz: str | Path = DEFAULT_SOLUTION_NPZ,
+    solution_meta: str | Path = DEFAULT_SOLUTION_META,
+    solution_index: str | Path | None = None,
+    output_dir: str | Path = EXP1_RESULT_DIR,
+) -> dict[str, Path]:
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    readiness_path = write_readiness_report(output_dir)
+    template_path = write_solution_index_template(output_dir)
+    if solution_index:
+        rows = [evaluate_solution_row(row) for row in read_solution_index(solution_index)]
+    else:
+        bundle = load_solution_bundle(solution_npz, solution_meta)
+        rows = [
+            evaluate_matrices(
+                name="Ours",
+                X=bundle.X,
+                Y=bundle.Y,
+                F_e=bundle.F_e,
+                F_c=bundle.F_c,
+                paras=bundle.paras,
+                group="ours",
+            )
+        ]
+    result_path = write_rows(rows, output_dir / "overall_performance_ours.csv")
     return {
-        "name": name,
-        "latency": weighted_latency,
-        "accuracy": weighted_acc,
-        "objective": obj_val,
+        "readiness": readiness_path,
+        "solution_index_template": template_path,
+        "overall": result_path,
     }
 
 
-def get_baseline_decisions(mode: str, paras, X_opt, Y_opt, F_e_opt, F_c_opt) -> Tuple:
-    n, m = paras.n, paras.m
-    X = np.zeros((n, m))
-    Y = np.ones((n, m))
-    Y[:, m - 1] = 0
-
-    if mode == "DADS":
-        # 固定点边云协同，无早退
-        X[:, 50] = 1
-        return X, Y, F_e_opt, F_c_opt
-
-    elif mode == "CEED":
-        # 早退，无协同（边缘计算）
-        X[:, 0] = 1
-        return X, Y_opt, F_e_opt, F_c_opt
-
-    elif mode == "CutEdge":
-        # 动态协同，无早退
-        return X_opt, Y, F_e_opt, F_c_opt
-
-    elif mode == "DCSI":
-        # 端边云协同+早退（DSCI）
-        return X_opt, Y_opt, F_e_opt, F_c_opt
-
-    else:
-        raise ValueError(f"Unknown mode: {mode}")
-
-
-def run_baseline(PPO_path: Path, save_dir: Path):
-    X_opt, Y_opt, F_e_opt, F_c_opt, _, paras = load_and_analyze_results(
-        exp_dir=PPO_path, analysis=False
+def main(argv=None) -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--solution-npz", default=str(DEFAULT_SOLUTION_NPZ))
+    parser.add_argument("--solution-meta", default=str(DEFAULT_SOLUTION_META))
+    parser.add_argument("--solution-index")
+    parser.add_argument("--output-dir", default=str(EXP1_RESULT_DIR))
+    args = parser.parse_args(argv)
+    outputs = run_overall_performance(
+        solution_npz=args.solution_npz,
+        solution_meta=args.solution_meta,
+        solution_index=args.solution_index,
+        output_dir=args.output_dir,
     )
-    baseline_modes = [
-        ("DADS", "DADS"),
-        ("CEED", "CEED"),
-        ("CutEdge", "CutEdge"),
-        ("Ours", "DCSI"),
-    ]
-    results = []
-    print(f"{'策略名称':<15} | {'Latency':<10} | {'Accuracy':<10} | {'Objective':<10}")
-    print("-" * 60)
-    for display_name, mode in baseline_modes:
-        X, Y, Fe, Fc = get_baseline_decisions(
-            mode, paras, X_opt, Y_opt, F_e_opt, F_c_opt
-        )
-        res = evaluate_strategy(X, Y, Fe, Fc, paras, name=display_name)
-        results.append(res)
-        print(
-            f"{res['name']:<15} | {res['latency']:<10.4f} | {res['accuracy']:<10.4f} | {res['objective']:<10.4f}"
-        )
+    for name, path in outputs.items():
+        print(f"{name}: {path}")
 
 
 if __name__ == "__main__":
-    data_dir = RESULT_DIR / "Optimize" / "DSCI" / "DSCI_20260202_040737"
-    save_dir = Path(RESULT_ABLATION_PATH)
-    run_baseline(data_dir, save_dir)
+    main()

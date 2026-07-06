@@ -17,7 +17,7 @@ from torch.utils.data import DataLoader
 from Src.Shared.Config.model_config import ModelBundleSpec, get_bundle
 from Src.Shared.Config.paths import bundle_paths
 from Src.Shared.Data.registry import build_transform
-from Src.Shared.Models.ModelNet.MultiExitResNet import build_model
+from Src.Shared.Models.factory import build_model
 
 
 MANIFEST_COLUMNS = (

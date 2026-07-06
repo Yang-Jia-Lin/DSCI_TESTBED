@@ -49,6 +49,7 @@ class BundleArtifactPaths:
     def dataset_root(self) -> Path:
         directory = {
             "cifar10": "CIFAR10",
+            "neucls64": "NEU-CLS-64",
             "imagenet100": "ImageNet100",
         }[self.bundle.dataset_id]
         return DATASET_DIR / directory

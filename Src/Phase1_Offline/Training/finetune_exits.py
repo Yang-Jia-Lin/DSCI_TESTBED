@@ -10,7 +10,7 @@ import pandas as pd
 from Src.Shared.Config.model_config import get_bundle
 from Src.Shared.Config.paths import bundle_paths
 from Src.Shared.Data.registry import build_loader
-from Src.Shared.Models.ModelNet.MultiExitResNet import build_model, freeze_for_exit
+from Src.Shared.Models.factory import build_model, freeze_for_exit
 
 
 def _run_exit_epoch(model, loader, criterion, device, exit_id, optimizer=None):

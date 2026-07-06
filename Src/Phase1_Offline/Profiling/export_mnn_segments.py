@@ -9,7 +9,7 @@ import torch.nn as nn
 
 from Src.Shared.Config.model_config import get_bundle
 from Src.Shared.Config.paths import bundle_paths
-from Src.Shared.Models.ModelNet.MultiExitResNet import build_model
+from Src.Shared.Models.factory import build_model
 from Src.Shared.Partitioning.manifest import load_partition_manifest
 from Src.Shared.Partitioning.pytorch_executor import PyTorchSegmentExecutor
 

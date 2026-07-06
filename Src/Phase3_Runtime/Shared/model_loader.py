@@ -34,7 +34,7 @@ def load_full_model(manifest: PartitionManifest, device_name: str | None = None)
     cache_key = (manifest.bundle_id, str(device))
     if cache_key in _MODELS:
         return _MODELS[cache_key]
-    from Src.Shared.Models.ModelNet.MultiExitResNet import build_model
+    from Src.Shared.Models.factory import build_model
 
     paths = bundle_paths(manifest.bundle_id)
     validate_model_file(manifest, paths.weight_path)

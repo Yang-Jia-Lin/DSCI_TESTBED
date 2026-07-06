@@ -4,6 +4,7 @@ import argparse
 
 from Src.Shared.Config.model_config import get_bundle
 from Src.Shared.Partitioning.manifest import build_partition_manifest, write_partition_manifest
+from Src.Shared.Utils.phase_timing import timed_event
 
 
 def main(argv=None):
@@ -13,8 +14,9 @@ def main(argv=None):
     parser.add_argument("--overwrite", action="store_true")
     args = parser.parse_args(argv)
     bundle = get_bundle(args.bundle_id)
-    manifest = build_partition_manifest(bundle)
-    path = write_partition_manifest(manifest, args.output, overwrite=args.overwrite)
+    with timed_event(phase="phase1", step="manifest", bundle_id=bundle.bundle_id):
+        manifest = build_partition_manifest(bundle)
+        path = write_partition_manifest(manifest, args.output, overwrite=args.overwrite)
     print(f"Saved partition manifest: {path}")
     print(f"boundaries={len(manifest.boundaries)}, segments={len(manifest.segments)}")
 

@@ -34,6 +34,8 @@ class PyTorchSegmentExecutor:
         return tensor.to(self.device, non_blocking=True)
 
     def _resolve(self, name):
+        if hasattr(self.model, "resolve_partition_segment"):
+            return self.model.resolve_partition_segment(name)
         if name == "stem":
             return lambda x: self.model.maxpool(self.model.relu(self.model.bn1(self.model.conv1(x))))
         if name == "final_pool":

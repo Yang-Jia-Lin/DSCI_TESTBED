@@ -1,0 +1,3 @@
+{"algorithm": "Random", "step": 0, "current_obj": -1.9286816580191857, "best_obj": -1.9286816580191857, "evaluations": 1, "elapsed_s": 0.00029419991187751293}
+{"algorithm": "Random", "step": 1, "current_obj": -131.0082796318002, "best_obj": -1.9286816580191857, "evaluations": 2, "elapsed_s": 0.0004545999690890312}
+{"algorithm": "Random", "step": 2, "current_obj": 0.3032211880948249, "best_obj": 0.3032211880948249, "evaluations": 3, "elapsed_s": 0.0006092998664826155}

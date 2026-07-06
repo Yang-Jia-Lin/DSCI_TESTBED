@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import csv
+import re
 from pathlib import Path
 
 from torch.utils.data import DataLoader, Dataset
 
 from Src.Shared.Config.model_config import ModelBundleSpec
 from Src.Shared.Config.paths import bundle_paths
+
+IMAGE_EXTENSIONS = {".bmp", ".jpeg", ".jpg", ".png", ".tif", ".tiff", ".webp"}
 
 
 def build_transform(bundle: ModelBundleSpec, *, train: bool = False):
@@ -22,6 +25,76 @@ def build_transform(bundle: ModelBundleSpec, *, train: bool = False):
         operations.extend((transforms.Resize(size), transforms.CenterCrop(size)))
     operations.extend((transforms.ToTensor(), transforms.Normalize(bundle.mean, bundle.std)))
     return transforms.Compose(operations)
+
+
+class FilenameClassImageDataset(Dataset):
+    """Flat image folder whose class is encoded as a filename prefix."""
+
+    def __init__(self, image_dir: str | Path, transform=None):
+        self.image_dir = Path(image_dir)
+        if not self.image_dir.is_dir():
+            raise FileNotFoundError(f"Image directory not found: {self.image_dir}")
+        self.transform = transform
+        self.samples = []
+        class_names = []
+        for path in sorted(self.image_dir.iterdir()):
+            if not path.is_file() or path.suffix.lower() not in IMAGE_EXTENSIONS:
+                continue
+            class_name = self._class_from_name(path.stem)
+            self.samples.append((path, class_name))
+            if class_name not in class_names:
+                class_names.append(class_name)
+        if not self.samples:
+            raise ValueError(f"No images found under {self.image_dir}")
+        self.classes = sorted(class_names)
+        self.class_to_idx = {name: index for index, name in enumerate(self.classes)}
+        self.samples = [
+            (path, self.class_to_idx[class_name]) for path, class_name in self.samples
+        ]
+        self.targets = [target for _, target in self.samples]
+
+    @staticmethod
+    def _class_from_name(stem: str) -> str:
+        match = re.match(r"(.+)_\d+$", stem)
+        if match:
+            return match.group(1)
+        return stem.rsplit("_", 1)[0] if "_" in stem else stem
+
+    def __len__(self) -> int:
+        return len(self.samples)
+
+    def __getitem__(self, index: int):
+        from PIL import Image
+
+        path, target = self.samples[index]
+        with Image.open(path) as image:
+            image = image.convert("RGB")
+            if self.transform:
+                image = self.transform(image)
+        return image, target
+
+
+def _build_neucls64_dataset(root: Path, *, train: bool, transform, num_classes: int):
+    from torchvision import datasets
+
+    split_candidates = ("train",) if train else ("val", "valid", "test")
+    split_dir = next((root / name for name in split_candidates if (root / name).is_dir()), None)
+    if split_dir is None:
+        raise FileNotFoundError(
+            f"NEU-CLS-64 split not found under {root}; expected one of {split_candidates}"
+        )
+
+    image_dir = split_dir / "images"
+    if image_dir.is_dir():
+        dataset = FilenameClassImageDataset(image_dir, transform=transform)
+    else:
+        dataset = datasets.ImageFolder(str(split_dir), transform=transform)
+    if len(dataset.classes) != num_classes:
+        raise ValueError(
+            f"neucls64 requires exactly {num_classes} classes, "
+            f"found {len(dataset.classes)} under {split_dir}: {dataset.classes}"
+        )
+    return dataset
 
 
 def build_dataset(
@@ -40,15 +113,24 @@ def build_dataset(
         return datasets.CIFAR10(root=str(root), train=train, transform=transform, download=download)
     if bundle.dataset_id == "imagenet100":
         if download:
-            raise ValueError("ImageNet100 download is not supported")
+            raise ValueError(f"{bundle.dataset_id} download is not supported")
         directory = root / ("train" if train else "val")
         dataset = datasets.ImageFolder(str(directory), transform=transform)
         if len(dataset.classes) != bundle.num_classes:
             raise ValueError(
-                f"ImageNet100 requires exactly {bundle.num_classes} classes, "
+                f"{bundle.dataset_id} requires exactly {bundle.num_classes} classes, "
                 f"found {len(dataset.classes)} under {directory}"
             )
         return dataset
+    if bundle.dataset_id == "neucls64":
+        if download:
+            raise ValueError("neucls64 download is not supported")
+        return _build_neucls64_dataset(
+            root,
+            train=train,
+            transform=transform,
+            num_classes=bundle.num_classes,
+        )
     raise ValueError(f"Unsupported dataset_id: {bundle.dataset_id}")
 
 

@@ -47,6 +47,24 @@ _IMAGENET100 = {
     "mean": (0.485, 0.456, 0.406),
     "std": (0.229, 0.224, 0.225),
 }
+_NEUCLS64_RESNET = {
+    "dataset_id": "neucls64",
+    "num_classes": 6,
+    "input_shape": (3, 227, 227),
+    "mean": (0.485, 0.456, 0.406),
+    "std": (0.229, 0.224, 0.225),
+}
+_NEUCLS64_DEIT = {
+    "dataset_id": "neucls64",
+    "num_classes": 6,
+    "input_shape": (3, 224, 224),
+    "mean": (0.485, 0.456, 0.406),
+    "std": (0.229, 0.224, 0.225),
+}
+_CIFAR10_DEIT = {
+    **_CIFAR10,
+    "input_shape": (3, 224, 224),
+}
 _EXITS = (
     ExitSpec("after_layer2", "layer2"),
     ExitSpec("after_layer3", "layer3"),
@@ -57,6 +75,10 @@ _RESNET101_EXITS = (
     ExitSpec("after_layer3_block15", "layer3.14"),
     ExitSpec("after_layer3_block20", "layer3.19"),
     ExitSpec("after_layer4", "layer4"),
+)
+_DEIT_SMALL_EXITS = (
+    ExitSpec("after_block4", "blocks.3"),
+    ExitSpec("after_block8", "blocks.7"),
 )
 
 
@@ -79,9 +101,13 @@ BUNDLE_REGISTRY: dict[str, ModelBundleSpec] = {
         _bundle("resnet18", _CIFAR10),
         _bundle("resnet50", _CIFAR10),
         _bundle("resnet101", _CIFAR10, _RESNET101_EXITS),
+        _bundle("resnet50", _NEUCLS64_RESNET),
         _bundle("resnet18", _IMAGENET100),
         _bundle("resnet50", _IMAGENET100),
         _bundle("resnet101", _IMAGENET100, _RESNET101_EXITS),
+        _bundle("deit-small", _CIFAR10_DEIT, _DEIT_SMALL_EXITS),
+        _bundle("deit-small", _NEUCLS64_DEIT, _DEIT_SMALL_EXITS),
+        _bundle("deit-small", _IMAGENET100, _DEIT_SMALL_EXITS),
     )
 }
 

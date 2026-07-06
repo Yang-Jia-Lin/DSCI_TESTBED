@@ -1,0 +1,2 @@
+{"algorithm": "BF coordinate search", "step": 0, "current_obj": -131.82080338984576, "best_obj": -131.82080338984576, "evaluations": 1, "elapsed_s": 0.0}
+{"algorithm": "BF coordinate search", "step": 1, "current_obj": 0.3278086298096104, "best_obj": 0.3278086298096104, "evaluations": 2, "elapsed_s": 0.0}
