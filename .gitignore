@@ -1,31 +1,3 @@
-# Dataset directory skeletons are tracked, but downloaded data is not.
-Data/Datasets/**
-!Data/Datasets/
-!Data/Datasets/.gitkeep
-!Data/Datasets/CIFAR10/
-!Data/Datasets/CIFAR10/.gitkeep
-!Data/Datasets/ImageNet100/
-!Data/Datasets/ImageNet100/.gitkeep
-!Data/Datasets/NEU-CLS-64/
-!Data/Datasets/NEU-CLS-64/.gitkeep
-!Data/Datasets/NEU-CLS-64/train/
-!Data/Datasets/NEU-CLS-64/train/.gitkeep
-!Data/Datasets/NEU-CLS-64/train/images/
-!Data/Datasets/NEU-CLS-64/train/images/.gitkeep
-!Data/Datasets/NEU-CLS-64/train/labels/
-!Data/Datasets/NEU-CLS-64/train/labels/.gitkeep
-!Data/Datasets/NEU-CLS-64/valid/
-!Data/Datasets/NEU-CLS-64/valid/.gitkeep
-!Data/Datasets/NEU-CLS-64/valid/images/
-!Data/Datasets/NEU-CLS-64/valid/images/.gitkeep
-!Data/Datasets/NEU-CLS-64/valid/labels/
-!Data/Datasets/NEU-CLS-64/valid/labels/.gitkeep
-
-# Data/Runtime/SolutionCache/*
-# !Data/Runtime/SolutionCache/.gitkeep
-# Data/Runtime/DeviceResults/*
-# !Data/Runtime/DeviceResults/.gitkeep
-
 Src/Shared/Config/deploy_config.py
 
 *.pth
@@ -37,25 +9,34 @@ Src/Shared/Config/deploy_config.py
 *.tar.gz
 *.zip
 
+# Python caches and environments
+__pycache__/
+__pycache__
+.vscode/
+.idea/
+.idea
+.agents
+.ipynb_checkpoints/
+*.pyc
+.env
+.venv/
+venv/
+dsci_env/
+
+# Dataset directory skeletons are tracked, but downloaded data is not.
+Data/Datasets/**
+!Data/Datasets/
+!Data/Datasets/.gitkeep
+!Data/Datasets/CIFAR10/
+!Data/Datasets/CIFAR10/.gitkeep
+!Data/Datasets/ImageNet100/
+!Data/Datasets/ImageNet100/.gitkeep
+!Data/Datasets/NEU-CLS-64/
+!Data/Datasets/NEU-CLS-64/.gitkeep
+
 # Runtime experiment outputs are small enough to track in this repository.
 !Data/Runtime/SolutionCache/*.pt
 !Data/Runtime/SolutionCache/*.npz
 !Data/Runtime/SolutionCache/*.json
 !Data/Runtime/SolutionCache/*.jsonl
 !Data/Runtime/DeviceResults/**
-# Python caches and environments
-__pycache__/
-*.pyc
-.env
-venv/
-.venv/
-dsci_env/
-.ipynb_checkpoints/
-
-# PyCharm files
-.idea/
-.idea
-__pycache__
-
-.agents
-.vscode/
