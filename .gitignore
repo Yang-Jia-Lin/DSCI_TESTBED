@@ -1,18 +1,30 @@
-Data/Datasets/*
+# Dataset directory skeletons are tracked, but downloaded data is not.
+Data/Datasets/**
+!Data/Datasets/
+!Data/Datasets/.gitkeep
 !Data/Datasets/CIFAR10/
-Data/Datasets/CIFAR10/*
-# !Data/Datasets/CIFAR10/TestSets/
-# !Data/Datasets/CIFAR10/TestSets/**
+!Data/Datasets/CIFAR10/.gitkeep
 !Data/Datasets/ImageNet100/
-Data/Datasets/ImageNet100/*
-# !Data/Datasets/ImageNet100/TestSets/
-# !Data/Datasets/ImageNet100/TestSets/**
+!Data/Datasets/ImageNet100/.gitkeep
+!Data/Datasets/NEU-CLS-64/
+!Data/Datasets/NEU-CLS-64/.gitkeep
+!Data/Datasets/NEU-CLS-64/train/
+!Data/Datasets/NEU-CLS-64/train/.gitkeep
+!Data/Datasets/NEU-CLS-64/train/images/
+!Data/Datasets/NEU-CLS-64/train/images/.gitkeep
+!Data/Datasets/NEU-CLS-64/train/labels/
+!Data/Datasets/NEU-CLS-64/train/labels/.gitkeep
+!Data/Datasets/NEU-CLS-64/valid/
+!Data/Datasets/NEU-CLS-64/valid/.gitkeep
+!Data/Datasets/NEU-CLS-64/valid/images/
+!Data/Datasets/NEU-CLS-64/valid/images/.gitkeep
+!Data/Datasets/NEU-CLS-64/valid/labels/
+!Data/Datasets/NEU-CLS-64/valid/labels/.gitkeep
 
-Data/Runtime/SolutionCache/*
-!Data/Runtime/SolutionCache/.gitkeep
-Data/Runtime/DeviceResults/*
-!Data/Runtime/DeviceResults/.gitkeep
-Data/Archive/Runtime/
+# Data/Runtime/SolutionCache/*
+# !Data/Runtime/SolutionCache/.gitkeep
+# Data/Runtime/DeviceResults/*
+# !Data/Runtime/DeviceResults/.gitkeep
 
 Src/Shared/Config/deploy_config.py
 
