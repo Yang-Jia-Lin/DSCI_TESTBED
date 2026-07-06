@@ -1,30 +1,3 @@
-# 简单测试
-1. **Cloud**
-```bash
-export DSCI_CLOUD_PYTORCH_SEGMENT_PROFILE_ID=v100-pytorch-resnet50-cifar10
-python -m Src.Phase3_Runtime.Cloud.run_cloud --bundle-id resnet50-cifar10-ee-v1 --backend pytorch
-```
-
-2. **Edge**
-```powershell
-$env:DSCI_EDGE_PYTORCH_SEGMENT_PROFILE_ID="edge-pytorch-resnet50-cifar10"
-python -m Src.Phase3_Runtime.Edge.run_edge --bundle-id resnet50-cifar10-ee-v1 --backend pytorch
-```
-
-3. **Scheduler**
-```powershell
-$env:DSCI_EXPECTED_USERS="1"
-python -m Src.Phase2_Scheduler.Service.api_server --expected-users 1
-```
-
-4. **Jetson**
-```bash
-export DSCI_DEVICE_PYTORCH_SEGMENT_PROFILE_ID=nx-pytorch-resnet50-cifar10
-python -m Src.Phase3_Runtime.Device.run_device --bundle-id resnet50-cifar10-ee-v1 --backend pytorch --round-id r50-cifar10-cloud-002 --user-id 0 --test-samples 1
-```
-
----
-
 > [!info] SEAM 原型系统
 > - 实现 Device → Edge → Cloud 三级协同推理。
 > - 核心思想：将一个带有早退出口的 DNN 模型按原子 Segment 切分，由 PPO 强化学习优化器（DSCI）为每个用户决定最优的切分点和早退阈值，使延迟与精度的加权（`Reward = α × accuracy − β × latency`）奖励最大化。。
