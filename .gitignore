@@ -5,6 +5,7 @@ Src/Shared/Config/deploy_config.py
 *.h5
 *.ckpt
 *.safetensors
+*.mnn
 *.onnx
 *.tar.gz
 *.zip
