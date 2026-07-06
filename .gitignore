@@ -36,12 +36,20 @@ Src/Shared/Config/deploy_config.py
 *.onnx
 *.tar.gz
 *.zip
+
+# Runtime experiment outputs are small enough to track in this repository.
+!Data/Runtime/SolutionCache/*.pt
+!Data/Runtime/SolutionCache/*.npz
+!Data/Runtime/SolutionCache/*.json
+!Data/Runtime/SolutionCache/*.jsonl
+!Data/Runtime/DeviceResults/**
 # Python caches and environments
 __pycache__/
 *.pyc
 .env
 venv/
 .venv/
+dsci_env/
 .ipynb_checkpoints/
 
 # PyCharm files
