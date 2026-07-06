@@ -2,7 +2,7 @@
 
 `Src/` 是系统代码的主入口，按三阶段组织：Phase 1 离线准备、Phase 2 在线调度、Phase 3 分布式运行时。根目录 `README.md` 保持系统总览不变；本文件面向复现，给出代码导航和快速跑通路径。
 
-## 代码导航
+#### 代码导航
 
 | 目录 | 作用 | 详细文档 |
 | --- | --- | --- |
@@ -11,12 +11,7 @@
 | `Phase3_Runtime/` | Cloud、Edge、Device 三端运行时和张量传输 | [Phase3_README](Phase3_Runtime/Phase3_README.md) |
 | `Shared/` | 跨阶段共享的配置、模型、数据、manifest、profile 工具 | 本文件下方说明 |
 
-已有更深层 README：
-
-- [Phase1_Offline/Training/README_train.md](Phase1_Offline/Training/README_train.md)：Multi-Exit ResNet 训练、早退头微调和分析图生成。
-- [Phase2_Scheduler/Service/README_alg_service.md](Phase2_Scheduler/Service/README_alg_service.md)：Scheduler 服务中的 DSCI/PPO 自适应缓存和 warm-start 逻辑。
-
-## 复现顺序
+#### 复现顺序
 
 1. 准备数据和模型包：检查 `Data/Datasets/`、`Data/Bundles/<bundle_id>/`，见 [DATA_README](../Data/DATA_README.md)。
 2. 离线准备：生成或确认 `weights.pth`、`manifest.json`、`exit_curves.csv` 和各节点 profile，见 [Phase1_README](Phase1_Offline/Phase1_README.md)。
@@ -24,7 +19,7 @@
 4. 查看调度逻辑：需要固定策略、禁用训练或理解 API 时，见 [Phase2_README](Phase2_Scheduler/Phase2_README.md)。
 5. 复现实验图表：运行 `Scripts/` 下实验脚本，见 [Scripts_README](../Scripts/Scripts_README.md)。
 
-## 共享模块
+#### 共享模块
 
 | 目录 | 说明 |
 | --- | --- |
@@ -34,8 +29,6 @@
 | `Shared/Partitioning/` | manifest 读取、boundary 校验、PyTorch segment executor |
 | `Shared/Profiles/` | compute profile 和 segment profile 的读写 |
 | `Shared/Utils/` | 训练日志、绘图、计时等通用工具 |
-
-## 快速开始
 
 # 离线准备
 ## 修改IP
