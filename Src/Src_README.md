@@ -126,6 +126,7 @@ Jetson NX 示例。两台 Device 要在同一分钟内启动，或者先在两�
 ```bash
 export DSCI_DEVICE_PYTORCH_SEGMENT_PROFILE_ID=device-nx1-pytorch-resnet50-cifar10
 export ROUND_ID=$(date +%Y%m%d-%H%M)
+echo $ROUND_ID # 两台 Device 都重新设置同一个新 round，复制
 python -m Src.Phase3_Runtime.Device.run_device \
   --bundle-id resnet50-cifar10-ee-v1 \
   --backend pytorch \
@@ -140,7 +141,7 @@ python -m Src.Phase3_Runtime.Device.run_device \
 
 ```bash
 export DSCI_DEVICE_PYTORCH_SEGMENT_PROFILE_ID=device-nano1-pytorch-resnet50-cifar10
-export ROUND_ID=$(date +%Y%m%d-%H%M)
+export ROUND_ID= # 粘贴
 python -m Src.Phase3_Runtime.Device.run_device \
   --bundle-id resnet50-cifar10-ee-v1 \
   --backend pytorch \

@@ -203,6 +203,38 @@ class PPOAgent:
             dim += 10
         return dim
 
+    def _entropy_coef(self, epoch: int) -> float:
+        """Entropy schedule; fixed-worker runs need exploration to shut down earlier."""
+        coef = self.initial_entropy_coef * (self.entropy_decay**epoch)
+        if getattr(self.paras, "resource_mode", None) != "fixed_worker_pool":
+            return float(coef)
+
+        fixed_decay = float(
+            self.hparams.get("fixed_worker_entropy_decay", 0.94)
+        )
+        coef = self.initial_entropy_coef * (fixed_decay**epoch)
+        stop_epoch = self.hparams.get("fixed_worker_entropy_stop_epoch", 40)
+        if stop_epoch is not None and epoch >= int(stop_epoch):
+            coef = 0.0
+        return float(coef)
+
+    def _y_variance_coef(self, epoch: int) -> float:
+        """Late fixed-worker regularizer that makes Beta thresholds sharper."""
+        if (
+            getattr(self.paras, "resource_mode", None) != "fixed_worker_pool"
+            or self.action_dim_Y <= 0
+        ):
+            return 0.0
+
+        start_epoch = int(self.hparams.get("fixed_worker_y_variance_start_epoch", 20))
+        if epoch < start_epoch:
+            return 0.0
+
+        max_coef = float(self.hparams.get("fixed_worker_y_variance_coef", 0.05))
+        ramp_epochs = max(1, int(self.hparams.get("fixed_worker_y_variance_ramp", 20)))
+        progress = min(1.0, float(epoch - start_epoch + 1) / float(ramp_epochs))
+        return float(max_coef * progress)
+
     @torch.no_grad()
     def sample_action(self, state: torch.Tensor):
         """
@@ -431,7 +463,8 @@ class PPOAgent:
         return X, Y
 
     def update_policy(self, epoch: int):
-        entropy_coef = self.initial_entropy_coef * (self.entropy_decay**epoch)
+        entropy_coef = self._entropy_coef(epoch)
+        y_variance_coef = self._y_variance_coef(epoch)
 
         advantages, returns = self.buffer.compute_advantages(
             self.hparams["gamma"], self.hparams["lam"]
@@ -477,12 +510,22 @@ class PPOAgent:
                 dist_Y = torch.distributions.Beta(alpha_Y, beta_Y)
                 logp_Y = dist_Y.log_prob(actions_Y).sum(-1)  # [T]
                 ent_Y = dist_Y.entropy().sum(-1)  # [T]
+                alpha_beta_sum = alpha_Y + beta_Y
+                y_variance = (
+                    alpha_Y
+                    * beta_Y
+                    / (alpha_beta_sum.pow(2) * (alpha_beta_sum + 1.0))
+                ).sum(-1)
             else:
                 logp_Y = torch.zeros_like(logp_X)
                 ent_Y = torch.zeros_like(ent_X)
+                y_variance = torch.zeros_like(ent_X)
 
             new_logprob = logp_X + logp_Y  # [T]
-            entropy = ent_X + ent_Y  # [T]
+            if getattr(self.paras, "resource_mode", None) == "fixed_worker_pool":
+                entropy_bonus = ent_X
+            else:
+                entropy_bonus = ent_X + ent_Y
 
             # DSCI ratio
             ratio = torch.exp(new_logprob - old_logprobs)  # [T]
@@ -500,7 +543,12 @@ class PPOAgent:
 
             value_loss = F.mse_loss(values_new, returns)
 
-            total_loss = policy_loss + 0.5 * value_loss - entropy_coef * entropy.mean()
+            total_loss = (
+                policy_loss
+                + 0.5 * value_loss
+                - entropy_coef * entropy_bonus.mean()
+                + y_variance_coef * y_variance.mean()
+            )
 
             self.optimizer.zero_grad(set_to_none=True)
             total_loss.backward()
@@ -792,6 +840,8 @@ class PPOAgent:
                 if len(entropy_Y_list) > 0
                 else float("nan")
             )
+            entropy_coef = self._entropy_coef(epoch)
+            y_variance_coef = self._y_variance_coef(epoch)
 
             # 统计 history 和 best checkpoint
             inner_best_obj = float(best_epoch_obj)  # 旧资源口径
@@ -834,6 +884,8 @@ class PPOAgent:
                     "acc": float(acc),
                     "entropy_X": float(mean_entropy_X),
                     "entropy_Y": float(mean_entropy_Y),
+                    "entropy_coef": float(entropy_coef),
+                    "y_variance_coef": float(y_variance_coef),
                     "steps_collected": int(steps),
                     "num_episodes": int(len(episode_final_objs)),
                 }
@@ -843,7 +895,9 @@ class PPOAgent:
                 f"inner_best_obj={inner_best_obj:.6f}, outer_obj={outer_obj:.6f}, "
                 f"inner_mean_obj={mean_epoch_obj:.6f}, "
                 f"latency={latency:.6f}, acc={acc:.6f}, "
-                f"entropy_X={mean_entropy_X:.6f}, entropy_Y={mean_entropy_Y:.6f}"
+                f"entropy_X={mean_entropy_X:.6f}, entropy_Y={mean_entropy_Y:.6f}, "
+                f"entropy_coef={entropy_coef:.6g}, "
+                f"y_variance_coef={y_variance_coef:.6g}"
             )
 
             # 收敛检测（窗口内波动很小就停）
