@@ -42,6 +42,7 @@
 
 > 如果两台 Device 不是同一分钟启动，请先在第一台机器执行 `echo $ROUND_ID`，再把这个值复制到另一台机器执行 `export ROUND_ID=<同一个值>`。Scheduler 不需要因为换 `round_id` 重启；上一轮完成后，新 `round_id` 会自动开启下一轮。
 > 不要写成 `ROUND_ID=$(date +%Y%m%d-%H%M) python ... --round-id "$ROUND_ID"`。shell 会先展开参数，此时 `"$ROUND_ID"` 可能还是空的，最终请求会变成 `/rounds//devices/register`。
+> Edge 的 `iperf3 -s` 默认同一时间只能服务一个测试。两台 Device 同时启动时，后启动的一台可能看到 `server is busy running a test`，代码会自动重试；如果仍失败，可以错开启动，或设置 `export DSCI_IPERF_RETRY_SLEEP_S=12`。
 
 ### 离线准备
 

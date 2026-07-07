@@ -23,7 +23,7 @@ def _env_float(name: str, default: float) -> float:
 DEFAULT_IPERF_DURATION_S = _env_float("DSCI_IPERF_DURATION_S", 8.0)
 DEFAULT_IPERF_TIMEOUT_MARGIN_S = _env_float("DSCI_IPERF_TIMEOUT_MARGIN_S", 15.0)
 DEFAULT_IPERF_RETRIES = int(_env_float("DSCI_IPERF_RETRIES", 3.0))
-DEFAULT_IPERF_RETRY_SLEEP_S = _env_float("DSCI_IPERF_RETRY_SLEEP_S", 2.0)
+DEFAULT_IPERF_RETRY_SLEEP_S = _env_float("DSCI_IPERF_RETRY_SLEEP_S", 10.0)
 
 
 def _iperf_error_message(stdout: str, stderr: str) -> str:
