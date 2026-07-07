@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import threading
 import uuid
@@ -15,7 +16,7 @@ from Src.Phase3_Runtime.Shared.bandwidth_iperf import measure_bandwidth_iperf
 from Src.Phase3_Runtime.Shared.state_reporter import RoundClient
 from Src.Shared.Config.deploy_config import DEFAULT as TESTBED_CFG
 from Src.Shared.Config.model_config import get_bundle
-from Src.Shared.Config.paths import bundle_paths
+from Src.Shared.Config.paths import DEVICE_RESULTS_DIR, bundle_paths
 from Src.Shared.Data.registry import build_loader, build_test_package_loader
 from Src.Shared.Profiles.segment_profile import segment_profile_state
 
@@ -90,9 +91,22 @@ def _metadata_value(metadata: dict | None, key: str):
     return value
 
 
-def _measurement_record(result: dict, *, is_correct: bool, sample_metadata: dict | None = None) -> dict:
+def _measurement_record(
+    result: dict,
+    *,
+    user_id: int,
+    sample_index: int,
+    label: int,
+    is_correct: bool,
+    sample_metadata: dict | None = None,
+) -> dict:
     record = {
         "request_id": str(result["request_id"]),
+        "user_id": int(user_id),
+        "sample_index": int(sample_index),
+        "label": int(label),
+        "prediction": int(result["prediction"]),
+        "exit_location": result.get("exit_location"),
         "T_total": float(result["T_total"]),
         "is_correct": bool(is_correct),
     }
@@ -108,7 +122,102 @@ def _measurement_record(result: dict, *, is_correct: bool, sample_metadata: dict
     for key, value in result.items():
         if key.startswith("T_") and key != "T_total" and value is not None:
             record[key] = float(value)
+    _add_latency_aliases(record)
     return record
+
+
+def _add_latency_aliases(record: dict) -> None:
+    if "T_compute_device" in record:
+        record["T_d_compute"] = float(record["T_compute_device"])
+    if "T_compute_edge" in record:
+        record["T_e_compute"] = float(record["T_compute_edge"])
+    if "T_compute_cloud" in record:
+        record["T_c_compute"] = float(record["T_compute_cloud"])
+    if "T_device_edge_roundtrip" in record:
+        value = float(record["T_device_edge_roundtrip"])
+        if "T_node_edge" in record:
+            value -= float(record["T_node_edge"])
+        record["T_d2e"] = max(0.0, value)
+    if "T_edge_cloud_roundtrip" in record:
+        value = float(record["T_edge_cloud_roundtrip"])
+        if "T_node_cloud" in record:
+            value -= float(record["T_node_cloud"])
+        record["T_e2c"] = max(0.0, value)
+
+
+def _mean(values: list[float]) -> float | None:
+    return sum(values) / len(values) if values else None
+
+
+def _summary_payload(
+    measurements: list[dict],
+    *,
+    round_id: str,
+    user_id: int,
+    bundle_id: str,
+    backend: str,
+    decision: dict | None,
+    device_state: dict,
+    correct: int,
+    total: int,
+) -> dict:
+    latency_summary = {}
+    for key in (
+        "T_d_compute",
+        "T_e_compute",
+        "T_c_compute",
+        "T_d2e",
+        "T_e2c",
+        "T_total",
+    ):
+        values = [float(record[key]) for record in measurements if key in record]
+        mean_value = _mean(values)
+        latency_summary[f"{key}_avg_ms"] = (
+            1000.0 * mean_value if mean_value is not None else None
+        )
+    return {
+        "round_id": str(round_id),
+        "user_id": int(user_id),
+        "bundle_id": str(bundle_id),
+        "backend": str(backend),
+        "samples": int(total),
+        "correct": int(correct),
+        "accuracy": correct / max(total, 1),
+        "latency": latency_summary,
+        "decision": decision,
+        "device_state": device_state,
+    }
+
+
+def _write_device_results(
+    measurements: list[dict],
+    summary: dict,
+    *,
+    round_id: str,
+    user_id: int,
+) -> tuple[Path, Path, Path]:
+    result_dir = DEVICE_RESULTS_DIR / str(round_id)
+    result_dir.mkdir(parents=True, exist_ok=True)
+    stem = f"user_{int(user_id)}"
+    jsonl_path = result_dir / f"{stem}_measurements.jsonl"
+    summary_path = result_dir / f"{stem}_summary.json"
+    csv_path = result_dir / f"{stem}_inference_results.csv"
+
+    with jsonl_path.open("w", encoding="utf-8") as f:
+        for record in measurements:
+            f.write(json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n")
+
+    with summary_path.open("w", encoding="utf-8") as f:
+        json.dump(summary, f, ensure_ascii=False, indent=2, sort_keys=True)
+        f.write("\n")
+
+    fieldnames = sorted({key for record in measurements for key in record})
+    with csv_path.open("w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(measurements)
+
+    return jsonl_path, summary_path, csv_path
 
 
 def _print_measurement_summary(measurements: list[dict], *, correct: int, total: int) -> None:
@@ -116,15 +225,14 @@ def _print_measurement_summary(measurements: list[dict], *, correct: int, total:
         print("samples=0 accuracy=0.0000")
         return
     print(f"samples={total} accuracy={correct / max(total, 1):.4f}")
-    latency_keys = sorted(
-        {
-            key
-            for record in measurements
-            for key in record
-            if key.startswith("T_")
-        }
-    )
-    for key in latency_keys:
+    for key in (
+        "T_d_compute",
+        "T_e_compute",
+        "T_c_compute",
+        "T_d2e",
+        "T_e2c",
+        "T_total",
+    ):
         values = [float(record[key]) for record in measurements if key in record]
         if not values:
             continue
@@ -276,7 +384,6 @@ def main(argv=None):
             f"b1={user_decision.get('partition_boundary_1')}, "
             f"b2={user_decision.get('partition_boundary_2')}"
         )
-        print(json.dumps(decision, indent=2))
         if test_package_root:
             loader = build_test_package_loader(bundle, test_package_root, batch_size=1)
             sample_limit = args.test_samples
@@ -284,7 +391,7 @@ def main(argv=None):
         else:
             loader = build_loader(bundle, "val", batch_size=1, data_root=args.data_root)
             sample_limit = args.test_samples if args.test_samples is not None else 100
-        for batch in loader:
+        for sample_index, batch in enumerate(loader):
             if test_package_root:
                 images, labels, sample_metadata = batch
             else:
@@ -297,14 +404,42 @@ def main(argv=None):
                 user_id=args.user_id,
                 request_id=request_id,
             )
-            is_correct = result["prediction"] == int(labels.item())
+            label = int(labels.item())
+            is_correct = result["prediction"] == label
             correct += int(is_correct)
             measurements.append(
-                _measurement_record(result, is_correct=is_correct, sample_metadata=sample_metadata)
+                _measurement_record(
+                    result,
+                    user_id=args.user_id,
+                    sample_index=sample_index,
+                    label=label,
+                    is_correct=is_correct,
+                    sample_metadata=sample_metadata,
+                )
             )
             total += 1
             if sample_limit is not None and total >= sample_limit:
                 break
+        summary = _summary_payload(
+            measurements,
+            round_id=args.round_id,
+            user_id=args.user_id,
+            bundle_id=bundle.bundle_id,
+            backend=args.backend,
+            decision=decision,
+            device_state=device,
+            correct=correct,
+            total=total,
+        )
+        jsonl_path, summary_path, csv_path = _write_device_results(
+            measurements,
+            summary,
+            round_id=args.round_id,
+            user_id=args.user_id,
+        )
+        print(f"Saved measurements: {jsonl_path}")
+        print(f"Saved summary: {summary_path}")
+        print(f"Saved inference CSV: {csv_path}")
         client.submit_measurements(
             {
                 "decision_id": decision["decision_id"],

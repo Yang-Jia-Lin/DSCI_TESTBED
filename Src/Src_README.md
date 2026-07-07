@@ -30,67 +30,124 @@
 | `Shared/Profiles/` | compute profile 和 segment profile 的读写 |
 | `Shared/Utils/` | 训练日志、绘图、计时等通用工具 |
 
-# 离线准备
-## 修改IP
-`Src/Shared/Config/deploy_config.py`
+## 快速开始：两台 Device 联跑
 
-## Profile
-###### 新edge
-新机器要起新名字防止覆盖，如 `edge-kaijielaptop-pytorch-resnet50-cifar10`）
+本节按两台端设备写，复制命令时只需要保证：
+
+- Scheduler 使用 `--expected-users 2`。
+- 两台 Device 使用同一个 `--round-id`，格式建议为 `yyyymmdd-hhMM`，例如 `20260707-0948`。
+- 两台 Device 使用不同的 `--user-id`，例如 `0` 和 `1`。
+- 同一个 Scheduler 进程里，已经用过的 `round_id` 不能复用；重跑请换成新的 `round_id`，例如 `20260707-0953`。
+- 如果某个 `round_id + user_id` 已注册过，再用不同状态注册会返回 `409 Conflict`。
+
+### 离线准备
+
+#### 修改 IP
+
+检查：
+
+```text
+Src/Shared/Config/deploy_config.py
+```
+
+确认 `edge_host`、`cloud_host`、`algo_host` 指向当前 Edge、Cloud、Scheduler 机器。
+
+#### Profile 新 Edge
+
+新机器要起新名字防止覆盖，如 `edge-kaijielaptop-pytorch-resnet50-cifar10`。
+
 ```powershell
 python -m Src.Phase1_Offline.Profiling.profile_segments edge-kaijielaptop-pytorch-resnet50-cifar10 --bundle-id resnet50-cifar10-ee-v1
 ```
-###### 新device
-新机器要起新名字防止覆盖，如 `device-nano1-pytorch-resnet50-cifar10`）
+
+#### Profile 新 Device
+
+每台新 Device 都要有自己的 profile 名字，如 `device-nano1-pytorch-resnet50-cifar10`。
+
 ```bash
 python -m Src.Phase1_Offline.Profiling.profile_segments device-nano1-pytorch-resnet50-cifar10 --bundle-id resnet50-cifar10-ee-v1
 ```
-###### 复制 `Data\Profiles\Segments` 下新生成的 Profile 到Scheduler机器
+
+#### 复制 Profile 到 Scheduler 机器
+
 > [!attention] 重要
-> 所有新生成的 profile 目录要复制到 Scheduler 所在机器
+> 所有新生成的 profile 目录都要复制到 Scheduler 所在机器的 `Data/Profiles/Segments/` 下。
 
----
+### 运行顺序
 
-# 运行
-## Cloud
-###### 终端1（iperf cloud）
+#### 1. Cloud 终端 1：iperf cloud
+
 ```bash
 iperf3 -s -p 32264
 ```
-###### 终端2（run_cloud）
+
+#### 2. Cloud 终端 2：run_cloud
+
 ```bash
 export DSCI_CLOUD_PYTORCH_SEGMENT_PROFILE_ID=cloud-v100-pytorch-resnet50-cifar10
 python -m Src.Phase3_Runtime.Cloud.run_cloud \
-	--bundle-id resnet50-cifar10-ee-v1 \
-	--backend pytorch
+  --bundle-id resnet50-cifar10-ee-v1 \
+  --backend pytorch
 ```
 
-## Edge
-###### 终端1（iperf edge）
+#### 3. Edge 终端 1：iperf edge
+
 ```powershell
 iperf3 -s -p 5001
 ```
-###### 终端2（run_edge）
-更换 `PROFILE_ID` 为上面的新名字
+
+#### 4. Edge 终端 2：run_edge
+
+把 `DSCI_EDGE_PYTORCH_SEGMENT_PROFILE_ID` 改成本机实际 profile。
+
 ```powershell
 $env:DSCI_EDGE_PYTORCH_SEGMENT_PROFILE_ID="edge-jialindesktop-pytorch-resnet50-cifar10"
 python -m Src.Phase3_Runtime.Edge.run_edge `
-	--bundle-id resnet50-cifar10-ee-v1 `
-	--backend pytorch
-```
-###### 终端3（scheduler）
-```powershell
-python -m Src.Phase2_Scheduler.Service.api_server --expected-users 1
+  --bundle-id resnet50-cifar10-ee-v1 `
+  --backend pytorch
 ```
 
-## Device
-更换 `PROFILE_ID` 为上面的新名字
+#### 5. Scheduler 终端：api_server
+
+两台 Device 联跑时必须是 `--expected-users 2`。
+
+```powershell
+python -m Src.Phase2_Scheduler.Service.api_server --expected-users 2
+```
+
+#### 6. Device 0 终端
+
+Jetson NX 示例。`20260707-0948` 是本轮 ID，两台 Device 必须使用同一个值，重跑时换成新值。
+
 ```bash
 export DSCI_DEVICE_PYTORCH_SEGMENT_PROFILE_ID=device-nx1-pytorch-resnet50-cifar10
 python -m Src.Phase3_Runtime.Device.run_device \
-	--bundle-id resnet50-cifar10-ee-v1 \
-	--backend pytorch \
-	--user-id 0 \
-	--test-samples 1 \
-	--round-id 2
+  --bundle-id resnet50-cifar10-ee-v1 \
+  --backend pytorch \
+  --user-id 0 \
+  --round-id 20260707-0948 \
+  --test-samples 1
 ```
+
+#### 7. Device 1 终端
+
+第二台 Device 示例。把 profile 改成本机实际 profile；`--round-id` 必须和 Device 0 一样，`--user-id` 必须不同。
+
+```bash
+export DSCI_DEVICE_PYTORCH_SEGMENT_PROFILE_ID=device-nano1-pytorch-resnet50-cifar10
+python -m Src.Phase3_Runtime.Device.run_device \
+  --bundle-id resnet50-cifar10-ee-v1 \
+  --backend pytorch \
+  --user-id 1 \
+  --round-id 20260707-0948 \
+  --test-samples 1
+```
+
+### 409 Conflict 处理
+
+出现 `409 Client Error: CONFLICT` 时，优先按下面顺序检查：
+
+1. 是否两台 Device 都用了 `--user-id 0`。两台设备必须分别使用 `--user-id 0` 和 `--user-id 1`。
+2. 是否 Scheduler 仍在等待两台 Device，但只启动了一台。两台联跑时 Scheduler 必须是 `--expected-users 2`。
+3. 是否复用了已经注册或已经完成的 `round_id`。重跑请改成新的 `--round-id`，例如 `20260707-0953`。
+4. 是否上一轮还没结束。当前 Scheduler 一次只允许一个活跃 round；必要时重启 Scheduler 后使用新的 `round_id`。

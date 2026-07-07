@@ -80,7 +80,7 @@
   ],
   "objective": 1.0800534114203522,
   "created_at": 1783388869.2117622,
-  "policy_path": "D:\\Coding\\Python\\DSCI_testbed\\Data\\Runtime\\SolutionCache\\latest_solution_policy.pt",
+  "policy_path": "D:\\Coding\\Python\\DSCI_testbed\\Data\\Runtime\\SolutionCache\\solution_20260707094749212_policy.pt",
   "training_mode": "cold",
   "training_started_at": 1783388295.9493992,
   "training_finished_at": 1783388869.2117622,
