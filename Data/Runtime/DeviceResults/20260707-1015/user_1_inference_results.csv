@@ -1,0 +1,2 @@
+T_compute_device,T_d_compute,T_total,exit_location,is_correct,label,prediction,request_id,sample_index,user_id
+3.6430770189035684,3.6430770189035684,3.6430814031045884,device,True,3,3,03bec210386547a487097b63f25aae72,0,1
