@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import os
 import threading
 import uuid
 from pathlib import Path
@@ -347,6 +348,16 @@ def main(argv=None):
         help="Request a preset placement instead of DSCI for this round.",
     )
     args = parser.parse_args(argv)
+    args.round_id = (
+        str(args.round_id or "").strip()
+        or str(os.environ.get("ROUND_ID") or "").strip()
+        or str(os.environ.get("DSCI_ROUND_ID") or "").strip()
+    )
+    if not args.round_id:
+        raise SystemExit(
+            "--round-id is empty. Set it with: export ROUND_ID=$(date +%Y%m%d-%H%M) "
+            'and pass --round-id "$ROUND_ID".'
+        )
     bundle = get_bundle(args.bundle_id)
     test_package_root = _resolve_test_package_root(bundle, args)
     device = collect_device_state(

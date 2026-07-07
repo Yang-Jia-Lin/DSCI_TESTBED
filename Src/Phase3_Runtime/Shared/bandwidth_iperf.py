@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import time
 
 IPERF_EXE = os.environ.get("DSCI_IPERF_EXE", "iperf3")
 
@@ -21,6 +22,22 @@ def _env_float(name: str, default: float) -> float:
 
 DEFAULT_IPERF_DURATION_S = _env_float("DSCI_IPERF_DURATION_S", 8.0)
 DEFAULT_IPERF_TIMEOUT_MARGIN_S = _env_float("DSCI_IPERF_TIMEOUT_MARGIN_S", 15.0)
+DEFAULT_IPERF_RETRIES = int(_env_float("DSCI_IPERF_RETRIES", 3.0))
+DEFAULT_IPERF_RETRY_SLEEP_S = _env_float("DSCI_IPERF_RETRY_SLEEP_S", 2.0)
+
+
+def _iperf_error_message(stdout: str, stderr: str) -> str:
+    parts = []
+    if stdout:
+        try:
+            data = json.loads(stdout)
+            if data.get("error"):
+                parts.append(str(data["error"]))
+        except json.JSONDecodeError:
+            parts.append(stdout.strip())
+    if stderr:
+        parts.append(stderr.strip())
+    return " | ".join(part for part in parts if part)
 
 
 def measure_bandwidth_iperf(
@@ -51,39 +68,46 @@ def measure_bandwidth_iperf(
         str(duration),
         "-J",
     ]
-    try:
-        print(
-            f"iperf3 measuring {server_ip}:{int(port)}, "
-            f"duration={duration:.1f}s, timeout={timeout_s:.1f}s"
-        )
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=timeout_s,
-        )
-        if result.returncode != 0 or not result.stdout:
-            print("iperf3 measurement failed, return code:", result.returncode)
-            if result.stderr:
-                print("iperf3 stderr:", result.stderr)
+    retries = max(1, int(DEFAULT_IPERF_RETRIES))
+    for attempt in range(1, retries + 1):
+        try:
+            print(
+                f"iperf3 measuring {server_ip}:{int(port)}, "
+                f"duration={duration:.1f}s, timeout={timeout_s:.1f}s, "
+                f"attempt={attempt}/{retries}"
+            )
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=timeout_s,
+            )
+            if result.returncode != 0 or not result.stdout:
+                print("iperf3 measurement failed, return code:", result.returncode)
+                message = _iperf_error_message(result.stdout, result.stderr)
+                if message:
+                    print("iperf3 error:", message)
+            else:
+                data = json.loads(result.stdout)
+                if data.get("error"):
+                    print("iperf3 measurement failed:", data["error"])
+                else:
+                    bw_bps = float(data["end"]["sum_sent"]["bits_per_second"])
+                    bw_mbps = bw_bps / 1e6
+                    if bw_mbps > 0:
+                        return bw_mbps
+                    print("iperf3 measured non-positive bandwidth")
+        except subprocess.TimeoutExpired:
+            print(
+                f"iperf3 measurement timed out: target={server_ip}:{int(port)}, "
+                f"duration={duration:.1f}s, timeout={timeout_s:.1f}s"
+            )
+        except FileNotFoundError:
+            print(f"iperf3 executable not found: {IPERF_EXE}")
             return None
+        except Exception as exc:
+            print(f"iperf3 measurement error: {exc}")
 
-        data = json.loads(result.stdout)
-        bw_bps = float(data["end"]["sum_sent"]["bits_per_second"])
-        bw_mbps = bw_bps / 1e6
-        if bw_mbps <= 0:
-            print("iperf3 measured non-positive bandwidth")
-            return None
-        return bw_mbps
-    except subprocess.TimeoutExpired:
-        print(
-            f"iperf3 measurement timed out: target={server_ip}:{int(port)}, "
-            f"duration={duration:.1f}s, timeout={timeout_s:.1f}s"
-        )
-        return None
-    except FileNotFoundError:
-        print(f"iperf3 executable not found: {IPERF_EXE}")
-        return None
-    except Exception as exc:
-        print(f"iperf3 measurement error: {exc}")
-        return None
+        if attempt < retries:
+            time.sleep(float(DEFAULT_IPERF_RETRY_SLEEP_S))
+    return None

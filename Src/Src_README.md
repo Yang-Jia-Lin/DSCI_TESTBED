@@ -41,6 +41,7 @@
 - 如果某个 `round_id + user_id` 已注册过，再用不同状态注册会返回 `409 Conflict`。
 
 > 如果两台 Device 不是同一分钟启动，请先在第一台机器执行 `echo $ROUND_ID`，再把这个值复制到另一台机器执行 `export ROUND_ID=<同一个值>`。Scheduler 不需要因为换 `round_id` 重启；上一轮完成后，新 `round_id` 会自动开启下一轮。
+> 不要写成 `ROUND_ID=$(date +%Y%m%d-%H%M) python ... --round-id "$ROUND_ID"`。shell 会先展开参数，此时 `"$ROUND_ID"` 可能还是空的，最终请求会变成 `/rounds//devices/register`。
 
 ### 离线准备
 
@@ -129,7 +130,7 @@ python -m Src.Phase3_Runtime.Device.run_device \
   --backend pytorch \
   --user-id 0 \
   --round-id "$ROUND_ID" \
-  --test-samples 1
+  --test-samples 100
 ```
 
 #### 7. Device 1 终端
@@ -144,7 +145,7 @@ python -m Src.Phase3_Runtime.Device.run_device \
   --backend pytorch \
   --user-id 1 \
   --round-id "$ROUND_ID" \
-  --test-samples 1
+  --test-samples 100
 ```
 
 ### 409 Conflict 处理
