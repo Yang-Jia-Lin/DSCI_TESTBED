@@ -37,7 +37,6 @@ def run_partitioned_inference(
     user_id: int,
     request_id: str,
 ) -> dict:
-    total_started = time.perf_counter()
     if decision.get("resource_mode") != "fixed_worker_pool":
         raise ValueError("runtime_v2 only accepts fixed_worker_pool decisions")
     if "bundle_id" not in decision:
@@ -60,7 +59,7 @@ def run_partitioned_inference(
     manifest.validate_boundary_pair(b1, b2)
     executor = PyTorchSegmentExecutor(load_full_model(manifest), manifest)
     executor.synchronize()
-    started = time.perf_counter()
+    total_started = started = time.perf_counter()
     device_result = executor.execute_range_with_exits(
         0, b1, {"main": input_tensor}, user.get("exit_thresholds", {})
     )

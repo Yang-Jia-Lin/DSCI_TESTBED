@@ -35,10 +35,12 @@
 本节按两台端设备写，复制命令时只需要保证：
 
 - Scheduler 使用 `--expected-users 2`。
-- 两台 Device 使用同一个 `--round-id`，格式建议为 `yyyymmdd-hhMM`，例如 `20260707-0948`。
+- 两台 Device 使用同一个 `--round-id`。下面的命令会用当前时间自动生成 `yyyymmdd-hhMM`，例如 `20260707-0948`。
 - 两台 Device 使用不同的 `--user-id`，例如 `0` 和 `1`。
-- 同一个 Scheduler 进程里，已经用过的 `round_id` 不能复用；重跑请换成新的 `round_id`，例如 `20260707-0953`。
+- 同一个 Scheduler 进程里，已经用过的 `round_id` 不能复用；重跑时重新执行命令会自动生成新的分钟级 `round_id`。
 - 如果某个 `round_id + user_id` 已注册过，再用不同状态注册会返回 `409 Conflict`。
+
+> 如果两台 Device 不是同一分钟启动，请先在第一台机器执行 `echo $ROUND_ID`，再把这个值复制到另一台机器执行 `export ROUND_ID=<同一个值>`。Scheduler 不需要因为换 `round_id` 重启；上一轮完成后，新 `round_id` 会自动开启下一轮。
 
 ### 离线准备
 
@@ -117,15 +119,16 @@ python -m Src.Phase2_Scheduler.Service.api_server --expected-users 2
 
 #### 6. Device 0 终端
 
-Jetson NX 示例。`20260707-0948` 是本轮 ID，两台 Device 必须使用同一个值，重跑时换成新值。
+Jetson NX 示例。两台 Device 要在同一分钟内启动，或者先在两台机器上手动设置同一个 `ROUND_ID`。
 
 ```bash
 export DSCI_DEVICE_PYTORCH_SEGMENT_PROFILE_ID=device-nx1-pytorch-resnet50-cifar10
+export ROUND_ID=$(date +%Y%m%d-%H%M)
 python -m Src.Phase3_Runtime.Device.run_device \
   --bundle-id resnet50-cifar10-ee-v1 \
   --backend pytorch \
   --user-id 0 \
-  --round-id 20260707-0948 \
+  --round-id "$ROUND_ID" \
   --test-samples 1
 ```
 
@@ -135,11 +138,12 @@ python -m Src.Phase3_Runtime.Device.run_device \
 
 ```bash
 export DSCI_DEVICE_PYTORCH_SEGMENT_PROFILE_ID=device-nano1-pytorch-resnet50-cifar10
+export ROUND_ID=$(date +%Y%m%d-%H%M)
 python -m Src.Phase3_Runtime.Device.run_device \
   --bundle-id resnet50-cifar10-ee-v1 \
   --backend pytorch \
   --user-id 1 \
-  --round-id 20260707-0948 \
+  --round-id "$ROUND_ID" \
   --test-samples 1
 ```
 
@@ -149,5 +153,5 @@ python -m Src.Phase3_Runtime.Device.run_device \
 
 1. 是否两台 Device 都用了 `--user-id 0`。两台设备必须分别使用 `--user-id 0` 和 `--user-id 1`。
 2. 是否 Scheduler 仍在等待两台 Device，但只启动了一台。两台联跑时 Scheduler 必须是 `--expected-users 2`。
-3. 是否复用了已经注册或已经完成的 `round_id`。重跑请改成新的 `--round-id`，例如 `20260707-0953`。
+3. 是否复用了已经注册或已经完成的 `round_id`。重跑请重新执行 `export ROUND_ID=$(date +%Y%m%d-%H%M)`，或手动设置新的值。
 4. 是否上一轮还没结束。当前 Scheduler 一次只允许一个活跃 round；必要时重启 Scheduler 后使用新的 `round_id`。
