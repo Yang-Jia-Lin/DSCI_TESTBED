@@ -9,6 +9,7 @@ Src/Shared/Config/deploy_config.py
 *.onnx
 *.tar.gz
 *.zip
+*.onnx.data
 
 # Python caches and environments
 __pycache__/
