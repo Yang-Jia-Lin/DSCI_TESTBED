@@ -34,10 +34,11 @@ def _build_state(
     F_c: np.ndarray,
     f_e_max: float,
     f_c_max: float,
+    paras,
     obj_scale: float = 1000.0,
 ) -> torch.Tensor:
     """
-    state = [i_norm, remaining_norm, tanh(prev_obj/scale), fe_i_norm, fc_i_norm]
+    state = base PPO features plus fixed-worker user/topology features when available.
     """
     i_norm = float(i) / float(max(n, 1))
     remaining_norm = float(n - i) / float(max(n, 1))
@@ -49,10 +50,64 @@ def _build_state(
     fe_i_norm = fe_i / float(max(f_e_max, 1e-12))
     fc_i_norm = fc_i / float(max(f_c_max, 1e-12))
 
-    s = torch.tensor(
-        [i_norm, remaining_norm, prev_obj_squashed, fe_i_norm, fc_i_norm],
-        dtype=torch.float32,
-    ).unsqueeze(0)
+    features = [i_norm, remaining_norm, prev_obj_squashed, fe_i_norm, fc_i_norm]
+
+    if getattr(paras, "resource_mode", None) == "fixed_worker_pool":
+        B_u = getattr(paras, "B_u", None)
+        if B_u is not None:
+            bw_arr = np.asarray(B_u, dtype=np.float64).reshape(-1)
+            bw_max = float(max(float(bw_arr.max()), 1e-12))
+            features.append(float(bw_arr[i]) / bw_max)
+        else:
+            features.append(0.0)
+
+        seg_u = getattr(paras, "segment_latency_u", None)
+        if seg_u is not None:
+            seg_u = np.asarray(seg_u, dtype=np.float64)
+            row = seg_u[i]
+            all_max = float(max(float(seg_u.max()), 1e-12))
+            sum_scale = float(max(float(seg_u.sum(axis=1).max()), 1e-12))
+            features.append(float(row.sum()) / sum_scale)
+            features.append(float(row.max()) / all_max)
+        else:
+            features.extend([0.0, 0.0])
+
+        seg_e = getattr(paras, "segment_latency_e", None)
+        if seg_e is not None:
+            seg_e = np.asarray(seg_e, dtype=np.float64)
+            scale = float(max(float(seg_e.sum()), 1e-12))
+            features.append(float(seg_e.sum()) / scale)
+        else:
+            features.append(0.0)
+
+        seg_c = getattr(paras, "segment_latency_c", None)
+        if seg_c is not None:
+            seg_c = np.asarray(seg_c, dtype=np.float64)
+            scale = float(max(float(seg_c.sum()), 1e-12))
+            features.append(float(seg_c.sum()) / scale)
+        else:
+            features.append(0.0)
+
+        b_c = float(getattr(paras, "b_c", 0.0))
+        if B_u is not None:
+            bw_max = float(max(float(np.asarray(B_u).max()), b_c, 1e-12))
+            features.append(b_c / bw_max)
+        else:
+            features.append(0.0)
+
+        overhead_d2e = float(getattr(paras, "protocol_overhead_d2e_s", 0.0))
+        overhead_e2c = float(getattr(paras, "protocol_overhead_e2c_s", 0.0))
+        oh_max = float(max(overhead_d2e, overhead_e2c, 1e-12))
+        features.append(overhead_d2e / oh_max if oh_max > 1e-12 else 0.0)
+        features.append(overhead_e2c / oh_max if oh_max > 1e-12 else 0.0)
+
+        ew = float(getattr(paras, "edge_worker_count", 1))
+        cw = float(getattr(paras, "cloud_worker_count", 1))
+        wmax = float(max(ew, cw, 1.0))
+        features.append(ew / wmax)
+        features.append(cw / wmax)
+
+    s = torch.tensor(features, dtype=torch.float32).unsqueeze(0)
     return s
 
 
@@ -117,7 +172,7 @@ class PPOAgent:
         self.entropy_decay = hyperparams.get("entropy_decay", 0.99)  # 熵系数衰减
 
         # ---------- 维度 ----------
-        self.state_dim = 5  # 状态：5 维
+        self.state_dim = self._compute_state_dim(paras)
         self.action_dim_Y = len(self.paras.E)  # 动作 Y：早退层（|E|）
 
         # ---------- 网络 ----------
@@ -140,6 +195,13 @@ class PPOAgent:
             None  # 保存历史最优策略（用于最终 best checkpoint），不做频繁 rollback
         )
         self.logs = []  # 每个 epoch 一个 dict
+
+    @staticmethod
+    def _compute_state_dim(paras) -> int:
+        dim = 5
+        if getattr(paras, "resource_mode", None) == "fixed_worker_pool":
+            dim += 10
+        return dim
 
     @torch.no_grad()
     def sample_action(self, state: torch.Tensor):
@@ -302,6 +364,7 @@ class PPOAgent:
                 F_c=F_c,
                 f_e_max=self.paras.f_e_max,
                 f_c_max=self.paras.f_c_max,
+                paras=self.paras,
                 obj_scale=float(self.hparams.get("obj_scale", 1000.0)),
             ).to(self.device)
 
@@ -444,6 +507,136 @@ class PPOAgent:
             torch.nn.utils.clip_grad_norm_(self.policy.parameters(), max_norm=0.5)
             self.optimizer.step()
 
+    def _deterministic_polish(self, ppo_sol):
+        """对 fixed_worker_pool 逐用户枚举最优 (split, threshold)。"""
+        X_ppo, Y_ppo, F_e, F_c = ppo_sol
+        n, m = self.paras.n, self.paras.m
+        pairs = self.policy.x_pairs.detach().cpu().numpy()
+
+        X_best = X_ppo.copy()
+        Y_best = Y_ppo.copy()
+
+        coarse_grid = list(range(0, 101, 5))
+
+        for i in range(n):
+            best_user_obj = -np.inf
+            best_k1k2 = None
+            best_thresholds = None
+
+            for pair_idx in range(len(pairs)):
+                k1, k2 = int(pairs[pair_idx, 0]), int(pairs[pair_idx, 1])
+                X_try = X_best.copy()
+                X_try[i] = encode_split_row(k1, k2, m, dtype=np.float32)
+
+                if len(self.paras.E) == 0:
+                    Y_try = Y_best.copy()
+                    Y_try[i, :] = 1.0
+                    obj = objective(X_try, Y_try, F_e, F_c, self.paras)
+                    if np.isfinite(obj) and obj > best_user_obj:
+                        best_user_obj = obj
+                        best_k1k2 = (k1, k2)
+                        best_thresholds = []
+                    continue
+
+                if len(self.paras.E) == 1:
+                    for t in coarse_grid:
+                        Y_try = Y_best.copy()
+                        Y_try[i, :] = 1.0
+                        Y_try[i, self.paras.E[0]] = t / 100.0
+                        obj = objective(X_try, Y_try, F_e, F_c, self.paras)
+                        if np.isfinite(obj) and obj > best_user_obj:
+                            best_user_obj = obj
+                            best_k1k2 = (k1, k2)
+                            best_thresholds = [t / 100.0]
+                elif len(self.paras.E) == 2:
+                    for t1 in coarse_grid:
+                        for t2 in coarse_grid:
+                            Y_try = Y_best.copy()
+                            Y_try[i, :] = 1.0
+                            Y_try[i, self.paras.E[0]] = t1 / 100.0
+                            Y_try[i, self.paras.E[1]] = t2 / 100.0
+                            obj = objective(X_try, Y_try, F_e, F_c, self.paras)
+                            if np.isfinite(obj) and obj > best_user_obj:
+                                best_user_obj = obj
+                                best_k1k2 = (k1, k2)
+                                best_thresholds = [t1 / 100.0, t2 / 100.0]
+                else:
+                    for t1 in coarse_grid:
+                        for t2 in coarse_grid:
+                            Y_try = Y_best.copy()
+                            Y_try[i, :] = 1.0
+                            Y_try[i, self.paras.E[0]] = t1 / 100.0
+                            Y_try[i, self.paras.E[1]] = t2 / 100.0
+                            for j in range(2, len(self.paras.E)):
+                                Y_try[i, self.paras.E[j]] = Y_ppo[
+                                    i, self.paras.E[j]
+                                ]
+                            obj = objective(X_try, Y_try, F_e, F_c, self.paras)
+                            if np.isfinite(obj) and obj > best_user_obj:
+                                best_user_obj = obj
+                                best_k1k2 = (k1, k2)
+                                best_thresholds = [
+                                    t1 / 100.0,
+                                    t2 / 100.0,
+                                    *[
+                                        float(Y_ppo[i, self.paras.E[j]])
+                                        for j in range(2, len(self.paras.E))
+                                    ],
+                                ]
+
+            if (
+                best_k1k2 is not None
+                and best_thresholds is not None
+                and len(self.paras.E) > 0
+            ):
+                k1, k2 = best_k1k2
+                X_try = X_best.copy()
+                X_try[i] = encode_split_row(k1, k2, m, dtype=np.float32)
+
+                coarse_t = [
+                    int(round(t * 100))
+                    for t in best_thresholds[: min(2, len(self.paras.E))]
+                ]
+                fine_ranges = [
+                    range(max(0, ct - 10), min(101, ct + 11)) for ct in coarse_t
+                ]
+
+                if len(self.paras.E) == 1:
+                    for t in fine_ranges[0]:
+                        Y_try = Y_best.copy()
+                        Y_try[i, :] = 1.0
+                        Y_try[i, self.paras.E[0]] = t / 100.0
+                        obj = objective(X_try, Y_try, F_e, F_c, self.paras)
+                        if np.isfinite(obj) and obj > best_user_obj:
+                            best_user_obj = obj
+                            best_thresholds = [t / 100.0]
+                else:
+                    for t1 in fine_ranges[0]:
+                        for t2 in fine_ranges[1]:
+                            Y_try = Y_best.copy()
+                            Y_try[i, :] = 1.0
+                            Y_try[i, self.paras.E[0]] = t1 / 100.0
+                            Y_try[i, self.paras.E[1]] = t2 / 100.0
+                            for j in range(2, len(self.paras.E)):
+                                Y_try[i, self.paras.E[j]] = best_thresholds[j]
+                            obj = objective(X_try, Y_try, F_e, F_c, self.paras)
+                            if np.isfinite(obj) and obj > best_user_obj:
+                                best_user_obj = obj
+                                best_thresholds[0] = t1 / 100.0
+                                best_thresholds[1] = t2 / 100.0
+
+            if best_k1k2 is not None:
+                k1, k2 = best_k1k2
+                X_best[i] = encode_split_row(k1, k2, m, dtype=np.float32)
+                Y_best[i, :] = 1.0
+                if best_thresholds is not None:
+                    for j, eidx in enumerate(self.paras.E):
+                        if j < len(best_thresholds):
+                            Y_best[i, eidx] = best_thresholds[j]
+
+        final_obj = float(objective(X_best, Y_best, F_e, F_c, self.paras))
+        return final_obj, (X_best, Y_best, F_e.copy(), F_c.copy())
+
     def train(self, initial_solution=None):
         best_val = -np.inf
         best_sol = None
@@ -497,6 +690,7 @@ class PPOAgent:
                         F_c=F_c,
                         f_e_max=self.paras.f_e_max,
                         f_c_max=self.paras.f_c_max,
+                        paras=self.paras,
                     ).to(self.device)
 
                     x_idx, y_vec_t, logprob, value, ent_X, ent_Y = self.sample_action(
@@ -665,5 +859,17 @@ class PPOAgent:
                     print("[Early Stop] Converged!")
                     print(f"Epoch: {epoch}, Rel Change: {rel_change:.6f}, CV: {cv:.6f}")
                     break
+
+        if (
+            getattr(self.paras, "resource_mode", None) == "fixed_worker_pool"
+            and best_sol is not None
+        ):
+            polished_val, polished_sol = self._deterministic_polish(best_sol)
+            if polished_val > best_val:
+                print(f"[Polish] Improved {best_val:.6f} -> {polished_val:.6f}")
+                best_val = polished_val
+                best_sol = polished_sol
+            else:
+                print(f"[Polish] PPO solution already optimal ({best_val:.6f})")
 
         return best_val, best_sol, history
