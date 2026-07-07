@@ -1,0 +1,1 @@
+{"logged_at": 1783344455.498875, "phase": "phase1", "step": "profile_segments", "bundle_id": "resnet50-cifar10-ee-v1", "status": "success", "duration_s": 7.935725480783731, "profile_id": "device-nano1-pytorch-resnet50-cifar10", "worker_count": 1, "threads_per_worker": 1}
