@@ -1,1 +1,1 @@
-"""Exp0 motivation experiments."""
+"""Trace-driven motivation study scripts."""

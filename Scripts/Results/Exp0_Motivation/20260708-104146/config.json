@@ -1,0 +1,37 @@
+{
+  "bundle_id": "resnet50-cifar10-ee-v1",
+  "dataset_split": "val",
+  "accuracy_drop_tolerance_pp": 0.5,
+  "curve_batch_size": 64,
+  "device_profile_id": "device-nx1-pytorch-resnet50-cifar10",
+  "edge_profile_id": "edge-jialindesktop-pytorch-resnet50-cifar10",
+  "cloud_profile_id": "cloud-v100-pytorch-resnet50-cifar10",
+  "bandwidth_d2e_mbps": [
+    0.5,
+    1.0,
+    2.0,
+    5.0,
+    10.0,
+    20.0,
+    50.0
+  ],
+  "bandwidth_e2c_mbps": 50.0,
+  "tensor_transport_dtype": "float32",
+  "protocol_overhead_s": 0.0,
+  "exp3_users": [
+    1,
+    2,
+    4,
+    8,
+    16,
+    32
+  ],
+  "exp3_state_vector_dim": 20,
+  "exp3_config_bytes": 16,
+  "exp3_control_bandwidth_mbps": 4.0,
+  "exp3_rtt_ms": 20.0,
+  "exp3_decision_latency_ms": 2.0,
+  "exp3_slow_optimization_latency_ms": 500.0,
+  "exp3_schedule_period_s": 30.0,
+  "exp3_inference_latency_ms": 50.0
+}

@@ -1,0 +1,13 @@
+n_users,scheduler,scheduling_overhead_ms_per_request,effective_throughput_rps
+1,Per-request joint decision,22.192,13.851950354609928
+1,Slow-timeslot joint decision,0.8500533333333333,19.665662756433687
+2,Per-request joint decision,34.224000000000004,23.746200607902736
+2,Slow-timeslot joint decision,0.42502666666666666,39.66284466681492
+4,Per-request joint decision,58.288,36.938534278959814
+4,Slow-timeslot joint decision,0.21251333333333333,79.66141773159599
+8,Per-request joint decision,106.416,51.14566284779051
+8,Slow-timeslot joint decision,0.10625666666666667,159.6606997249911
+16,Per-request joint decision,202.672,63.32320162107396
+16,Slow-timeslot joint decision,0.05312833333333333,319.6603395785085
+32,Per-request joint decision,395.18399999999997,71.8803910293272
+32,Slow-timeslot joint decision,0.026564166666666666,639.66015921841

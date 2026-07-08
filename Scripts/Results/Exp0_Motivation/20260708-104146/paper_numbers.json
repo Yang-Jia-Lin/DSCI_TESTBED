@@ -1,0 +1,52 @@
+{
+  "tables": {
+    "canonical_curve_csv": "D:\\Coding\\Python\\DSCI_testbed\\Scripts\\Results\\Exp0_Motivation\\20260708-104146\\Data\\canonical_exit_curves.csv",
+    "final_accuracy_pct": 86.51,
+    "overall_accuracy_max_pct": 87.03,
+    "overall_accuracy_at_tau_1_pct": 86.51,
+    "final_rate_at_tau_1_pct": 99.66,
+    "num_rows": 101
+  },
+  "figure3": {
+    "output_csv": "D:\\Coding\\Python\\DSCI_testbed\\Scripts\\Results\\Exp0_Motivation\\20260708-104146\\Data\\exp3_decision_overhead.csv",
+    "max_per_request_overhead_ms": 395.18399999999997,
+    "min_slow_timeslot_overhead_ms": 0.026564166666666666,
+    "max_users": 32,
+    "per_request_overhead_growth_x": 17.807498197548664
+  },
+  "figure2": {
+    "output_csv": "D:\\Coding\\Python\\DSCI_testbed\\Scripts\\Results\\Exp0_Motivation\\20260708-104146\\Data\\exp2_coupling_failure.csv",
+    "accuracy_constraint_pct": 86.01,
+    "main_exit_accuracy_pct": 86.51,
+    "decoupled_performance_inversion": {
+      "occurred": false,
+      "first_bandwidth_mbps": null,
+      "max_decoupled_minus_local_ms": -44.733445454421144
+    },
+    "max_joint_latency_reduction_over_decoupled_pct": 0.0,
+    "max_abs_b1_divergence_decoupled_vs_joint": 0
+  },
+  "figure1": {
+    "main_exit_accuracy_pct": 86.51,
+    "overall_accuracy_max_pct": 87.03,
+    "output_csv": "D:\\Coding\\Python\\DSCI_testbed\\Scripts\\Results\\Exp0_Motivation\\20260708-104146\\Data\\exp1_selection_effect.csv",
+    "after_layer2_max_conditional_accuracy_pct": 97.33333333333331,
+    "after_layer2_first_threshold_ge_main": 0.67,
+    "after_layer3_max_conditional_accuracy_pct": 100.0,
+    "after_layer3_first_threshold_ge_main": 0.18
+  },
+  "figures": {
+    "figure1": {
+      "pdf": "D:\\Coding\\Python\\DSCI_testbed\\Scripts\\Results\\Exp0_Motivation\\20260708-104146\\Figures\\fig1_selection_effect.pdf",
+      "png": "D:\\Coding\\Python\\DSCI_testbed\\Scripts\\Results\\Exp0_Motivation\\20260708-104146\\Figures\\fig1_selection_effect.png"
+    },
+    "figure2": {
+      "pdf": "D:\\Coding\\Python\\DSCI_testbed\\Scripts\\Results\\Exp0_Motivation\\20260708-104146\\Figures\\fig2_coupling_failure.pdf",
+      "png": "D:\\Coding\\Python\\DSCI_testbed\\Scripts\\Results\\Exp0_Motivation\\20260708-104146\\Figures\\fig2_coupling_failure.png"
+    },
+    "figure3": {
+      "pdf": "D:\\Coding\\Python\\DSCI_testbed\\Scripts\\Results\\Exp0_Motivation\\20260708-104146\\Figures\\fig3_decision_overhead.pdf",
+      "png": "D:\\Coding\\Python\\DSCI_testbed\\Scripts\\Results\\Exp0_Motivation\\20260708-104146\\Figures\\fig3_decision_overhead.png"
+    }
+  }
+}
