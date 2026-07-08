@@ -253,9 +253,62 @@ def _plot_figure3(run_dir: Path) -> dict:
     ax.set_xlabel("Concurrent Users")
     ax.set_ylabel("Scheduling Overhead (ms/request)")
     ax.set_xscale("log", base=2)
+    ax.set_yscale("log")
     ax.set_xticks(DEFAULT_CONFIG.exp3_users)
     ax.get_xaxis().set_major_formatter(plt.ScalarFormatter())
-    ax.legend(loc="upper left", frameon=True)
+    ax.set_yticks([1.0, 2.0, 5.0, 10.0, 50.0, 100.0])
+    ax.get_yaxis().set_major_formatter(plt.ScalarFormatter())
+    ax.set_ylim(1.5, 150.0)
+    per_request = (
+        frame[frame["scheduler"] == "Per-request joint decision"]
+        .sort_values("n_users")
+        .reset_index(drop=True)
+    )
+    slow_timeslot = (
+        frame[frame["scheduler"] == "Slow-timeslot joint decision"]
+        .sort_values("n_users")
+        .reset_index(drop=True)
+    )
+    per_request_growth = (
+        per_request["scheduling_overhead_ms_per_request"].iloc[-1]
+        / per_request["scheduling_overhead_ms_per_request"].iloc[0]
+    )
+    slow_drop = (
+        slow_timeslot["scheduling_overhead_ms_per_request"].iloc[0]
+        / slow_timeslot["scheduling_overhead_ms_per_request"].iloc[-1]
+    )
+    final_gap = (
+        per_request["scheduling_overhead_ms_per_request"].iloc[-1]
+        / slow_timeslot["scheduling_overhead_ms_per_request"].iloc[-1]
+    )
+    ax.annotate(
+        f"{per_request_growth:.1f}x growth",
+        xy=(32, per_request["scheduling_overhead_ms_per_request"].iloc[-1]),
+        xytext=(10, 65),
+        arrowprops={"arrowstyle": "->", "color": PALETTE["Per-request joint decision"], "lw": 1.0},
+        color=PALETTE["Per-request joint decision"],
+        fontsize=8,
+        fontweight="bold",
+    )
+    ax.annotate(
+        f"{slow_drop:.1f}x amortized",
+        xy=(8, slow_timeslot["scheduling_overhead_ms_per_request"].iloc[3]),
+        xytext=(2.4, 3.1),
+        arrowprops={"arrowstyle": "->", "color": PALETTE["Slow-timeslot joint decision"], "lw": 1.0},
+        color=PALETTE["Slow-timeslot joint decision"],
+        fontsize=8,
+        fontweight="bold",
+    )
+    ax.annotate(
+        f"{final_gap:.0f}x lower overhead",
+        xy=(32, slow_timeslot["scheduling_overhead_ms_per_request"].iloc[-1]),
+        xytext=(10, 4.2),
+        arrowprops={"arrowstyle": "->", "color": COLORS["grey"], "lw": 1.0},
+        color=COLORS["grey"],
+        fontsize=8,
+        fontweight="bold",
+    )
+    ax.legend(loc="upper left", frameon=True, fontsize=8)
     fig.tight_layout(pad=0.2)
     return _save(fig, run_dir, "fig3_decision_overhead")
 

@@ -9,10 +9,10 @@
   },
   "figure3": {
     "output_csv": "D:\\Coding\\Python\\DSCI_testbed\\Scripts\\Results\\Exp0_Motivation\\20260708-104146\\Data\\exp3_decision_overhead.csv",
-    "max_per_request_overhead_ms": 395.18399999999997,
-    "min_slow_timeslot_overhead_ms": 0.026564166666666666,
+    "max_per_request_overhead_ms": 84.192,
+    "min_slow_timeslot_overhead_ms": 2.0274033333333334,
     "max_users": 32,
-    "per_request_overhead_growth_x": 17.807498197548664
+    "per_request_overhead_growth_x": 3.7937995674116793
   },
   "figure2": {
     "output_csv": "D:\\Coding\\Python\\DSCI_testbed\\Scripts\\Results\\Exp0_Motivation\\20260708-104146\\Data\\exp2_coupling_failure.csv",

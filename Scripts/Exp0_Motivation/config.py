@@ -64,6 +64,7 @@ class MotivationConfig:
     exp3_rtt_ms: float = 20.0
     exp3_decision_latency_ms: float = 2.0
     exp3_slow_optimization_latency_ms: float = 500.0
+    exp3_slow_fastpath_latency_ms: float = 2.0
     exp3_schedule_period_s: float = 30.0
     exp3_inference_latency_ms: float = 50.0
 

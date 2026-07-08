@@ -30,17 +30,32 @@ def _per_request_observed_overhead_ms(n_users: int) -> float:
     state_bytes = cfg.exp3_state_vector_dim * 4
     state_collection = _bytes_per_ms(state_bytes, cfg.exp3_control_bandwidth_mbps) + cfg.exp3_rtt_ms / 2.0
     config_dispatch = _bytes_per_ms(cfg.exp3_config_bytes, cfg.exp3_control_bandwidth_mbps) + cfg.exp3_rtt_ms / 2.0
-    return state_collection + n_users * cfg.exp3_decision_latency_ms + n_users * config_dispatch
+    scheduler_queue = n_users * cfg.exp3_decision_latency_ms
+    return state_collection + scheduler_queue + config_dispatch
 
 
 def _slow_timeslot_overhead_per_request_ms(n_users: int) -> float:
     cfg = DEFAULT_CONFIG
-    broadcast = _bytes_per_ms(cfg.exp3_config_bytes, cfg.exp3_control_bandwidth_mbps) + cfg.exp3_rtt_ms / 2.0
-    period_overhead = cfg.exp3_slow_optimization_latency_ms + broadcast
+    state_bytes = cfg.exp3_state_vector_dim * 4
+    state_refresh = (
+        _bytes_per_ms(n_users * state_bytes, cfg.exp3_control_bandwidth_mbps)
+        + cfg.exp3_rtt_ms / 2.0
+    )
+    config_broadcast = (
+        _bytes_per_ms(n_users * cfg.exp3_config_bytes, cfg.exp3_control_bandwidth_mbps)
+        + cfg.exp3_rtt_ms / 2.0
+    )
+    period_overhead = (
+        cfg.exp3_slow_optimization_latency_ms
+        + state_refresh
+        + config_broadcast
+    )
     requests_per_period = n_users * (
         cfg.exp3_schedule_period_s * 1000.0 / cfg.exp3_inference_latency_ms
     )
-    return period_overhead / max(requests_per_period, 1.0)
+    return cfg.exp3_slow_fastpath_latency_ms + period_overhead / max(
+        requests_per_period, 1.0
+    )
 
 
 def _throughput_rps(n_users: int, overhead_ms: float) -> float:
