@@ -22,7 +22,6 @@ from Scripts.Exp0_Motivation.config import (  # noqa: E402
     save_config,
     update_paper_numbers,
 )
-from Src.Phase2_Scheduler.Objective.compute_P import compute_layer_exit_probs  # noqa: E402
 from Src.Phase2_Scheduler.Objective.compute_latency import compute_total_latency  # noqa: E402
 from Src.Phase2_Scheduler.Utils.parsing_data import parsing_rate_and_acc  # noqa: E402
 from Src.Phase2_Scheduler.paras import Paras  # noqa: E402
@@ -83,15 +82,17 @@ def _no_exit_probs(paras: Paras) -> np.ndarray:
     return probs
 
 
-def _threshold_probs(paras: Paras, tau: float | None) -> np.ndarray:
-    if tau is None:
+def _threshold_probs(paras: Paras, candidate: dict) -> np.ndarray:
+    if candidate["tau"] is None:
         return _no_exit_probs(paras)
-    y = np.ones((1, paras.m), dtype=np.float64)
-    for boundary in paras.E:
-        y[0, int(boundary)] = float(tau)
-    probs = compute_layer_exit_probs(y, paras)
+    probs = np.zeros((1, paras.m), dtype=np.float64)
+    for boundary, rate_pct in zip(paras.E, candidate["sequential_exit_rates_pct"]):
+        probs[0, int(boundary)] = float(rate_pct) / 100.0
+    probs[0, paras.m - 1] = float(candidate["final_rate_pct"]) / 100.0
     if not np.allclose(probs.sum(axis=1), 1.0, atol=1e-8):
-        raise AssertionError("Exit probabilities do not sum to 1")
+        raise AssertionError(
+            f"Exit probabilities do not sum to 1 for tau={candidate['tau_label']}"
+        )
     return probs
 
 
@@ -121,6 +122,7 @@ def _threshold_candidates(curves: pd.DataFrame, target_accuracy: float, main_acc
             "tau_label": "no_exit",
             "accuracy_pct": float(main_accuracy),
             "feasible": True,
+            "flow_policy": "no_exit",
         }
     ]
     for _, row in curves.iterrows():
@@ -132,6 +134,12 @@ def _threshold_candidates(curves: pd.DataFrame, target_accuracy: float, main_acc
                     "tau_label": f"{float(row['threshold']):.2f}",
                     "accuracy_pct": accuracy,
                     "feasible": True,
+                    "flow_policy": "sequential",
+                    "sequential_exit_rates_pct": (
+                        float(row["after_layer2_sequential_rate"]),
+                        float(row["after_layer3_sequential_rate"]),
+                    ),
+                    "final_rate_pct": float(row["final_rate"]),
                 }
             )
     return candidates
@@ -144,7 +152,7 @@ def _choose_best_threshold_for_pair(
 ) -> dict:
     best = None
     for candidate in threshold_candidates:
-        probs = _threshold_probs(paras, candidate["tau"])
+        probs = _threshold_probs(paras, candidate)
         latency = _latency_ms(paras, pair, probs)
         record = {**candidate, "pair": pair, "latency_ms": latency}
         if best is None or latency < best["latency_ms"]:
@@ -204,6 +212,9 @@ def _summarize(results: pd.DataFrame, run_dir: Path, main_accuracy: float) -> di
             "max_decoupled_minus_local_ms": float((inversion["Decoupled"] - inversion["Local-full"]).max()),
         }
     improvement = (pivot["Decoupled"] - pivot["Joint"]) / pivot["Decoupled"] * 100.0
+    positive_improvement = improvement[improvement > 1e-9]
+    joint_over_ee_only = (pivot["EE-only"] - pivot["Joint"]) / pivot["EE-only"] * 100.0
+    decoupled_over_ee_only = (pivot["Decoupled"] - pivot["EE-only"]) / pivot["EE-only"] * 100.0
     split_rows = results[results["strategy"].isin(["Split-only", "Decoupled", "Joint"])]
     split_pivot = split_rows.pivot(index="bandwidth_d2e_mbps", columns="strategy", values="b1")
     divergence = (split_pivot["Decoupled"] - split_pivot["Joint"]).abs()
@@ -215,6 +226,11 @@ def _summarize(results: pd.DataFrame, run_dir: Path, main_accuracy: float) -> di
         "main_exit_accuracy_pct": float(main_accuracy),
         "decoupled_performance_inversion": inversion_info,
         "max_joint_latency_reduction_over_decoupled_pct": float(improvement.max()),
+        "first_bandwidth_with_joint_gain_mbps": (
+            None if positive_improvement.empty else float(positive_improvement.index.min())
+        ),
+        "max_joint_latency_reduction_over_ee_only_pct": float(joint_over_ee_only.max()),
+        "max_decoupled_latency_increase_over_ee_only_pct": float(decoupled_over_ee_only.max()),
         "max_abs_b1_divergence_decoupled_vs_joint": int(divergence.max()),
     }
 
@@ -251,6 +267,7 @@ def main(argv=None) -> None:
         local_latency = _latency_ms(paras, local_pair, no_exit)
         cloud_latency = _latency_ms(paras, cloud_pair, no_exit)
         split = _choose_best_split_only(paras, pairs)
+        ee_only = _choose_best_threshold_for_pair(paras, local_pair, candidates)
         decoupled = _choose_best_threshold_for_pair(paras, split["pair"], candidates)
         joint = _choose_joint(paras, pairs, candidates)
 
@@ -279,6 +296,14 @@ def main(argv=None) -> None:
                     split["latency_ms"],
                     main_accuracy,
                     "no_exit",
+                ),
+                _result_row(
+                    bandwidth,
+                    "EE-only",
+                    ee_only["pair"],
+                    ee_only["latency_ms"],
+                    ee_only["accuracy_pct"],
+                    ee_only["tau_label"],
                 ),
                 _result_row(
                     bandwidth,

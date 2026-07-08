@@ -35,6 +35,7 @@ PALETTE = {
     "Local-full": COLORS["grey"],
     "Cloud-full": COLORS["purple"],
     "Split-only": COLORS["green"],
+    "EE-only": COLORS["purple"],
     "Decoupled": COLORS["red"],
     "Joint": COLORS["blue"],
     "Per-request joint decision": COLORS["red"],
@@ -171,55 +172,62 @@ def _plot_figure1(run_dir: Path) -> dict:
 def _plot_figure2(run_dir: Path) -> dict:
     path = data_dir(run_dir) / "exp2_coupling_failure.csv"
     frame = pd.read_csv(path)
-    set_ieee_style(mode="double")
-    fig, axes = plt.subplots(1, 2, figsize=(7.0, 2.8))
+    set_ieee_style(mode="single")
+    fig, ax = plt.subplots(figsize=(4.0, 2.8))
 
-    ax = axes[0]
-    strategies = ["Local-full", "Cloud-full", "Split-only", "Decoupled", "Joint"]
+    strategies = ["Local-full", "Split-only", "EE-only", "Decoupled", "Joint"]
     for index, strategy in enumerate(strategies):
         group = frame[frame["strategy"] == strategy].sort_values("bandwidth_d2e_mbps")
-        ax.plot(
-            group["bandwidth_d2e_mbps"],
-            group["latency_ms"],
-            marker=MARKERS[index % len(MARKERS)],
-            color=PALETTE[strategy],
-            label=strategy,
-        )
+        if strategy == "Decoupled":
+            changes = (
+                group[["b1", "b2", "tau"]]
+                .ne(group[["b1", "b2", "tau"]].shift())
+                .any(axis=1)
+            )
+            segment_ids = changes.cumsum()
+            first_segment = True
+            for _, segment in group.groupby(segment_ids):
+                ax.plot(
+                    segment["bandwidth_d2e_mbps"],
+                    segment["latency_ms"],
+                    marker=MARKERS[index % len(MARKERS)],
+                    markevery=max(1, len(segment) // 5),
+                    color=PALETTE[strategy],
+                    label=strategy if first_segment else None,
+                )
+                first_segment = False
+        else:
+            ax.plot(
+                group["bandwidth_d2e_mbps"],
+                group["latency_ms"],
+                marker=MARKERS[index % len(MARKERS)],
+                markevery=max(1, len(group) // 8),
+                color=PALETTE[strategy],
+                label=strategy,
+            )
     pivot = frame.pivot(index="bandwidth_d2e_mbps", columns="strategy", values="latency_ms")
-    inverted = pivot[pivot["Decoupled"] > pivot["Local-full"]]
-    for bandwidth in inverted.index:
-        ax.axvspan(bandwidth * 0.92, bandwidth * 1.08, color=COLORS["red"], alpha=0.08)
-    ax.set_xscale("log")
+    joint_gain = pivot[pivot["Joint"] + 1e-9 < pivot["Decoupled"]]
+    if not joint_gain.empty:
+        ax.axvspan(
+            float(joint_gain.index.min()) - 0.5,
+            float(joint_gain.index.max()) + 0.5,
+            color=COLORS["blue"],
+            alpha=0.05,
+            zorder=0,
+        )
     ax.set_xlabel("Device-Edge Bandwidth (Mbps)")
     ax.set_ylabel("Expected Latency (ms)")
-    ax.legend(loc="best", frameon=True, ncol=1)
-    ax.set_title("(a) Latency")
-
-    ax = axes[1]
-    split_strategies = ["Split-only", "Decoupled", "Joint"]
-    for index, strategy in enumerate(split_strategies):
-        group = frame[frame["strategy"] == strategy].sort_values("bandwidth_d2e_mbps")
-        ax.plot(
-            group["bandwidth_d2e_mbps"],
-            group["b1"],
-            marker=MARKERS[index % len(MARKERS)],
-            color=PALETTE[strategy],
-            label=f"{strategy} b1",
-        )
-        ax.plot(
-            group["bandwidth_d2e_mbps"],
-            group["b2"],
-            marker=MARKERS[(index + 3) % len(MARKERS)],
-            linestyle=":",
-            color=PALETTE[strategy],
-            label=f"{strategy} b2",
-        )
-    ax.set_xscale("log")
-    ax.set_xlabel("Device-Edge Bandwidth (Mbps)")
-    ax.set_ylabel("Selected Boundary")
-    ax.set_ylim(-0.5, 19.5)
-    ax.legend(loc="best", frameon=True, fontsize=8)
-    ax.set_title("(b) Split Selection")
+    ax.set_xticks([60, 80, 100, 120, 150])
+    ax.legend(
+        loc="upper right",
+        frameon=True,
+        ncol=1,
+        fontsize=8,
+        handlelength=1.8,
+        borderpad=0.35,
+        labelspacing=0.25,
+    )
+    ax.set_title("Coupled Decision Latency")
 
     fig.tight_layout(pad=0.2)
     return _save(fig, run_dir, "fig2_coupling_failure")
@@ -229,43 +237,25 @@ def _plot_figure3(run_dir: Path) -> dict:
     path = data_dir(run_dir) / "exp3_decision_overhead.csv"
     frame = pd.read_csv(path)
     set_ieee_style(mode="single")
-    fig, ax1 = plt.subplots(figsize=(4.0, 2.8))
+    fig, ax = plt.subplots(figsize=(4.0, 2.8))
 
     for index, scheduler in enumerate(
         ["Per-request joint decision", "Slow-timeslot joint decision"]
     ):
         group = frame[frame["scheduler"] == scheduler].sort_values("n_users")
-        ax1.plot(
+        ax.plot(
             group["n_users"],
             group["scheduling_overhead_ms_per_request"],
             marker=MARKERS[index],
             color=PALETTE[scheduler],
             label=scheduler,
         )
-    ax1.set_xlabel("Concurrent Users")
-    ax1.set_ylabel("Scheduling Overhead (ms/request)")
-    ax1.set_xscale("log", base=2)
-    ax1.set_xticks(DEFAULT_CONFIG.exp3_users)
-    ax1.get_xaxis().set_major_formatter(plt.ScalarFormatter())
-
-    ax2 = ax1.twinx()
-    for index, scheduler in enumerate(
-        ["Per-request joint decision", "Slow-timeslot joint decision"]
-    ):
-        group = frame[frame["scheduler"] == scheduler].sort_values("n_users")
-        ax2.plot(
-            group["n_users"],
-            group["effective_throughput_rps"],
-            marker=MARKERS[index + 2],
-            linestyle="--",
-            color=PALETTE[scheduler],
-            alpha=0.55,
-        )
-    ax2.set_ylabel("Effective Throughput (req/s)")
-    ax2.grid(False)
-
-    lines, labels = ax1.get_legend_handles_labels()
-    ax1.legend(lines, labels, loc="upper left", frameon=True)
+    ax.set_xlabel("Concurrent Users")
+    ax.set_ylabel("Scheduling Overhead (ms/request)")
+    ax.set_xscale("log", base=2)
+    ax.set_xticks(DEFAULT_CONFIG.exp3_users)
+    ax.get_xaxis().set_major_formatter(plt.ScalarFormatter())
+    ax.legend(loc="upper left", frameon=True)
     fig.tight_layout(pad=0.2)
     return _save(fig, run_dir, "fig3_decision_overhead")
 

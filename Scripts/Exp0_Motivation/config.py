@@ -23,7 +23,37 @@ class MotivationConfig:
     device_profile_id: str = "device-nx1-pytorch-resnet50-cifar10"
     edge_profile_id: str = "edge-jialindesktop-pytorch-resnet50-cifar10"
     cloud_profile_id: str = "cloud-v100-pytorch-resnet50-cifar10"
-    bandwidth_d2e_mbps: tuple[float, ...] = (0.5, 1.0, 2.0, 5.0, 10.0, 20.0, 50.0)
+    bandwidth_d2e_mbps: tuple[float, ...] = (
+        60.0,
+        70.0,
+        80.0,
+        84.0,
+        86.0,
+        88.0,
+        89.0,
+        90.0,
+        91.0,
+        92.0,
+        94.0,
+        96.0,
+        98.0,
+        100.0,
+        102.0,
+        104.0,
+        106.0,
+        108.0,
+        110.0,
+        112.0,
+        114.0,
+        116.0,
+        118.0,
+        120.0,
+        122.0,
+        125.0,
+        130.0,
+        140.0,
+        150.0,
+    )
     bandwidth_e2c_mbps: float = 50.0
     tensor_transport_dtype: str = "float32"
     protocol_overhead_s: float = 0.0
