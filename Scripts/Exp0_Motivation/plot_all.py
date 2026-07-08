@@ -24,6 +24,13 @@ from Src.Shared.Utils.plot_utils import save_fig_for_ieee, set_ieee_style  # noq
 
 
 MARKERS = ("o", "s", "^", "D", "v", "P", "X")
+FIG1_COLORS = {
+    "ee1": "#1f77b4",
+    "ee2": "#2ca02c",
+    "policy": "#d62728",
+    "remaining": "#ff7f0e",
+    "baseline": "#000000",
+}
 PALETTE = {
     "Local-full": COLORS["grey"],
     "Cloud-full": COLORS["purple"],
@@ -48,82 +55,117 @@ def _save(fig, run_dir: Path, name: str) -> dict:
 def _plot_figure1(run_dir: Path) -> dict:
     path = data_dir(run_dir) / "exp1_selection_effect.csv"
     frame = pd.read_csv(path)
-    set_ieee_style(mode="double")
-    fig, axes = plt.subplots(1, 2, figsize=(7.0, 2.7))
+    early_accuracy_frame = frame[frame["threshold"] < 1.0].copy()
+    set_ieee_style(mode="single")
 
-    ax = axes[0]
+    fig, ax = plt.subplots(figsize=(4.0, 2.8))
     ax.plot(
-        frame["threshold"],
-        frame["after_layer2_conditional_accuracy_pct"],
+        early_accuracy_frame["threshold"],
+        early_accuracy_frame["after_layer2_conditional_accuracy_pct"],
         marker="o",
-        markevery=10,
-        color=COLORS["blue"],
+        markevery=12,
+        color=FIG1_COLORS["ee1"],
+        linewidth=2.2,
+        alpha=0.95,
+        markeredgewidth=1.0,
         label="Early Exit 1",
+        zorder=3,
     )
     ax.plot(
-        frame["threshold"],
-        frame["after_layer3_conditional_accuracy_pct"],
+        early_accuracy_frame["threshold"],
+        early_accuracy_frame["after_layer3_conditional_accuracy_pct"],
         marker="s",
-        markevery=10,
-        color=COLORS["green"],
+        markevery=12,
+        color=FIG1_COLORS["ee2"],
+        linewidth=2.2,
+        alpha=0.95,
+        markeredgewidth=1.0,
         label="Early Exit 2",
+        zorder=3,
     )
     ax.plot(
         frame["threshold"],
-        frame["overall_accuracy_pct"],
+        frame["overall_policy_accuracy_pct"],
         marker="^",
-        markevery=10,
-        color=COLORS["red"],
-        label="Overall",
+        markevery=12,
+        color=FIG1_COLORS["policy"],
+        linewidth=2.8,
+        markeredgewidth=1.0,
+        label="Overall Policy",
+        zorder=4,
     )
     ax.axhline(
         frame["main_exit_accuracy_pct"].iloc[0],
-        color=COLORS["black"],
+        color=FIG1_COLORS["baseline"],
         linestyle="--",
-        linewidth=1.5,
+        linewidth=1.8,
         label="Main Exit",
+        zorder=2,
     )
     ax.set_xlabel("Confidence Threshold")
     ax.set_ylabel("Accuracy (%)")
     ax.set_xlim(0.0, 1.0)
-    ax.set_ylim(0.0, 100.0)
-    ax.legend(loc="lower right", frameon=True, ncol=1)
-    ax.set_title("(a) Conditional Accuracy")
+    ax.set_xticks([0.0, 0.2, 0.4, 0.6, 0.8, 1.0])
+    ax.text(
+        0.04,
+        frame["main_exit_accuracy_pct"].iloc[0] + 1.0,
+        f"Main Exit: {frame['main_exit_accuracy_pct'].iloc[0]:.2f}%",
+        color=FIG1_COLORS["baseline"],
+        fontsize=9,
+        fontweight="bold",
+    )
+    ax.set_ylim(60.0, 100.0)
+    ax.legend(loc="lower right", frameon=True, ncol=1, fontsize=9)
+    ax.set_title("Exit and Policy Accuracy")
+    fig.tight_layout(pad=0.2)
+    accuracy_paths = _save(fig, run_dir, "fig1a_accuracy_expectation")
 
-    ax = axes[1]
+    set_ieee_style(mode="single")
+    fig, ax = plt.subplots(figsize=(4.0, 2.8))
     ax.plot(
         frame["threshold"],
-        frame["after_layer2_sequential_rate_pct"],
+        frame["after_layer2_selected_probability_pct"],
         marker="o",
-        markevery=10,
-        color=COLORS["blue"],
+        markevery=12,
+        color=FIG1_COLORS["ee1"],
+        linewidth=2.4,
+        markeredgewidth=1.0,
         label="Early Exit 1",
     )
     ax.plot(
         frame["threshold"],
-        frame["after_layer3_sequential_rate_pct"],
+        frame["after_layer3_selected_probability_pct"],
         marker="s",
-        markevery=10,
-        color=COLORS["green"],
+        markevery=12,
+        color=FIG1_COLORS["ee2"],
+        linewidth=2.4,
+        markeredgewidth=1.0,
         label="Early Exit 2",
     )
     ax.plot(
         frame["threshold"],
-        frame["final_rate_pct"],
+        frame["final_exit_selected_probability_pct"],
         marker="^",
-        markevery=10,
-        color=COLORS["black"],
-        label="Final Exit",
+        markevery=12,
+        color=FIG1_COLORS["remaining"],
+        linewidth=2.4,
+        markeredgewidth=1.0,
+        label="Remaining",
     )
     ax.set_xlabel("Confidence Threshold")
-    ax.set_ylabel("Exit Ratio (%)")
+    ax.set_ylabel("Expected Flow Ratio (%)")
     ax.set_xlim(0.0, 1.0)
+    ax.set_xticks([0.0, 0.2, 0.4, 0.6, 0.8, 1.0])
     ax.set_ylim(0.0, 105.0)
     ax.legend(loc="upper right", frameon=True)
-    ax.set_title("(b) Exit Distribution")
+    ax.set_title("Expected Flow Distribution")
 
     fig.tight_layout(pad=0.2)
-    return _save(fig, run_dir, "fig1_selection_effect")
+    probability_paths = _save(fig, run_dir, "fig1b_early_exit_probability")
+    return {
+        "accuracy_expectation": accuracy_paths,
+        "early_exit_probability": probability_paths,
+    }
 
 
 def _plot_figure2(run_dir: Path) -> dict:

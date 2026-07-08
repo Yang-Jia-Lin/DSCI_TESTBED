@@ -32,7 +32,7 @@ Scripts\Results\Exp0_Motivation\latest_run.txt
 
 - `config.py`：统一配置 bundle、profile、带宽、精度约束和输出目录。
 - `build_tables.py`：使用当前权重和当前数据集口径重新生成 canonical early-exit curve。
-- `run_exp1_selection_effect.py`：生成 Figure 1 数据，说明阈值诱导的条件筛选效应。
+- `run_exp1_selection_effect.py`：生成 Figure 1 数据，说明阈值诱导的条件筛选效应。该实验使用每个 early-exit head 的独立条件准确率和独立早退概率，不绘制 Final Exit rate，并排除 `threshold=1.0`。
 - `run_exp2_coupling_failure.py`：生成 Figure 2 数据，比较 `Local-full`、`Cloud-full`、`Split-only`、`Decoupled` 和 `Joint`。
 - `run_exp3_decision_overhead.py`：生成 Figure 3 数据，比较逐请求联合决策和慢周期联合决策的调度开销。
 - `plot_all.py`：读取三个实验的数据，统一输出 PDF/PNG 图片。
@@ -56,7 +56,8 @@ Scripts\Results\Exp0_Motivation\<run_id>\
 - `Data\exp1_selection_effect.csv`：Figure 1 数据。
 - `Data\exp2_coupling_failure.csv`：Figure 2 数据。
 - `Data\exp3_decision_overhead.csv`：Figure 3 数据。
-- `Figures\fig1_selection_effect.pdf/png`：Figure 1。
+- `Figures\fig1a_accuracy_expectation.pdf/png`：Figure 1(a)，条件准确率与期望准确率。
+- `Figures\fig1b_early_exit_probability.pdf/png`：Figure 1(b)，独立早退概率。
 - `Figures\fig2_coupling_failure.pdf/png`：Figure 2。
 - `Figures\fig3_decision_overhead.pdf/png`：Figure 3。
 - `paper_numbers.json`：论文中可直接引用的关键数值。

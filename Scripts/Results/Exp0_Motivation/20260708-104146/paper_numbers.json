@@ -29,16 +29,24 @@
   "figure1": {
     "main_exit_accuracy_pct": 86.51,
     "overall_accuracy_max_pct": 87.03,
+    "overall_policy_accuracy_max_pct": 87.03,
+    "overall_policy_accuracy_peak_threshold": 0.88,
     "output_csv": "D:\\Coding\\Python\\DSCI_testbed\\Scripts\\Results\\Exp0_Motivation\\20260708-104146\\Data\\exp1_selection_effect.csv",
     "after_layer2_max_conditional_accuracy_pct": 97.33333333333331,
     "after_layer2_first_threshold_ge_main": 0.67,
     "after_layer3_max_conditional_accuracy_pct": 100.0,
-    "after_layer3_first_threshold_ge_main": 0.18
+    "after_layer3_first_threshold_ge_main": 0.44
   },
   "figures": {
     "figure1": {
-      "pdf": "D:\\Coding\\Python\\DSCI_testbed\\Scripts\\Results\\Exp0_Motivation\\20260708-104146\\Figures\\fig1_selection_effect.pdf",
-      "png": "D:\\Coding\\Python\\DSCI_testbed\\Scripts\\Results\\Exp0_Motivation\\20260708-104146\\Figures\\fig1_selection_effect.png"
+      "accuracy_expectation": {
+        "pdf": "D:\\Coding\\Python\\DSCI_testbed\\Scripts\\Results\\Exp0_Motivation\\20260708-104146\\Figures\\fig1a_accuracy_expectation.pdf",
+        "png": "D:\\Coding\\Python\\DSCI_testbed\\Scripts\\Results\\Exp0_Motivation\\20260708-104146\\Figures\\fig1a_accuracy_expectation.png"
+      },
+      "early_exit_probability": {
+        "pdf": "D:\\Coding\\Python\\DSCI_testbed\\Scripts\\Results\\Exp0_Motivation\\20260708-104146\\Figures\\fig1b_early_exit_probability.pdf",
+        "png": "D:\\Coding\\Python\\DSCI_testbed\\Scripts\\Results\\Exp0_Motivation\\20260708-104146\\Figures\\fig1b_early_exit_probability.png"
+      }
     },
     "figure2": {
       "pdf": "D:\\Coding\\Python\\DSCI_testbed\\Scripts\\Results\\Exp0_Motivation\\20260708-104146\\Figures\\fig2_coupling_failure.pdf",
