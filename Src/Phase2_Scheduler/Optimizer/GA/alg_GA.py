@@ -3,6 +3,7 @@ Src/Optimizer/GA/alg_GA.py
 """
 
 import random
+import time
 import numpy as np
 from Src.Phase2_Scheduler.Objective.objective import objective
 from Src.Shared.Partitioning.split_actions import (
@@ -13,7 +14,11 @@ from Src.Shared.Partitioning.split_actions import (
 
 
 def optimize_GA(
-    paras, population_size: int = 50, generations: int = 150, mutation_rate: float = 0.1
+    paras,
+    population_size: int = 50,
+    generations: int = 150,
+    mutation_rate: float = 0.1,
+    return_metrics: bool = False,
 ):
     """
     使用遗传算法优化混合连续/离散优化问题.
@@ -31,6 +36,8 @@ def optimize_GA(
     - best_solution: 包含 (X, Y, F_e, F_c) 的最优变量解。
     - history:       列表，记录每一代的最佳目标值（用于分析收敛过程）。
     """
+
+    started = time.perf_counter()
 
     # ---------- 0. 基本尺寸 ----------
     n_rows = paras.n  # 用户数
@@ -122,6 +129,16 @@ def optimize_GA(
 
     best_ind, best_val = best_of(population)
     history = [best_val]
+    metrics = [
+        {
+            "algorithm": "GA",
+            "step": 0,
+            "current_obj": float(best_val),
+            "best_obj": float(best_val),
+            "evaluations": int(population_size),
+            "elapsed_s": float(time.perf_counter() - started),
+        }
+    ]
     print(f"{best_val}")
 
     # ---------- 5. 进化 ----------
@@ -221,6 +238,16 @@ def optimize_GA(
         population = new_pop
         best_ind, best_val = best_of(population)
         history.append(best_val)
+        metrics.append(
+            {
+                "algorithm": "GA",
+                "step": int(generation + 1),
+                "current_obj": float(best_val),
+                "best_obj": float(best_val),
+                "evaluations": int((generation + 2) * population_size),
+                "elapsed_s": float(time.perf_counter() - started),
+            }
+        )
         print(f"Generation {generation}: {best_val}")
 
     # --------- 6. 返回 ---------
@@ -229,4 +256,6 @@ def optimize_GA(
     Fe_arr = np.array(best_ind[2]).reshape(n_rows, 1)
     Fc_arr = np.array(best_ind[3]).reshape(n_rows, 1)
 
+    if return_metrics:
+        return best_val, (X_mat, Y_mat, Fe_arr, Fc_arr), history, metrics
     return best_val, (X_mat, Y_mat, Fe_arr, Fc_arr), history

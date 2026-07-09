@@ -37,6 +37,9 @@ from Scripts.Exp3_Convergency_and_Overhead.plot_convergency import (
     plot_entropy,
     plot_lan_and_acc,
 )
+from Scripts.Exp3_Convergency_and_Overhead.plot_dsci_startup_overhead import (
+    generate_startup_overhead_artifacts,
+)
 from Src.Phase2_Scheduler.Optimizer.BF.alg_BF import optimize_BF
 from Src.Phase2_Scheduler.Optimizer.Greedy.alg_greedy import optimize_greedy
 from Src.Phase2_Scheduler.Optimizer.Random.alg_random import optimize_random
@@ -494,11 +497,18 @@ def main(argv=None) -> None:
         measurements=args.measurements,
     )
     generated_outputs.update(outputs)
+    startup_outputs = generate_startup_overhead_artifacts(
+        training_events=args.training_events,
+        output_dir=args.output_dir,
+    )
+    generated_outputs.update(startup_outputs)
     summary_path = write_exp3_summary(
         output_dir=args.output_dir, outputs=generated_outputs
     )
     generated_outputs["exp3_overhead_summary"] = summary_path
     for name, path in outputs.items():
+        print(f"{name}: {path}")
+    for name, path in startup_outputs.items():
         print(f"{name}: {path}")
     print(f"exp3_overhead_summary: {summary_path}")
 

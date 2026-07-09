@@ -1,0 +1,3 @@
+﻿algorithm,curve_role,final_utility,best_utility,final_step,final_episode,evaluations,elapsed_s
+DSCI,learning_curve,0.8270251328349434,0.8270251328349434,20,20.0,20.0,0.08660860010422766
+GA,baseline,-0.7830651213244166,-0.7830651213244166,3,,24.0,0.015628699911758304

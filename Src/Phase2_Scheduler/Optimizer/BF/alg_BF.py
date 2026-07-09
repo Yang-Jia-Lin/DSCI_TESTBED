@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from itertools import product
-
 import numpy as np
+import time
 
-from Src.Phase2_Scheduler.Objective.objective import objective
+from Src.Phase2_Scheduler.Optimizer.baseline_common import default_resources
+from Src.Phase2_Scheduler.Optimizer.baseline_common import evaluate_candidate
+from Src.Phase2_Scheduler.Optimizer.baseline_common import threshold_rows
 from Src.Phase2_Scheduler.paras import Paras
 from Src.Shared.Partitioning.split_actions import encode_split_row, enumerate_deployment_pairs
 
@@ -25,39 +26,66 @@ def optimize_BF(
     threshold_step: float = 0.25,
     tol: float = 1e-6,
     verbose: bool = False,
+    return_metrics: bool = False,
     **_ignored,
 ):
     if paras is None:
         raise ValueError("paras is required")
     x_rows = _candidates(paras)
-    grid = np.arange(0.0, 1.0 + threshold_step / 2.0, threshold_step)
-    threshold_rows = []
-    for values in product(grid, repeat=len(paras.E)):
-        row = np.ones(paras.m, dtype=np.float64)
-        for boundary, value in zip(paras.E, values):
-            row[boundary] = value
-        threshold_rows.append(row)
+    y_rows = threshold_rows(paras, threshold_step)
 
     n = paras.n
-    X = np.stack([x_rows[len(x_rows) // 2]] * n)
+    X = np.stack([x_rows[0]] * n)
     Y = np.ones((n, paras.m), dtype=np.float64)
-    F_e = np.zeros((n, 1)) if paras.resource_mode == "fixed_worker_pool" else np.full((n, 1), paras.f_e_max / n)
-    F_c = np.zeros((n, 1)) if paras.resource_mode == "fixed_worker_pool" else np.full((n, 1), paras.f_c_max / n)
-    best = float(objective(X, Y, F_e, F_c, paras))
+    F_e, F_c = default_resources(paras)
+    best, F_e, F_c = evaluate_candidate(paras, X, Y)
     history = [best]
+    metrics = [
+        {
+            "algorithm": "BF",
+            "step": 0,
+            "current_obj": float(best),
+            "best_obj": float(best),
+            "evaluations": 1,
+            "elapsed_s": 0.0,
+        }
+    ]
+    evaluations = 1
+    started = time.perf_counter()
+    step = 1
     for _ in range(max_iter):
         improved = False
         for user in range(n):
             for x_row in x_rows:
-                for y_row in threshold_rows:
+                for y_row in y_rows:
                     candidate_x, candidate_y = X.copy(), Y.copy()
                     candidate_x[user], candidate_y[user] = x_row, y_row
-                    value = float(objective(candidate_x, candidate_y, F_e, F_c, paras))
+                    value, candidate_F_e, candidate_F_c = evaluate_candidate(
+                        paras,
+                        candidate_x,
+                        candidate_y,
+                    )
+                    evaluations += 1
                     if value > best + tol:
-                        X, Y, best, improved = candidate_x, candidate_y, value, True
+                        X, Y = candidate_x, candidate_y
+                        F_e, F_c = candidate_F_e, candidate_F_c
+                        best, improved = value, True
         history.append(best)
+        metrics.append(
+            {
+                "algorithm": "BF",
+                "step": int(step),
+                "current_obj": float(best),
+                "best_obj": float(best),
+                "evaluations": int(evaluations),
+                "elapsed_s": float(time.perf_counter() - started),
+            }
+        )
+        step += 1
         if verbose:
             print(f"BF objective={best:.6f}")
         if not improved:
             break
+    if return_metrics:
+        return best, (X, Y, F_e, F_c), history, metrics
     return best, (X, Y, F_e, F_c), history

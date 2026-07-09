@@ -1,0 +1,7 @@
+﻿case,round_id,decision_source,b1,b2,user1_samples,user1_accuracy,user1_latency_ms,user2_samples,user2_accuracy,user2_latency_ms,avg_accuracy,avg_latency_ms,total_samples
+local_no_ee,local_no_ee_20260709-132534,fixed_split:19:19:threshold:1,19,19,10,0.9,49.847,10,0.9,339.549,0.9,194.698,20
+cloud_no_ee,cloud_no_ee_20260709-132818,fixed_split:0:0:threshold:1,0,0,10,0.7,5524.929,10,0.7,6776.811,0.7,6150.87,20
+edge_no_ee,edge_no_ee_20260709-134941,fixed_split:0:19:threshold:1,0,19,10,0.7,5678.976,10,0.7,6862.197,0.7,6270.586,20
+local_ee,local_ee_20260709-135341,fixed_split:19:19:threshold:0.7,19,19,10,0.9,55.197,10,0.9,532.796,0.9,293.997,20
+split_dec_no_ee,split_dec_no_ee_20260709-141031,fixed_split:7:13:threshold:1,7,13,10,0.7,13826.5,10,0.7,16048.005,0.7,14937.252,20
+ours_schedule,ours_schedule_20260709-140607,cached_dsci:warm:0.170156,19,19,10,0.9,49.847,10,0.9,339.549,0.9,194.698,20
