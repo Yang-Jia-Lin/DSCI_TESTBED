@@ -5,10 +5,21 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
 from Src.Shared.Utils.plot_utils import save_fig_for_ieee, set_ieee_style
+
+
+PHASE3_COMPONENT_LABELS = {
+    "device_compute": "Device compute",
+    "d2e_transmission": "D2E transmission",
+    "edge_compute": "Edge compute",
+    "e2c_transmission": "E2C transmission",
+    "cloud_compute": "Cloud compute",
+}
+
 
 def load_metrics_jsonl(metrics_path: str | Path) -> pd.DataFrame:
     metrics_path = Path(metrics_path)
@@ -46,21 +57,46 @@ def write_metrics_jsonl(rows: list[dict], path: str | Path) -> Path:
 
 def normalize_ppo_metrics(metrics: pd.DataFrame) -> pd.DataFrame:
     if metrics.empty:
-        return pd.DataFrame(columns=["algorithm", "step", "best_obj", "current_obj"])
+        return pd.DataFrame(
+            columns=[
+                "algorithm",
+                "step",
+                "episode",
+                "best_obj",
+                "current_obj",
+                "utility",
+                "curve_type",
+            ]
+        )
+    if "num_episodes" in metrics:
+        episode = (metrics["epoch"].astype(int) + 1) * metrics["num_episodes"].astype(int)
+    else:
+        episode = metrics["epoch"]
     return pd.DataFrame(
         {
             "algorithm": "PPO",
-            "step": metrics["epoch"],
+            "step": episode,
+            "episode": episode,
             "best_obj": metrics["outer_obj"],
             "current_obj": metrics.get("inner_best_obj", metrics["outer_obj"]),
+            "utility": metrics["outer_obj"],
             "evaluations": metrics.get("steps_collected", metrics["epoch"]),
             "elapsed_s": metrics.get("elapsed_s", 0.0),
+            "curve_type": "ppo",
         }
     )
 
 
-def summarize_phase1_overhead(path: str | Path) -> pd.DataFrame:
+def summarize_phase1_overhead(
+    path: str | Path, *, include_steps: tuple[str, ...] | None = None
+) -> pd.DataFrame:
     events = load_training_events(path)
+    if events.empty:
+        return pd.DataFrame(
+            columns=["step", "bundle_id", "runs", "duration_mean_s", "duration_min_s", "duration_max_s"]
+        )
+    if include_steps is not None and "step" in events:
+        events = events[events["step"].isin(include_steps)]
     if events.empty:
         return pd.DataFrame(
             columns=["step", "bundle_id", "runs", "duration_mean_s", "duration_min_s", "duration_max_s"]
@@ -118,6 +154,19 @@ def load_measurements(path: str | Path) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def load_measurement_tree(root: str | Path) -> pd.DataFrame:
+    root = Path(root)
+    frames = []
+    for path in sorted(root.rglob("*_measurements.jsonl")):
+        frame = load_measurements(path)
+        if frame.empty:
+            continue
+        frame["measurement_file"] = str(path)
+        frame["round_id"] = path.parent.name
+        frames.append(frame)
+    return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+
+
 def summarize_latency_breakdown(measurements: pd.DataFrame) -> pd.DataFrame:
     if measurements.empty:
         return pd.DataFrame(columns=["component", "mean_ms", "share_of_total"])
@@ -135,6 +184,37 @@ def summarize_latency_breakdown(measurements: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def summarize_expected_latency_breakdown(
+    components: dict[str, np.ndarray],
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    if not components:
+        empty = pd.DataFrame(columns=["component", "label", "mean_ms", "share_of_total"])
+        return empty, pd.DataFrame()
+    ordered = [name for name in PHASE3_COMPONENT_LABELS if name in components]
+    matrix = np.vstack([np.asarray(components[name], dtype=np.float64) for name in ordered])
+    totals = matrix.sum(axis=0)
+    mean_total = float(np.mean(totals))
+    rows = []
+    for index, name in enumerate(ordered):
+        mean_s = float(np.mean(matrix[index]))
+        rows.append(
+            {
+                "component": name,
+                "label": PHASE3_COMPONENT_LABELS[name],
+                "mean_ms": mean_s * 1000.0,
+                "share_of_total": mean_s / mean_total if mean_total > 0 else 0.0,
+            }
+        )
+    per_user = pd.DataFrame(
+        {
+            "user_id": np.arange(totals.shape[0], dtype=int),
+            **{name: np.asarray(components[name], dtype=np.float64) for name in ordered},
+            "total_s": totals,
+        }
+    )
+    return pd.DataFrame(rows), per_user
+
+
 def summarize_exit_distribution(measurements: pd.DataFrame) -> pd.DataFrame:
     if measurements.empty or "exit_location" not in measurements:
         return pd.DataFrame(columns=["exit_location", "exit_id", "samples", "rate"])
@@ -148,6 +228,45 @@ def summarize_exit_distribution(measurements: pd.DataFrame) -> pd.DataFrame:
     )
     grouped["rate"] = grouped["samples"] / float(len(frame))
     return grouped
+
+
+def summarize_expected_exit_distribution(
+    exit_ids: list[str],
+    exit_probabilities: np.ndarray,
+) -> pd.DataFrame:
+    probabilities = np.asarray(exit_probabilities, dtype=np.float64)
+    if probabilities.ndim != 2:
+        raise ValueError("exit_probabilities must be shaped as users x exits")
+    if probabilities.shape[1] != len(exit_ids):
+        raise ValueError("exit_ids length does not match exit_probabilities")
+
+    rows = []
+    for index, exit_id in enumerate(exit_ids):
+        values = probabilities[:, index]
+        row = {
+            "kind": "exit_point",
+            "exit_id": str(exit_id),
+            "mean_rate": float(np.mean(values)),
+            "min_rate": float(np.min(values)),
+            "max_rate": float(np.max(values)),
+        }
+        for user_index, value in enumerate(values):
+            row[f"user_{user_index}_rate"] = float(value)
+        rows.append(row)
+
+    final_index = exit_ids.index("final") if "final" in exit_ids else len(exit_ids) - 1
+    early_values = 1.0 - probabilities[:, final_index]
+    early_row = {
+        "kind": "aggregate",
+        "exit_id": "early_exit_total",
+        "mean_rate": float(np.mean(early_values)),
+        "min_rate": float(np.min(early_values)),
+        "max_rate": float(np.max(early_values)),
+    }
+    for user_index, value in enumerate(early_values):
+        early_row[f"user_{user_index}_rate"] = float(value)
+    rows.append(early_row)
+    return pd.DataFrame(rows)
 
 
 def plot_optimizer_comparison(metrics: pd.DataFrame, output_dir: str | Path) -> Path:
@@ -167,6 +286,39 @@ def plot_optimizer_comparison(metrics: pd.DataFrame, output_dir: str | Path) -> 
     return target
 
 
+def plot_ppo_vs_baselines(metrics: pd.DataFrame, output_dir: str | Path) -> Path:
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    set_ieee_style(mode="single")
+    fig, ax = plt.subplots()
+
+    ppo = metrics[metrics["curve_type"] == "ppo"].sort_values("episode")
+    if not ppo.empty:
+        ax.plot(
+            ppo["episode"],
+            ppo["utility"],
+            label="PPO",
+            linewidth=1.8,
+        )
+    baselines = metrics[metrics["curve_type"] == "final_baseline"]
+    for algorithm, group in baselines.groupby("algorithm", sort=False):
+        group = group.sort_values("episode")
+        ax.plot(
+            group["episode"],
+            group["utility"],
+            linestyle="--",
+            linewidth=1.4,
+            label=str(algorithm),
+        )
+    ax.set_xlabel("Episode")
+    ax.set_ylabel("Utility")
+    ax.legend(frameon=False)
+    plt.tight_layout(pad=0.2)
+    target = output_dir / "ppo_vs_baselines"
+    save_fig_for_ieee(target)
+    return target
+
+
 def plot_latency_breakdown(breakdown: pd.DataFrame, output_dir: str | Path) -> Path | None:
     if breakdown.empty:
         return None
@@ -174,7 +326,10 @@ def plot_latency_breakdown(breakdown: pd.DataFrame, output_dir: str | Path) -> P
     output_dir.mkdir(parents=True, exist_ok=True)
     set_ieee_style(mode="single")
     fig, ax = plt.subplots()
-    labels = breakdown["component"].astype(str).tolist()
+    if "label" in breakdown:
+        labels = breakdown["label"].astype(str).tolist()
+    else:
+        labels = breakdown["component"].astype(str).tolist()
     values = breakdown["mean_ms"].astype(float).tolist()
     ax.bar(labels, values)
     ax.set_ylabel("Mean latency (ms)")
@@ -193,11 +348,16 @@ def plot_exit_distribution(distribution: pd.DataFrame, output_dir: str | Path) -
     output_dir.mkdir(parents=True, exist_ok=True)
     set_ieee_style(mode="single")
     fig, ax = plt.subplots()
-    labels = [
-        f"{row.exit_location}\n{row.exit_id}" if str(row.exit_id) else str(row.exit_location)
-        for row in distribution.itertuples(index=False)
-    ]
-    ax.bar(labels, distribution["rate"].astype(float).tolist())
+    if "mean_rate" in distribution:
+        labels = distribution["exit_id"].astype(str).tolist()
+        values = distribution["mean_rate"].astype(float).tolist()
+    else:
+        labels = [
+            f"{row.exit_location}\n{row.exit_id}" if str(row.exit_id) else str(row.exit_location)
+            for row in distribution.itertuples(index=False)
+        ]
+        values = distribution["rate"].astype(float).tolist()
+    ax.bar(labels, values)
     ax.set_ylabel("Exit rate")
     ax.set_xlabel("Exit point")
     plt.tight_layout(pad=0.2)
