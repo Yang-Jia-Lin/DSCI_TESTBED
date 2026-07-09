@@ -125,7 +125,7 @@ def _plot_figure1(run_dir: Path) -> dict:
     fig, ax = plt.subplots(figsize=(4.0, 2.8))
     ax.plot(
         frame["threshold"],
-        frame["after_layer2_selected_probability_pct"],
+        frame["after_layer2_early_exit_probability_pct"],
         marker="o",
         markevery=12,
         color=FIG1_COLORS["ee1"],
@@ -135,7 +135,7 @@ def _plot_figure1(run_dir: Path) -> dict:
     )
     ax.plot(
         frame["threshold"],
-        frame["after_layer3_selected_probability_pct"],
+        frame["after_layer3_early_exit_probability_pct"],
         marker="s",
         markevery=12,
         color=FIG1_COLORS["ee2"],
@@ -143,23 +143,13 @@ def _plot_figure1(run_dir: Path) -> dict:
         markeredgewidth=1.0,
         label="Early Exit 2",
     )
-    ax.plot(
-        frame["threshold"],
-        frame["final_exit_selected_probability_pct"],
-        marker="^",
-        markevery=12,
-        color=FIG1_COLORS["remaining"],
-        linewidth=2.4,
-        markeredgewidth=1.0,
-        label="Remaining",
-    )
     ax.set_xlabel("Confidence Threshold")
-    ax.set_ylabel("Expected Flow Ratio (%)")
+    ax.set_ylabel("Early Exit Probability (%)")
     ax.set_xlim(0.0, 1.0)
     ax.set_xticks([0.0, 0.2, 0.4, 0.6, 0.8, 1.0])
     ax.set_ylim(0.0, 105.0)
-    ax.legend(loc="upper right", frameon=True)
-    ax.set_title("Expected Flow Distribution")
+    ax.legend(loc="lower left", frameon=True)
+    ax.set_title("Early Exit Probability")
 
     fig.tight_layout(pad=0.2)
     probability_paths = _save(fig, run_dir, "fig1b_early_exit_probability")
