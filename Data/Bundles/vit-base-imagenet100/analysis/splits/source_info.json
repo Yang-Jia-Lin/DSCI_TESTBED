@@ -1,0 +1,12 @@
+{
+  "dataset_id": "imagenet100",
+  "source": "/root/commonfiles/Datasets/ImageNet2012",
+  "seed": 42,
+  "classes": 100,
+  "counts": {
+    "train": 114015,
+    "val": 12674,
+    "test": 5000
+  },
+  "generated_at": "2026-07-13T03:46:52.591860+00:00"
+}

@@ -7,3 +7,5 @@
 {"logged_at": 1783920605.8050544, "phase": "phase1", "step": "exit_curves", "bundle_id": "vit-base-cifar10", "status": "success", "duration_s": 46.29069980792701}
 {"logged_at": 1783921185.862405, "phase": "phase1", "step": "manifest", "bundle_id": "vit-base-neucls64", "status": "success", "duration_s": 9.658741282299161}
 {"logged_at": 1783921200.3018582, "phase": "phase1", "step": "exit_curves", "bundle_id": "vit-base-neucls64", "status": "success", "duration_s": 13.071858633309603}
+{"logged_at": 1783945679.7061305, "phase": "phase1", "step": "manifest", "bundle_id": "resnet50-imagenet100", "status": "success", "duration_s": 6.076383350417018}
+{"logged_at": 1783945722.0101538, "phase": "phase1", "step": "exit_curves", "bundle_id": "resnet50-imagenet100", "status": "success", "duration_s": 39.92367331311107}

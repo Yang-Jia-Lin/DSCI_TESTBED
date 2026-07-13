@@ -1,1 +1,0 @@
-"""DSCI convergence experiment package."""
