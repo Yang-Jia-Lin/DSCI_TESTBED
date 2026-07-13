@@ -46,6 +46,10 @@ class BundleArtifactPaths:
         return self.root / "layer_stats.csv"
 
     @property
+    def offline_profile_path(self) -> Path:
+        return self.root / "offline_profile.json"
+
+    @property
     def dataset_root(self) -> Path:
         directory = {
             "cifar10": "CIFAR10",

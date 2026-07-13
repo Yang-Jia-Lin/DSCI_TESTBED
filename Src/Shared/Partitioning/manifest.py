@@ -217,7 +217,7 @@ def build_partition_manifest(
             "exit_id": "final",
             "attach_point": "final_classifier",
             "boundary_id": len(segments),
-            "head_name": "fc",
+            "head_name": model.final_classifier_name() if hasattr(model, "final_classifier_name") else "fc",
             "final": True,
         },
     )

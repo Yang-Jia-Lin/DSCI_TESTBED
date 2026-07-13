@@ -22,6 +22,8 @@ class ModelBundleSpec:
     mean: tuple[float, float, float]
     std: tuple[float, float, float]
     exits: tuple[ExitSpec, ...]
+    pretrained_source: str | None = None
+    interpolation: str = "bilinear"
     version: int = 1
 
     @property
@@ -80,6 +82,16 @@ _DEIT_SMALL_EXITS = (
     ExitSpec("after_block4", "blocks.3"),
     ExitSpec("after_block8", "blocks.7"),
 )
+_RESNET50_V2_EXITS = (
+    ExitSpec("after_layer1", "layer1"),
+    ExitSpec("after_layer2", "layer2"),
+    ExitSpec("after_layer3", "layer3"),
+)
+_VIT_BASE_EXITS = (
+    ExitSpec("after_block3", "blocks.2"),
+    ExitSpec("after_block6", "blocks.5"),
+    ExitSpec("after_block9", "blocks.8"),
+)
 
 
 def _bundle(
@@ -92,6 +104,13 @@ def _bundle(
         architecture=architecture.lower(),
         exits=exits,
         **dataset,
+    )
+
+
+def _experiment_bundle(architecture, dataset, exits, *, pretrained_source, interpolation):
+    return ModelBundleSpec(
+        bundle_id=f"{architecture}-{dataset['dataset_id']}", architecture=architecture,
+        exits=exits, pretrained_source=pretrained_source, interpolation=interpolation, **dataset,
     )
 
 
@@ -110,6 +129,17 @@ BUNDLE_REGISTRY: dict[str, ModelBundleSpec] = {
         _bundle("deit-small", _IMAGENET100, _DEIT_SMALL_EXITS),
     )
 }
+
+for dataset in (_CIFAR10, _IMAGENET100, _NEUCLS64_RESNET):
+    resnet_dataset = dict(dataset, input_shape=(3, 224, 224), mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225))
+    spec = _experiment_bundle("resnet50", resnet_dataset, _RESNET50_V2_EXITS,
+        pretrained_source="torchvision/resnet50:IMAGENET1K_V2", interpolation="bilinear")
+    BUNDLE_REGISTRY[spec.bundle_id] = spec
+for dataset in (_CIFAR10_DEIT, _IMAGENET100, _NEUCLS64_DEIT):
+    vit_dataset = dict(dataset, mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5))
+    spec = _experiment_bundle("vit-base", vit_dataset, _VIT_BASE_EXITS,
+        pretrained_source="timm/vit_base_patch16_224.orig_in21k_ft_in1k", interpolation="bicubic")
+    BUNDLE_REGISTRY[spec.bundle_id] = spec
 
 DEFAULT_BUNDLE_ID = "resnet50-cifar10-ee-v1"
 

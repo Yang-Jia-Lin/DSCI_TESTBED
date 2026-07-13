@@ -20,6 +20,7 @@ def build_exit_curve_frame(
     download: bool = False,
     split: str = "val",
     device=None,
+    num_workers: int = 0,
 ) -> pd.DataFrame:
     """Build the threshold curve table without writing it to disk."""
     import torch
@@ -43,6 +44,7 @@ def build_exit_curve_frame(
         batch_size=batch_size,
         data_root=data_root,
         download=download,
+        num_workers=num_workers,
     )
     confidences = {item.exit_id: [] for item in bundle.exits}
     correct = {item.exit_id: [] for item in bundle.exits}
@@ -74,6 +76,7 @@ def build_exit_curve_frame(
         total_correct = 0
         for item in bundle.exits:
             mask = [value >= threshold for value in confidences[item.exit_id]]
+            row[f"{item.exit_id}_isolated_accuracy"] = 100 * sum(correct[item.exit_id]) / sample_count
             row[f"{item.exit_id}_rate"] = 100 * sum(mask) / len(mask)
             selected = [ok for ok, keep in zip(correct[item.exit_id], mask) if keep]
             row[f"{item.exit_id}_accuracy"] = 100 * sum(selected) / max(len(selected), 1)
@@ -108,6 +111,7 @@ def main(argv=None):
     parser.add_argument("--bundle-id")
     parser.add_argument("--data-root")
     parser.add_argument("--batch-size", type=int, default=64)
+    parser.add_argument("--num-workers", type=int, default=16)
     parser.add_argument("--overwrite", action="store_true")
     parser.add_argument("--download", action="store_true")
     parser.add_argument("--output-csv")
@@ -125,6 +129,7 @@ def main(argv=None):
             batch_size=args.batch_size,
             download=args.download,
             split=args.split,
+            num_workers=args.num_workers,
         )
         output_path.parent.mkdir(parents=True, exist_ok=True)
         frame.to_csv(output_path, index=False)

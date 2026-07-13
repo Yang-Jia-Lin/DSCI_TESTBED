@@ -1,151 +1,84 @@
-"""Dataset construction driven by a model bundle."""
-
+"""Dataset construction driven by a model bundle and deterministic manifests."""
 from __future__ import annotations
-
-import csv
-import re
+import csv, random, re
 from pathlib import Path
-
-from torch.utils.data import DataLoader, Dataset
-
+import torch
+from torch.utils.data import DataLoader, Dataset, Subset
 from Src.Shared.Config.model_config import ModelBundleSpec
 from Src.Shared.Config.paths import bundle_paths
+IMAGE_EXTENSIONS={".bmp",".jpeg",".jpg",".png",".tif",".tiff",".webp"}
 
-IMAGE_EXTENSIONS = {".bmp", ".jpeg", ".jpg", ".png", ".tif", ".tiff", ".webp"}
+def build_transform(bundle: ModelBundleSpec, *, train=False):
+ from torchvision import transforms
+ from torchvision.transforms import InterpolationMode
+ size=bundle.input_shape[1]; mode=InterpolationMode.BICUBIC if bundle.interpolation=="bicubic" else InterpolationMode.BILINEAR
+ ops=[]
+ if train:
+  ops += [transforms.RandomResizedCrop(size,interpolation=mode),transforms.RandomHorizontalFlip()]
+  if bundle.dataset_id=="neucls64": ops += [transforms.RandomVerticalFlip(),transforms.RandomRotation(15,interpolation=mode)]
+ else: ops += [transforms.Resize(size,interpolation=mode),transforms.CenterCrop(size)]
+ return transforms.Compose([*ops,transforms.ToTensor(),transforms.Normalize(bundle.mean,bundle.std)])
 
-
-def build_transform(bundle: ModelBundleSpec, *, train: bool = False):
-    from torchvision import transforms
-
-    size = bundle.input_shape[1]
-    operations = []
-    if train:
-        operations.extend((transforms.RandomResizedCrop(size), transforms.RandomHorizontalFlip()))
-    else:
-        operations.extend((transforms.Resize(size), transforms.CenterCrop(size)))
-    operations.extend((transforms.ToTensor(), transforms.Normalize(bundle.mean, bundle.std)))
-    return transforms.Compose(operations)
-
+class ManifestImageDataset(Dataset):
+ def __init__(self,root,manifest,transform):
+  self.root,self.transform=Path(root),transform
+  with Path(manifest).open(newline="",encoding="utf-8") as f: self.rows=list(csv.DictReader(f))
+  if not self.rows: raise ValueError(f"Empty manifest: {manifest}")
+  self.targets=[int(x["label"]) for x in self.rows]; self.classes=sorted({x["synset"] for x in self.rows})
+ def __len__(self): return len(self.rows)
+ def __getitem__(self,index):
+  from PIL import Image
+  row=self.rows[index]; path=self.root/row["relative_path"]
+  with Image.open(path) as im: return self.transform(im.convert("RGB")),int(row["label"])
 
 class FilenameClassImageDataset(Dataset):
-    """Flat image folder whose class is encoded as a filename prefix."""
+ def __init__(self,image_dir,transform=None):
+  self.transform=transform; raw=[]
+  for p in sorted(Path(image_dir).iterdir()):
+   if p.is_file() and p.suffix.lower() in IMAGE_EXTENSIONS:
+    m=re.match(r"(.+)_\d+$",p.stem); raw.append((p,m.group(1) if m else p.stem.rsplit("_",1)[0]))
+  self.classes=sorted({x[1] for x in raw}); mapping={x:i for i,x in enumerate(self.classes)}; self.samples=[(p,mapping[y]) for p,y in raw]; self.targets=[y for _,y in self.samples]
+ def __len__(self): return len(self.samples)
+ def __getitem__(self,index):
+  from PIL import Image
+  p,y=self.samples[index]
+  with Image.open(p) as im: return self.transform(im.convert("RGB")),y
 
-    def __init__(self, image_dir: str | Path, transform=None):
-        self.image_dir = Path(image_dir)
-        if not self.image_dir.is_dir():
-            raise FileNotFoundError(f"Image directory not found: {self.image_dir}")
-        self.transform = transform
-        self.samples = []
-        class_names = []
-        for path in sorted(self.image_dir.iterdir()):
-            if not path.is_file() or path.suffix.lower() not in IMAGE_EXTENSIONS:
-                continue
-            class_name = self._class_from_name(path.stem)
-            self.samples.append((path, class_name))
-            if class_name not in class_names:
-                class_names.append(class_name)
-        if not self.samples:
-            raise ValueError(f"No images found under {self.image_dir}")
-        self.classes = sorted(class_names)
-        self.class_to_idx = {name: index for index, name in enumerate(self.classes)}
-        self.samples = [
-            (path, self.class_to_idx[class_name]) for path, class_name in self.samples
-        ]
-        self.targets = [target for _, target in self.samples]
+def _manifest_dataset(bundle,split,root,transform):
+ manifest=root/"metadata"/f"{split}_manifest.csv"
+ if not manifest.is_file(): raise FileNotFoundError(f"Missing {manifest}; run prepare_datasets first")
+ if bundle.dataset_id=="cifar10":
+  from torchvision.datasets import CIFAR10
+  base=CIFAR10(str(root),train=split!="test",transform=transform,download=False)
+  with manifest.open(newline="",encoding="utf-8") as f: indices=[int(x["source_index"]) for x in csv.DictReader(f)]
+  return Subset(base,indices)
+ source=root/"source" if bundle.dataset_id=="imagenet100" else root
+ if bundle.dataset_id=="imagenet100" and (not source.is_symlink() or not source.resolve().is_dir()): raise FileNotFoundError(f"Invalid ImageNet symlink: {source}")
+ return ManifestImageDataset(source,manifest,transform)
 
-    @staticmethod
-    def _class_from_name(stem: str) -> str:
-        match = re.match(r"(.+)_\d+$", stem)
-        if match:
-            return match.group(1)
-        return stem.rsplit("_", 1)[0] if "_" in stem else stem
+def build_dataset(bundle,split,*,data_root=None,download=False):
+ from torchvision import datasets
+ if split not in {"train","val","test"}: raise ValueError(split)
+ root=Path(data_root or bundle_paths(bundle.bundle_id).dataset_root); transform=build_transform(bundle,train=split=="train")
+ if not bundle.bundle_id.endswith("-ee-v1"):
+  if download: raise ValueError("Downloads are disabled for manifest-backed bundles")
+  return _manifest_dataset(bundle,split,root,transform)
+ train=split=="train"
+ if bundle.dataset_id=="cifar10": return datasets.CIFAR10(str(root),train=train,transform=transform,download=download)
+ if bundle.dataset_id=="imagenet100": return datasets.ImageFolder(str(root/("train" if train else "val")),transform=transform)
+ candidates=("train",) if train else ("val","valid","test"); split_dir=next((root/x for x in candidates if (root/x).is_dir()),None)
+ if split_dir is None: raise FileNotFoundError(root)
+ image_dir=split_dir/"images"; return FilenameClassImageDataset(image_dir,transform) if image_dir.is_dir() else datasets.ImageFolder(str(split_dir),transform=transform)
 
-    def __len__(self) -> int:
-        return len(self.samples)
+def _seed_worker(_):
+ seed=torch.initial_seed()%(2**32); random.seed(seed)
+ try:
+  import numpy as np; np.random.seed(seed)
+ except ImportError: pass
 
-    def __getitem__(self, index: int):
-        from PIL import Image
-
-        path, target = self.samples[index]
-        with Image.open(path) as image:
-            image = image.convert("RGB")
-            if self.transform:
-                image = self.transform(image)
-        return image, target
-
-
-def _build_neucls64_dataset(root: Path, *, train: bool, transform, num_classes: int):
-    from torchvision import datasets
-
-    split_candidates = ("train",) if train else ("val", "valid", "test")
-    split_dir = next((root / name for name in split_candidates if (root / name).is_dir()), None)
-    if split_dir is None:
-        raise FileNotFoundError(
-            f"NEU-CLS-64 split not found under {root}; expected one of {split_candidates}"
-        )
-
-    image_dir = split_dir / "images"
-    if image_dir.is_dir():
-        dataset = FilenameClassImageDataset(image_dir, transform=transform)
-    else:
-        dataset = datasets.ImageFolder(str(split_dir), transform=transform)
-    if len(dataset.classes) != num_classes:
-        raise ValueError(
-            f"neucls64 requires exactly {num_classes} classes, "
-            f"found {len(dataset.classes)} under {split_dir}: {dataset.classes}"
-        )
-    return dataset
-
-
-def build_dataset(
-    bundle: ModelBundleSpec,
-    split: str,
-    *,
-    data_root: str | Path | None = None,
-    download: bool = False,
-):
-    from torchvision import datasets
-
-    root = Path(data_root or bundle_paths(bundle.bundle_id).dataset_root)
-    train = split == "train"
-    transform = build_transform(bundle, train=train)
-    if bundle.dataset_id == "cifar10":
-        return datasets.CIFAR10(root=str(root), train=train, transform=transform, download=download)
-    if bundle.dataset_id == "imagenet100":
-        if download:
-            raise ValueError(f"{bundle.dataset_id} download is not supported")
-        directory = root / ("train" if train else "val")
-        dataset = datasets.ImageFolder(str(directory), transform=transform)
-        if len(dataset.classes) != bundle.num_classes:
-            raise ValueError(
-                f"{bundle.dataset_id} requires exactly {bundle.num_classes} classes, "
-                f"found {len(dataset.classes)} under {directory}"
-            )
-        return dataset
-    if bundle.dataset_id == "neucls64":
-        if download:
-            raise ValueError("neucls64 download is not supported")
-        return _build_neucls64_dataset(
-            root,
-            train=train,
-            transform=transform,
-            num_classes=bundle.num_classes,
-        )
-    raise ValueError(f"Unsupported dataset_id: {bundle.dataset_id}")
-
-
-def build_loader(
-    bundle: ModelBundleSpec,
-    split: str,
-    *,
-    batch_size=64,
-    num_workers=0,
-    data_root=None,
-    download=False,
-):
-    dataset = build_dataset(bundle, split, data_root=data_root, download=download)
-    return DataLoader(dataset, batch_size=batch_size, shuffle=split == "train", num_workers=num_workers)
-
+def build_loader(bundle,split,*,batch_size=64,num_workers=0,data_root=None,download=False,pin_memory=None,persistent_workers=None):
+ ds=build_dataset(bundle,split,data_root=data_root,download=download); pin=torch.cuda.is_available() if pin_memory is None else pin_memory; persistent=(num_workers>0) if persistent_workers is None else persistent_workers and num_workers>0
+ return DataLoader(ds,batch_size=batch_size,shuffle=split=="train",num_workers=num_workers,pin_memory=pin,persistent_workers=persistent,worker_init_fn=_seed_worker,generator=torch.Generator().manual_seed(42))
 
 class TestPackageDataset(Dataset):
     """Manifest-backed image dataset exported for device-side testing."""

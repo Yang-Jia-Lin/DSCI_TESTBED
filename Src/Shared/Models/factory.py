@@ -7,11 +7,14 @@ import torch.nn as nn
 from Src.Shared.Config.model_config import ModelBundleSpec
 
 
-def build_model(bundle: ModelBundleSpec) -> nn.Module:
+def build_model(bundle: ModelBundleSpec, *, pretrained: bool = False) -> nn.Module:
     if bundle.architecture.startswith("resnet"):
         from Src.Shared.Models.ModelNet.MultiExitResNet import build_model as build_resnet
 
-        return build_resnet(bundle)
+        return build_resnet(bundle, pretrained=pretrained)
+    if bundle.architecture == "vit-base":
+        from Src.Shared.Models.ModelNet.MultiExitViT import MultiExitViT
+        return MultiExitViT(bundle, pretrained=pretrained)
     if bundle.architecture == "deit-small":
         from Src.Shared.Models.ModelNet.MultiExitDeiT import MultiExitDeiT
 

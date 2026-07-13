@@ -157,3 +157,23 @@ python -m Src.Phase1_Offline.Training.plot_exit_analysis --bundle-id $bundle
 Add the dataset spec in `Src/Shared/Config/model_config.py`, then add its loader branch in `Src/Shared/Data/registry.py`.
 
 After that, the same training, threshold-test, and plotting commands work through `--bundle-id`.
+
+
+## V100 six-bundle workflow (Linux)
+
+Prepare local manifests and the ImageNet2012 symlink without copying images:
+
+```bash
+conda run -n DSCI python -m Src.Phase1_Offline.Datasets.prepare_datasets --dataset all
+```
+
+Run all stages sequentially on the single V100 (safe to resume after SSH interruption):
+
+```bash
+conda run -n DSCI python -m Src.Phase1_Offline.run_six_experiments --resume --overwrite
+```
+
+Use `--dry-run`, `--stages`, or `--bundles` to inspect or limit work. New bundles are
+`resnet50-{cifar10,imagenet100,neucls64}` and
+`vit-base-{cifar10,imagenet100,neucls64}`. ImageNet-100 reads through
+`Data/Datasets/ImageNet100/source`; it never downloads or copies ImageNet images.

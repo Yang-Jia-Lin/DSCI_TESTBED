@@ -43,3 +43,6 @@ Data/Datasets/**
 !Data/Runtime/SolutionCache/*.json
 !Data/Runtime/SolutionCache/*.jsonl
 !Data/Runtime/DeviceResults/**
+
+# Local pretrained-model caches
+Data/.cache/

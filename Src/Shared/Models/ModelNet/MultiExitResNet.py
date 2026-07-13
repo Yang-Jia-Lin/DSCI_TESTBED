@@ -160,7 +160,7 @@ class MultiExitResNet(nn.Module):
         return self.fc(torch.flatten(self.avgpool(features["layer4"]), 1))
 
 
-def build_model(bundle: ModelBundleSpec) -> MultiExitResNet:
+def build_model(bundle: ModelBundleSpec, *, pretrained: bool = False) -> MultiExitResNet:
     architectures = {
         "resnet18": (BasicBlock, (2, 2, 2, 2)),
         "resnet50": (Bottleneck, (3, 4, 6, 3)),
@@ -170,9 +170,15 @@ def build_model(bundle: ModelBundleSpec) -> MultiExitResNet:
         block, blocks = architectures[bundle.architecture]
     except KeyError as exc:
         raise ValueError(f"Unsupported architecture: {bundle.architecture}") from exc
-    return MultiExitResNet(
-        block, blocks, num_classes=bundle.num_classes, exits=bundle.exits
-    )
+    model = MultiExitResNet(block, blocks, num_classes=bundle.num_classes, exits=bundle.exits)
+    if pretrained:
+        if bundle.architecture != "resnet50": raise ValueError("Pretrained initialization supports ResNet50 only")
+        from torchvision.models import ResNet50_Weights, resnet50
+        source = {k: v for k, v in resnet50(weights=ResNet50_Weights.IMAGENET1K_V2).state_dict().items() if not k.startswith("fc.")}
+        missing, unexpected = model.load_state_dict(source, strict=False)
+        allowed = {"fc.weight", "fc.bias"} | {f"exit_heads.{item.exit_id}.{suffix}" for item in bundle.exits for suffix in ("weight", "bias")}
+        if set(missing) != allowed or unexpected: raise RuntimeError(f"Unexpected pretrained transfer: {missing}, {unexpected}")
+    return model
 
 
 def freeze_for_exit(model: MultiExitResNet, exit_id: str | None) -> None:

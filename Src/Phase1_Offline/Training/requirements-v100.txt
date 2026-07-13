@@ -1,0 +1,7 @@
+# Install into the existing CUDA-enabled DSCI environment. Do not reinstall torch.
+timm==1.0.28
+huggingface_hub==1.23.0
+scikit-learn==1.7.2
+fvcore==0.1.5.post20221221
+PySocks==1.7.1
+socksio==1.0.0
