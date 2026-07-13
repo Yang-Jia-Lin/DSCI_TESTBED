@@ -1,0 +1,9 @@
+nohup: ignoring input
+{'train': 45000, 'val': 5000, 'test': 10000}
+{'train': 1260, 'val': 270, 'test': 270}
+{'dataset_id': 'imagenet100', 'source': '/root/commonfiles/Datasets/ImageNet2012', 'seed': 42, 'classes': 100, 'counts': {'train': 114015, 'val': 12674, 'test': 5000}, 'generated_at': '2026-07-13T03:46:52.591860+00:00'}
++ /root/miniconda3/envs/DSCI/bin/python -m Src.Phase1_Offline.Training.train_model --bundle-id resnet50-cifar10 --resume
+epoch=29 train_acc=91.11 val_acc=95.96 best=96.16
+epoch=30 train_acc=91.46 val_acc=96.04 best=96.16
+Saved best weights: /home/DSCI_testbed_0622/Data/Bundles/resnet50-cifar10/weights.pth
++ /root/miniconda3/envs/DSCI/bin/python -m Src.Phase1_Offline.Training.finetune_exits --bundle-id resnet50-cifar10 --resume
