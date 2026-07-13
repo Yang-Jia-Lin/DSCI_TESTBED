@@ -40,6 +40,9 @@ Data/Datasets/**
 !Data/Datasets/NEU-CLS-64/TestSets/
 !Data/Datasets/NEU-CLS-64/TestSets/**
 
+# Locally generated validation packages; fixed __test__ packages remain tracked.
+Data/Datasets/*/TestSets/*__val__*
+
 # Runtime experiment outputs are small enough to track in this repository.
 !Data/Runtime/SolutionCache/*.pt
 !Data/Runtime/SolutionCache/*.npz
