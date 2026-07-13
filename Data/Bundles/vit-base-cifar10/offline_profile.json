@@ -1,0 +1,182 @@
+{
+  "bundle_id": "vit-base-cifar10",
+  "architecture": "vit-base",
+  "dataset_id": "cifar10",
+  "pretrained_source": "timm/vit_base_patch16_224.orig_in21k_ft_in1k",
+  "model_hash": "fee60ffa57bba9b355670d5e57f75726ac8d321f10a97206fff3a2bc1a85bbc0",
+  "manifest_id": "vit-base-cifar10-partition-v1",
+  "input_shape": [
+    3,
+    224,
+    224
+  ],
+  "interpolation": "bicubic",
+  "normalization": {
+    "mean": [
+      0.5,
+      0.5,
+      0.5
+    ],
+    "std": [
+      0.5,
+      0.5,
+      0.5
+    ]
+  },
+  "exits": [
+    {
+      "exit_id": "after_block3",
+      "attach_point": "blocks.2",
+      "test_accuracy": 66.73
+    },
+    {
+      "exit_id": "after_block6",
+      "attach_point": "blocks.5",
+      "test_accuracy": 88.35
+    },
+    {
+      "exit_id": "after_block9",
+      "attach_point": "blocks.8",
+      "test_accuracy": 96.86
+    },
+    {
+      "exit_id": "final",
+      "test_accuracy": 98.81
+    }
+  ],
+  "test_samples": 10000,
+  "segment_flops": [
+    0.0,
+    115605504.0,
+    1395856896.0,
+    1395856896.0,
+    1395856896.0,
+    1395856896.0,
+    1395856896.0,
+    1395856896.0,
+    1395856896.0,
+    1395856896.0,
+    1395856896.0,
+    1395856896.0,
+    1395856896.0,
+    1395856896.0,
+    756480.0,
+    7680.0
+  ],
+  "cumulative_flops": [
+    0.0,
+    115605504.0,
+    1511462400.0,
+    2907319296.0,
+    4303176192.0,
+    5699033088.0,
+    7094889984.0,
+    8490746880.0,
+    9886603776.0,
+    11282460672.0,
+    12678317568.0,
+    14074174464.0,
+    15470031360.0,
+    16865888256.0,
+    16866644736.0,
+    16866652416.0
+  ],
+  "activation_bytes": [
+    602112,
+    605184,
+    605184,
+    605184,
+    605184,
+    605184,
+    605184,
+    605184,
+    605184,
+    605184,
+    605184,
+    605184,
+    605184,
+    605184,
+    3072,
+    40
+  ],
+  "serialized_bytes": [
+    602625,
+    605692,
+    605692,
+    605692,
+    605692,
+    605692,
+    605692,
+    605692,
+    605692,
+    605692,
+    605692,
+    605692,
+    605692,
+    605692,
+    605687,
+    529
+  ],
+  "dataset": {
+    "source_info": {
+      "dataset_id": "cifar10",
+      "source": "/home/DSCI_testbed_0622/Data/Datasets/CIFAR10",
+      "seed": 42,
+      "counts": {
+        "train": 45000,
+        "val": 5000,
+        "test": 10000
+      }
+    },
+    "class_to_idx": {
+      "airplane": 0,
+      "automobile": 1,
+      "bird": 2,
+      "cat": 3,
+      "deer": 4,
+      "dog": 5,
+      "frog": 6,
+      "horse": 7,
+      "ship": 8,
+      "truck": 9
+    }
+  },
+  "training": {
+    "bundle_id": "vit-base-cifar10",
+    "weights_sha256": "925b8015ee08c6f92bf61f1d9b9e19b9323675da22a165d3892896ea4cb1ed73",
+    "pretrained_source": "timm/vit_base_patch16_224.orig_in21k_ft_in1k",
+    "seed": 42,
+    "python": "3.10.20",
+    "torch": "2.5.1+cu121",
+    "cuda": "12.1",
+    "cudnn": 90100,
+    "gpu": "Tesla V100-PCIE-32GB",
+    "packages": {
+      "torchvision": "0.20.1+cu121",
+      "timm": "1.0.28",
+      "huggingface-hub": "1.23.0",
+      "fvcore": "0.1.5.post20221221"
+    },
+    "config": {
+      "bundle_id": "vit-base-cifar10",
+      "data_root": null,
+      "epochs": 30,
+      "batch_size": null,
+      "num_workers": 16,
+      "backbone_lr": 1e-05,
+      "head_lr": 0.001,
+      "warmup_epochs": 2,
+      "patience": 5,
+      "resume": true,
+      "resolved_batch_size": 64,
+      "accumulation": 1,
+      "device": "cuda"
+    }
+  },
+  "versions": {
+    "torch": "2.5.1+cu121",
+    "torchvision": "0.20.1+cu121",
+    "timm": "1.0.28",
+    "fvcore": "0.1.5.post20221221"
+  }
+}

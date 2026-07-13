@@ -1,0 +1,10 @@
+{
+  "dataset_id": "cifar10",
+  "source": "/home/DSCI_testbed_0622/Data/Datasets/CIFAR10",
+  "seed": 42,
+  "counts": {
+    "train": 45000,
+    "val": 5000,
+    "test": 10000
+  }
+}

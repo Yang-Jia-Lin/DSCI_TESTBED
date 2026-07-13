@@ -1,0 +1,178 @@
+{
+  "bundle_id": "vit-base-neucls64",
+  "architecture": "vit-base",
+  "dataset_id": "neucls64",
+  "pretrained_source": "timm/vit_base_patch16_224.orig_in21k_ft_in1k",
+  "model_hash": "9cb682d2176c43a21b127c7bd0680c5d2b8c172a22d40eb9c957df255d421c31",
+  "manifest_id": "vit-base-neucls64-partition-v1",
+  "input_shape": [
+    3,
+    224,
+    224
+  ],
+  "interpolation": "bicubic",
+  "normalization": {
+    "mean": [
+      0.5,
+      0.5,
+      0.5
+    ],
+    "std": [
+      0.5,
+      0.5,
+      0.5
+    ]
+  },
+  "exits": [
+    {
+      "exit_id": "after_block3",
+      "attach_point": "blocks.2",
+      "test_accuracy": 92.96296296296296
+    },
+    {
+      "exit_id": "after_block6",
+      "attach_point": "blocks.5",
+      "test_accuracy": 95.55555555555556
+    },
+    {
+      "exit_id": "after_block9",
+      "attach_point": "blocks.8",
+      "test_accuracy": 97.4074074074074
+    },
+    {
+      "exit_id": "final",
+      "test_accuracy": 99.25925925925925
+    }
+  ],
+  "test_samples": 270,
+  "segment_flops": [
+    0.0,
+    115605504.0,
+    1395856896.0,
+    1395856896.0,
+    1395856896.0,
+    1395856896.0,
+    1395856896.0,
+    1395856896.0,
+    1395856896.0,
+    1395856896.0,
+    1395856896.0,
+    1395856896.0,
+    1395856896.0,
+    1395856896.0,
+    756480.0,
+    4608.0
+  ],
+  "cumulative_flops": [
+    0.0,
+    115605504.0,
+    1511462400.0,
+    2907319296.0,
+    4303176192.0,
+    5699033088.0,
+    7094889984.0,
+    8490746880.0,
+    9886603776.0,
+    11282460672.0,
+    12678317568.0,
+    14074174464.0,
+    15470031360.0,
+    16865888256.0,
+    16866644736.0,
+    16866649344.0
+  ],
+  "activation_bytes": [
+    602112,
+    605184,
+    605184,
+    605184,
+    605184,
+    605184,
+    605184,
+    605184,
+    605184,
+    605184,
+    605184,
+    605184,
+    605184,
+    605184,
+    3072,
+    24
+  ],
+  "serialized_bytes": [
+    602626,
+    605693,
+    605693,
+    605693,
+    605693,
+    605693,
+    605693,
+    605693,
+    605693,
+    605693,
+    605693,
+    605693,
+    605693,
+    605693,
+    605688,
+    514
+  ],
+  "dataset": {
+    "source_info": {
+      "dataset_id": "neucls64",
+      "source": "/home/DSCI_testbed_0622/Data/Datasets/NEU-CLS-64",
+      "seed": 42,
+      "counts": {
+        "train": 1260,
+        "val": 270,
+        "test": 270
+      }
+    },
+    "class_to_idx": {
+      "crazing": 0,
+      "inclusion": 1,
+      "patches": 2,
+      "pitted_surface": 3,
+      "rolled-in_scale": 4,
+      "scratches": 5
+    }
+  },
+  "training": {
+    "bundle_id": "vit-base-neucls64",
+    "weights_sha256": "e5d55cc85b2b108e766c4bec240da985e9914d938a33f213a1b5b0f924895b2b",
+    "pretrained_source": "timm/vit_base_patch16_224.orig_in21k_ft_in1k",
+    "seed": 42,
+    "python": "3.10.20",
+    "torch": "2.5.1+cu121",
+    "cuda": "12.1",
+    "cudnn": 90100,
+    "gpu": "Tesla V100-PCIE-32GB",
+    "packages": {
+      "torchvision": "0.20.1+cu121",
+      "timm": "1.0.28",
+      "huggingface-hub": "1.23.0",
+      "fvcore": "0.1.5.post20221221"
+    },
+    "config": {
+      "bundle_id": "vit-base-neucls64",
+      "data_root": null,
+      "epochs": 30,
+      "batch_size": null,
+      "num_workers": 16,
+      "backbone_lr": 1e-05,
+      "head_lr": 0.001,
+      "warmup_epochs": 2,
+      "patience": 5,
+      "resume": true,
+      "resolved_batch_size": 64,
+      "accumulation": 1,
+      "device": "cuda"
+    }
+  },
+  "versions": {
+    "torch": "2.5.1+cu121",
+    "torchvision": "0.20.1+cu121",
+    "timm": "1.0.28",
+    "fvcore": "0.1.5.post20221221"
+  }
+}

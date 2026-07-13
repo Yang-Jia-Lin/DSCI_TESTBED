@@ -40,6 +40,28 @@ def prepare_imagenet(source=DEFAULT_IMAGENET_SOURCE):
  info=dict(dataset_id="imagenet100",source=str(source),seed=SEED,classes=100,counts=counts,generated_at=datetime.now(timezone.utc).isoformat())
  (meta/"source_info.json").write_text(json.dumps(info,indent=2)+"\n"); return info
 
+def prepare_imagenet1000(source=DEFAULT_IMAGENET_SOURCE):
+ root=DATASET_DIR/"ImageNet1000"; source=Path(source).resolve(); root.mkdir(parents=True,exist_ok=True)
+ if not (source/"train").is_dir() or not (source/"val").is_dir(): raise FileNotFoundError(source)
+ link=root/"source"
+ if link.is_symlink() and link.resolve()!=source: link.unlink()
+ if link.exists() and not link.is_symlink(): raise FileExistsError(link)
+ if not link.exists(): link.symlink_to(source,target_is_directory=True)
+ # Match torchvision.datasets.ImageFolder/ImageNet class-index assignment.
+ synsets=sorted(p.name for p in (source/"val").iterdir() if p.is_dir())
+ train_synsets=sorted(p.name for p in (source/"train").iterdir() if p.is_dir())
+ if len(synsets)!=1000 or train_synsets!=synsets: raise ValueError({"train_classes":len(train_synsets),"val_classes":len(synsets)})
+ mapping={syn:i for i,syn in enumerate(synsets)}; rows=[]
+ for syn,label in mapping.items():
+  images=sorted(p for p in (source/"val"/syn).iterdir() if p.suffix.lower() in SUFFIX)
+  if len(images)!=50: raise ValueError(f"Expected 50 validation images for {syn}, found {len(images)}")
+  rows += [dict(relative_path=str(p.relative_to(source)),synset=syn,label=label,source_index=i,split="test") for i,p in enumerate(images)]
+ meta=root/"metadata"; write(meta/"test_manifest.csv",rows)
+ (meta/"imagenet1000_synsets.txt").write_text("\n".join(synsets)+"\n")
+ (meta/"class_to_idx.json").write_text(json.dumps(mapping,indent=2)+"\n")
+ info=dict(dataset_id="imagenet1000",source=str(source),seed=None,classes=1000,counts={"test":len(rows)},label_mapping="torchvision ImageFolder lexicographic synset order",generated_at=datetime.now(timezone.utc).isoformat())
+ (meta/"source_info.json").write_text(json.dumps(info,indent=2)+"\n"); return info
+
 def prepare_neu():
  root=DATASET_DIR/"NEU-CLS-64"; groups={}
  for p in sorted({x.resolve() for x in root.glob("*/images/*") if x.suffix.lower() in SUFFIX}): groups.setdefault(p.stem.rsplit("_",1)[0],[]).append(p)
@@ -65,9 +87,10 @@ def prepare_cifar():
  (meta/"class_to_idx.json").write_text(json.dumps(train.class_to_idx,indent=2)+"\n"); counts={k:len(v) for k,v in out.items()}; (meta/"source_info.json").write_text(json.dumps({"dataset_id":"cifar10","source":str(root.resolve()),"seed":SEED,"counts":counts},indent=2)+"\n"); return counts
 
 def main():
- p=argparse.ArgumentParser(); p.add_argument("--dataset",choices=("all","cifar10","imagenet100","neucls64"),default="all"); p.add_argument("--imagenet-source",default=str(DEFAULT_IMAGENET_SOURCE)); a=p.parse_args(); result={}
+ p=argparse.ArgumentParser(); p.add_argument("--dataset",choices=("all","cifar10","imagenet100","imagenet1000","neucls64"),default="all"); p.add_argument("--imagenet-source",default=str(DEFAULT_IMAGENET_SOURCE)); a=p.parse_args(); result={}
  if a.dataset in ("all","cifar10"): result["cifar10"]=prepare_cifar()
  if a.dataset in ("all","imagenet100"): result["imagenet100"]=prepare_imagenet(a.imagenet_source)
+ if a.dataset in ("all","imagenet1000"): result["imagenet1000"]=prepare_imagenet1000(a.imagenet_source)
  if a.dataset in ("all","neucls64"): result["neucls64"]=prepare_neu()
  print(json.dumps(result,indent=2))
 if __name__=="__main__": main()

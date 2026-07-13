@@ -179,7 +179,26 @@ Use `--dry-run`, `--stages`, or `--bundles` to inspect or limit work. New bundle
 `Data/Datasets/ImageNet100/source`; it never downloads or copies ImageNet images.
 
 
-## Export the three terminal test packages
+## Experiment roles and fair baseline protocol
+
+Pretraining source and target dataset are separate concepts. The three ResNet50
+bundles start from the same torchvision ImageNet-1K V2 initialization, while the
+three ViT bundles start from the same timm ImageNet-pretrained initialization.
+Each model is then fine-tuned separately on CIFAR-10, ImageNet-100, or NEU-CLS.
+
+The primary generalization matrix remains the six `2 x 3` bundles. For direct
+comparison against scheduling, partitioning, or offloading baselines, use
+`resnet50-imagenet100` as the single fixed workload and give every method the
+same final `weights.pth`, partition manifest, exit curves, preprocessing, and
+test manifest. Baseline methods must not independently fine-tune this checkpoint.
+
+ImageNet-1K is currently a dataset-only compatibility package, not a seventh
+training bundle. A future `resnet50-imagenet1000` experiment would require a
+1,000-class model and trained early-exit heads; the current 100-class ImageNet-100
+weights cannot be evaluated against ImageNet-1K labels.
+
+
+## Export the four terminal test packages
 
 Export the same model-independent, class-balanced test samples for every terminal:
 
@@ -187,5 +206,27 @@ Export the same model-independent, class-balanced test samples for every termina
 conda run --no-capture-output -n DSCI python -m Src.Phase1_Offline.Datasets.export_manifest_test_packages --samples-per-class 10 --seed 42 --overwrite
 ```
 
-This creates 100 CIFAR-10, 1,000 ImageNet-100, and 60 NEU-CLS test images.
-Each package contains `manifest.csv`, `metadata.json`, and class-organized `images/`.
+This creates 100 CIFAR-10, 1,000 ImageNet-100, 60 NEU-CLS, and 10,000
+ImageNet-1K test images. Each package contains `manifest.csv`, `metadata.json`,
+and class-organized `images/`. Balanced package names are dataset-level and are
+shared by ResNet50, ViT, and any other model using the same class mapping:
+
+```text
+cifar10__test__balanced__10pc__seed42
+neucls64__test__balanced__10pc__seed42
+imagenet100__test__balanced__10pc__seed42
+imagenet1000__test__balanced__10pc__seed42
+```
+
+Model-derived `easy` and `hard` packages keep their bundle prefix because their
+difficulty labels depend on a specific checkpoint.
+
+ImageNet-1K is a dataset-only test package and does not add a training bundle. Its
+source is linked to `/root/commonfiles/Datasets/ImageNet2012`; the labeled official
+validation split is treated as test, and 10 images per each of the 1,000 classes are
+selected with seed 42. To prepare or export only this package:
+
+```bash
+conda run --no-capture-output -n DSCI python -m Src.Phase1_Offline.Datasets.prepare_datasets --dataset imagenet1000
+conda run --no-capture-output -n DSCI python -m Src.Phase1_Offline.Datasets.export_manifest_test_packages --datasets imagenet1000 --samples-per-class 10 --seed 42 --copy-workers 16 --overwrite
+```

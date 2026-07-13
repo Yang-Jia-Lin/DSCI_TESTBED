@@ -1,0 +1,32 @@
+{
+  "bundle_id": "resnet50-imagenet100",
+  "weights_sha256": "5b3f26339b441ea9f3a625930f30b9758b4823d1e3a5ba38981363da3cc4386c",
+  "pretrained_source": "torchvision/resnet50:IMAGENET1K_V2",
+  "seed": 42,
+  "python": "3.10.20",
+  "torch": "2.5.1+cu121",
+  "cuda": "12.1",
+  "cudnn": 90100,
+  "gpu": "Tesla V100-PCIE-32GB",
+  "packages": {
+    "torchvision": "0.20.1+cu121",
+    "timm": "1.0.28",
+    "huggingface-hub": "1.23.0",
+    "fvcore": "0.1.5.post20221221"
+  },
+  "config": {
+    "bundle_id": "resnet50-imagenet100",
+    "data_root": null,
+    "epochs": 30,
+    "batch_size": null,
+    "num_workers": 16,
+    "backbone_lr": 1e-05,
+    "head_lr": 0.001,
+    "warmup_epochs": 2,
+    "patience": 5,
+    "resume": true,
+    "resolved_batch_size": 128,
+    "accumulation": 1,
+    "device": "cuda"
+  }
+}

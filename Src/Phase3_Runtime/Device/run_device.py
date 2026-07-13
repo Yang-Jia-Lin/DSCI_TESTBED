@@ -272,8 +272,14 @@ def collect_state(
     }
 
 
-def _package_name(bundle_id: str, split: str, mode: str, samples_per_class: int, seed: int) -> str:
-    return f"{bundle_id}__{split}__{mode}__{samples_per_class}pc__seed{seed}"
+def _package_name(package_id: str, split: str, mode: str, samples_per_class: int, seed: int) -> str:
+    return f"{package_id}__{split}__{mode}__{samples_per_class}pc__seed{seed}"
+
+
+def _test_package_id(bundle, mode: str) -> str:
+    # Balanced packages are dataset-level and shared by every compatible model.
+    # Easy/hard packages remain model-level because difficulty is model-derived.
+    return bundle.dataset_id if mode == "balanced" else bundle.bundle_id
 
 
 def _resolve_test_package_root(bundle, args) -> Path | None:
@@ -282,15 +288,16 @@ def _resolve_test_package_root(bundle, args) -> Path | None:
     if not args.test_package_mode:
         return None
     base = Path(args.test_package_base) if args.test_package_base else bundle_paths(bundle.bundle_id).test_package_root
+    package_id = _test_package_id(bundle, args.test_package_mode)
     if args.test_package_samples_per_class is not None:
         return base / _package_name(
-            bundle.bundle_id,
+            package_id,
             args.test_package_split,
             args.test_package_mode,
             args.test_package_samples_per_class,
             args.test_package_seed,
         )
-    pattern = f"{bundle.bundle_id}__{args.test_package_split}__{args.test_package_mode}__*pc__seed{args.test_package_seed}"
+    pattern = f"{package_id}__{args.test_package_split}__{args.test_package_mode}__*pc__seed{args.test_package_seed}"
     matches = sorted(base.glob(pattern))
     if not matches:
         raise FileNotFoundError(f"No test package matched {base / pattern}")
@@ -312,7 +319,7 @@ def main(argv=None):
     parser.add_argument("--data-root")
     parser.add_argument("--test-package-root", "--testset-root", dest="test_package_root")
     parser.add_argument("--test-package-mode", choices=("balanced", "easy", "hard"))
-    parser.add_argument("--test-package-split", choices=("train", "val", "test"), default="val")
+    parser.add_argument("--test-package-split", choices=("train", "val", "test"), default="test")
     parser.add_argument("--test-package-samples-per-class", type=int)
     parser.add_argument("--test-package-seed", type=int, default=42)
     parser.add_argument("--test-package-base")

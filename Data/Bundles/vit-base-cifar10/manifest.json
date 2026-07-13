@@ -1,0 +1,496 @@
+{
+  "manifest_id": "vit-base-cifar10-partition-v1",
+  "bundle_id": "vit-base-cifar10",
+  "dataset_id": "cifar10",
+  "model_hash": "fee60ffa57bba9b355670d5e57f75726ac8d321f10a97206fff3a2bc1a85bbc0",
+  "input_shape": [
+    3,
+    224,
+    224
+  ],
+  "boundaries": [
+    {
+      "boundary_id": 0,
+      "label": "input",
+      "live_tensors": [
+        {
+          "name": "main",
+          "shape": [
+            1,
+            3,
+            224,
+            224
+          ],
+          "dtype": "float32",
+          "num_bytes": 602112
+        }
+      ],
+      "serialized_num_bytes": 602625
+    },
+    {
+      "boundary_id": 1,
+      "label": "patch_embed",
+      "live_tensors": [
+        {
+          "name": "main",
+          "shape": [
+            1,
+            197,
+            768
+          ],
+          "dtype": "float32",
+          "num_bytes": 605184
+        }
+      ],
+      "serialized_num_bytes": 605692
+    },
+    {
+      "boundary_id": 2,
+      "label": "blocks.0",
+      "live_tensors": [
+        {
+          "name": "main",
+          "shape": [
+            1,
+            197,
+            768
+          ],
+          "dtype": "float32",
+          "num_bytes": 605184
+        }
+      ],
+      "serialized_num_bytes": 605692
+    },
+    {
+      "boundary_id": 3,
+      "label": "blocks.1",
+      "live_tensors": [
+        {
+          "name": "main",
+          "shape": [
+            1,
+            197,
+            768
+          ],
+          "dtype": "float32",
+          "num_bytes": 605184
+        }
+      ],
+      "serialized_num_bytes": 605692
+    },
+    {
+      "boundary_id": 4,
+      "label": "blocks.2",
+      "live_tensors": [
+        {
+          "name": "main",
+          "shape": [
+            1,
+            197,
+            768
+          ],
+          "dtype": "float32",
+          "num_bytes": 605184
+        }
+      ],
+      "serialized_num_bytes": 605692
+    },
+    {
+      "boundary_id": 5,
+      "label": "blocks.3",
+      "live_tensors": [
+        {
+          "name": "main",
+          "shape": [
+            1,
+            197,
+            768
+          ],
+          "dtype": "float32",
+          "num_bytes": 605184
+        }
+      ],
+      "serialized_num_bytes": 605692
+    },
+    {
+      "boundary_id": 6,
+      "label": "blocks.4",
+      "live_tensors": [
+        {
+          "name": "main",
+          "shape": [
+            1,
+            197,
+            768
+          ],
+          "dtype": "float32",
+          "num_bytes": 605184
+        }
+      ],
+      "serialized_num_bytes": 605692
+    },
+    {
+      "boundary_id": 7,
+      "label": "blocks.5",
+      "live_tensors": [
+        {
+          "name": "main",
+          "shape": [
+            1,
+            197,
+            768
+          ],
+          "dtype": "float32",
+          "num_bytes": 605184
+        }
+      ],
+      "serialized_num_bytes": 605692
+    },
+    {
+      "boundary_id": 8,
+      "label": "blocks.6",
+      "live_tensors": [
+        {
+          "name": "main",
+          "shape": [
+            1,
+            197,
+            768
+          ],
+          "dtype": "float32",
+          "num_bytes": 605184
+        }
+      ],
+      "serialized_num_bytes": 605692
+    },
+    {
+      "boundary_id": 9,
+      "label": "blocks.7",
+      "live_tensors": [
+        {
+          "name": "main",
+          "shape": [
+            1,
+            197,
+            768
+          ],
+          "dtype": "float32",
+          "num_bytes": 605184
+        }
+      ],
+      "serialized_num_bytes": 605692
+    },
+    {
+      "boundary_id": 10,
+      "label": "blocks.8",
+      "live_tensors": [
+        {
+          "name": "main",
+          "shape": [
+            1,
+            197,
+            768
+          ],
+          "dtype": "float32",
+          "num_bytes": 605184
+        }
+      ],
+      "serialized_num_bytes": 605692
+    },
+    {
+      "boundary_id": 11,
+      "label": "blocks.9",
+      "live_tensors": [
+        {
+          "name": "main",
+          "shape": [
+            1,
+            197,
+            768
+          ],
+          "dtype": "float32",
+          "num_bytes": 605184
+        }
+      ],
+      "serialized_num_bytes": 605692
+    },
+    {
+      "boundary_id": 12,
+      "label": "blocks.10",
+      "live_tensors": [
+        {
+          "name": "main",
+          "shape": [
+            1,
+            197,
+            768
+          ],
+          "dtype": "float32",
+          "num_bytes": 605184
+        }
+      ],
+      "serialized_num_bytes": 605692
+    },
+    {
+      "boundary_id": 13,
+      "label": "blocks.11",
+      "live_tensors": [
+        {
+          "name": "main",
+          "shape": [
+            1,
+            197,
+            768
+          ],
+          "dtype": "float32",
+          "num_bytes": 605184
+        }
+      ],
+      "serialized_num_bytes": 605692
+    },
+    {
+      "boundary_id": 14,
+      "label": "norm",
+      "live_tensors": [
+        {
+          "name": "main",
+          "shape": [
+            1,
+            768
+          ],
+          "dtype": "float32",
+          "num_bytes": 3072
+        }
+      ],
+      "serialized_num_bytes": 605687
+    },
+    {
+      "boundary_id": 15,
+      "label": "final_classifier",
+      "live_tensors": [
+        {
+          "name": "logits",
+          "shape": [
+            1,
+            10
+          ],
+          "dtype": "float32",
+          "num_bytes": 40
+        }
+      ],
+      "serialized_num_bytes": 529
+    }
+  ],
+  "segments": [
+    {
+      "segment_id": 0,
+      "name": "patch_embed",
+      "start_boundary": 0,
+      "end_boundary": 1,
+      "input_names": [
+        "main"
+      ],
+      "output_names": [
+        "main"
+      ]
+    },
+    {
+      "segment_id": 1,
+      "name": "blocks.0",
+      "start_boundary": 1,
+      "end_boundary": 2,
+      "input_names": [
+        "main"
+      ],
+      "output_names": [
+        "main"
+      ]
+    },
+    {
+      "segment_id": 2,
+      "name": "blocks.1",
+      "start_boundary": 2,
+      "end_boundary": 3,
+      "input_names": [
+        "main"
+      ],
+      "output_names": [
+        "main"
+      ]
+    },
+    {
+      "segment_id": 3,
+      "name": "blocks.2",
+      "start_boundary": 3,
+      "end_boundary": 4,
+      "input_names": [
+        "main"
+      ],
+      "output_names": [
+        "main"
+      ]
+    },
+    {
+      "segment_id": 4,
+      "name": "blocks.3",
+      "start_boundary": 4,
+      "end_boundary": 5,
+      "input_names": [
+        "main"
+      ],
+      "output_names": [
+        "main"
+      ]
+    },
+    {
+      "segment_id": 5,
+      "name": "blocks.4",
+      "start_boundary": 5,
+      "end_boundary": 6,
+      "input_names": [
+        "main"
+      ],
+      "output_names": [
+        "main"
+      ]
+    },
+    {
+      "segment_id": 6,
+      "name": "blocks.5",
+      "start_boundary": 6,
+      "end_boundary": 7,
+      "input_names": [
+        "main"
+      ],
+      "output_names": [
+        "main"
+      ]
+    },
+    {
+      "segment_id": 7,
+      "name": "blocks.6",
+      "start_boundary": 7,
+      "end_boundary": 8,
+      "input_names": [
+        "main"
+      ],
+      "output_names": [
+        "main"
+      ]
+    },
+    {
+      "segment_id": 8,
+      "name": "blocks.7",
+      "start_boundary": 8,
+      "end_boundary": 9,
+      "input_names": [
+        "main"
+      ],
+      "output_names": [
+        "main"
+      ]
+    },
+    {
+      "segment_id": 9,
+      "name": "blocks.8",
+      "start_boundary": 9,
+      "end_boundary": 10,
+      "input_names": [
+        "main"
+      ],
+      "output_names": [
+        "main"
+      ]
+    },
+    {
+      "segment_id": 10,
+      "name": "blocks.9",
+      "start_boundary": 10,
+      "end_boundary": 11,
+      "input_names": [
+        "main"
+      ],
+      "output_names": [
+        "main"
+      ]
+    },
+    {
+      "segment_id": 11,
+      "name": "blocks.10",
+      "start_boundary": 11,
+      "end_boundary": 12,
+      "input_names": [
+        "main"
+      ],
+      "output_names": [
+        "main"
+      ]
+    },
+    {
+      "segment_id": 12,
+      "name": "blocks.11",
+      "start_boundary": 12,
+      "end_boundary": 13,
+      "input_names": [
+        "main"
+      ],
+      "output_names": [
+        "main"
+      ]
+    },
+    {
+      "segment_id": 13,
+      "name": "norm",
+      "start_boundary": 13,
+      "end_boundary": 14,
+      "input_names": [
+        "main"
+      ],
+      "output_names": [
+        "main"
+      ]
+    },
+    {
+      "segment_id": 14,
+      "name": "final_classifier",
+      "start_boundary": 14,
+      "end_boundary": 15,
+      "input_names": [
+        "main"
+      ],
+      "output_names": [
+        "logits"
+      ]
+    }
+  ],
+  "early_exits": [
+    {
+      "exit_id": "after_block3",
+      "attach_point": "blocks.2",
+      "boundary_id": 4,
+      "head_name": "exit_heads.after_block3",
+      "final": false
+    },
+    {
+      "exit_id": "after_block6",
+      "attach_point": "blocks.5",
+      "boundary_id": 7,
+      "head_name": "exit_heads.after_block6",
+      "final": false
+    },
+    {
+      "exit_id": "after_block9",
+      "attach_point": "blocks.8",
+      "boundary_id": 10,
+      "head_name": "exit_heads.after_block9",
+      "final": false
+    },
+    {
+      "exit_id": "final",
+      "attach_point": "final_classifier",
+      "boundary_id": 15,
+      "head_name": "backbone.head",
+      "final": true
+    }
+  ]
+}

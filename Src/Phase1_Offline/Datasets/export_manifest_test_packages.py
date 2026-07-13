@@ -8,6 +8,7 @@ import json
 import random
 import shutil
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -21,12 +22,13 @@ MANIFEST_COLUMNS = (
 SPECS = {
     "cifar10": ("resnet50-cifar10", "CIFAR10", 10),
     "imagenet100": ("resnet50-imagenet100", "ImageNet100", 100),
+    "imagenet1000": (None, "ImageNet1000", 1000),
     "neucls64": ("resnet50-neucls64", "NEU-CLS-64", 6),
 }
 
 
-def package_name(bundle_id: str, samples_per_class: int, seed: int) -> str:
-    return f"{bundle_id}__test__balanced__{samples_per_class}pc__seed{seed}"
+def package_name(dataset_id: str, samples_per_class: int, seed: int) -> str:
+    return f"{dataset_id}__test__balanced__{samples_per_class}pc__seed{seed}"
 
 
 def read_rows(path: Path) -> list[dict[str, str]]:
@@ -62,20 +64,19 @@ def source_image(dataset_id: str, data_root: Path, row: dict[str, str], cifar=No
         if int(label) != int(row["label"]):
             raise ValueError(f"CIFAR label mismatch at {row['source_index']}")
         return image, None
-    base = data_root / "source" if dataset_id == "imagenet100" else data_root
+    base = data_root / "source" if dataset_id in ("imagenet100", "imagenet1000") else data_root
     path = base / row["relative_path"]
     if not path.is_file():
         raise FileNotFoundError(path)
     return None, path
 
 
-def export_one(dataset_id: str, *, samples_per_class: int, seed: int, overwrite: bool) -> Path:
+def export_one(dataset_id: str, *, samples_per_class: int, seed: int, overwrite: bool, copy_workers: int = 16) -> Path:
     bundle_id, directory, num_classes = SPECS[dataset_id]
-    bundle = get_bundle(bundle_id)
     data_root = DATASET_DIR / directory
     split_manifest = data_root / "metadata" / "test_manifest.csv"
     selected = select_balanced(read_rows(split_manifest), num_classes, samples_per_class, seed)
-    output = data_root / "TestSets" / package_name(bundle_id, samples_per_class, seed)
+    output = data_root / "TestSets" / package_name(dataset_id, samples_per_class, seed)
     if output.exists():
         if not overwrite:
             raise FileExistsError(f"Test package already exists: {output}")
@@ -86,6 +87,7 @@ def export_one(dataset_id: str, *, samples_per_class: int, seed: int, overwrite:
         from torchvision.datasets import CIFAR10
         cifar = CIFAR10(str(data_root), train=False, download=False)
     package_rows = []
+    copy_jobs = []
     class_counts = defaultdict(int)
     for row in selected:
         label = int(row["label"])
@@ -101,7 +103,7 @@ def export_one(dataset_id: str, *, samples_per_class: int, seed: int, overwrite:
         else:
             suffix = path.suffix.lower() or ".jpg"
             destination = class_dir / f"{sample_id}{suffix}"
-            shutil.copy2(path, destination)
+            copy_jobs.append((path, destination))
         package_rows.append({
             "sample_id": sample_id,
             "source_index": source_index,
@@ -113,12 +115,17 @@ def export_one(dataset_id: str, *, samples_per_class: int, seed: int, overwrite:
             "relative_path": destination.relative_to(output).as_posix(),
         })
         class_counts[label] += 1
+    if copy_jobs:
+        with ThreadPoolExecutor(max_workers=copy_workers) as executor:
+            list(executor.map(lambda pair: shutil.copy2(*pair), copy_jobs))
     with (output / "manifest.csv").open("w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=MANIFEST_COLUMNS)
         writer.writeheader()
         writer.writerows(package_rows)
     metadata = {
-        "bundle_id": bundle.bundle_id,
+        "bundle_id": None,
+        "validation_bundle_id": bundle_id,
+        "testset_id": dataset_id,
         "dataset_id": dataset_id,
         "split": "test",
         "mode": "balanced",
@@ -136,13 +143,23 @@ def export_one(dataset_id: str, *, samples_per_class: int, seed: int, overwrite:
     return output
 
 
-def validate_package(path: Path, bundle_id: str, expected: int):
-    from Src.Shared.Data.registry import build_test_package_dataset
-    dataset = build_test_package_dataset(get_bundle(bundle_id), path)
-    if len(dataset) != expected:
-        raise ValueError(f"Package {path} has {len(dataset)} samples, expected {expected}")
-    dataset[0]
-    dataset[len(dataset) - 1]
+def validate_package(path: Path, bundle_id: str | None, expected: int):
+    if bundle_id is not None:
+        from Src.Shared.Data.registry import build_test_package_dataset
+        dataset = build_test_package_dataset(get_bundle(bundle_id), path)
+        if len(dataset) != expected:
+            raise ValueError(f"Package {path} has {len(dataset)} samples, expected {expected}")
+        dataset[0]
+        dataset[len(dataset) - 1]
+        return
+    rows = list(csv.DictReader((path / "manifest.csv").open("r", encoding="utf-8", newline="")))
+    if len(rows) != expected:
+        raise ValueError(f"Package {path} has {len(rows)} samples, expected {expected}")
+    from PIL import Image
+    for row in (rows[0], rows[-1]):
+        image_path = path / row["relative_path"]
+        with Image.open(image_path) as image:
+            image.verify()
 
 
 def main(argv=None):
@@ -151,12 +168,15 @@ def main(argv=None):
     parser.add_argument("--samples-per-class", type=int, default=10)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--overwrite", action="store_true")
+    parser.add_argument("--copy-workers", type=int, default=16)
     args = parser.parse_args(argv)
     if args.samples_per_class <= 0:
         raise ValueError("--samples-per-class must be positive")
+    if args.copy_workers <= 0:
+        raise ValueError("--copy-workers must be positive")
     outputs = []
     for dataset_id in args.datasets:
-        output = export_one(dataset_id, samples_per_class=args.samples_per_class, seed=args.seed, overwrite=args.overwrite)
+        output = export_one(dataset_id, samples_per_class=args.samples_per_class, seed=args.seed, overwrite=args.overwrite, copy_workers=args.copy_workers)
         bundle_id, _, classes = SPECS[dataset_id]
         validate_package(output, bundle_id, classes * args.samples_per_class)
         outputs.append({"dataset_id": dataset_id, "samples": classes * args.samples_per_class, "path": str(output)})

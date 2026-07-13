@@ -1,0 +1,32 @@
+{
+  "bundle_id": "vit-base-cifar10",
+  "weights_sha256": "925b8015ee08c6f92bf61f1d9b9e19b9323675da22a165d3892896ea4cb1ed73",
+  "pretrained_source": "timm/vit_base_patch16_224.orig_in21k_ft_in1k",
+  "seed": 42,
+  "python": "3.10.20",
+  "torch": "2.5.1+cu121",
+  "cuda": "12.1",
+  "cudnn": 90100,
+  "gpu": "Tesla V100-PCIE-32GB",
+  "packages": {
+    "torchvision": "0.20.1+cu121",
+    "timm": "1.0.28",
+    "huggingface-hub": "1.23.0",
+    "fvcore": "0.1.5.post20221221"
+  },
+  "config": {
+    "bundle_id": "vit-base-cifar10",
+    "data_root": null,
+    "epochs": 30,
+    "batch_size": null,
+    "num_workers": 16,
+    "backbone_lr": 1e-05,
+    "head_lr": 0.001,
+    "warmup_epochs": 2,
+    "patience": 5,
+    "resume": true,
+    "resolved_batch_size": 64,
+    "accumulation": 1,
+    "device": "cuda"
+  }
+}

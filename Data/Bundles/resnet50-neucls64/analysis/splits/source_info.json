@@ -1,0 +1,10 @@
+{
+  "dataset_id": "neucls64",
+  "source": "/home/DSCI_testbed_0622/Data/Datasets/NEU-CLS-64",
+  "seed": 42,
+  "counts": {
+    "train": 1260,
+    "val": 270,
+    "test": 270
+  }
+}

@@ -1,1 +1,9 @@
 {"logged_at": 1783344455.498875, "phase": "phase1", "step": "profile_segments", "bundle_id": "resnet50-cifar10-ee-v1", "status": "success", "duration_s": 7.935725480783731, "profile_id": "device-nano1-pytorch-resnet50-cifar10", "worker_count": 1, "threads_per_worker": 1}
+{"logged_at": 1783916281.345488, "phase": "phase1", "step": "manifest", "bundle_id": "resnet50-cifar10", "status": "success", "duration_s": 5.925333470106125}
+{"logged_at": 1783916306.4172356, "phase": "phase1", "step": "exit_curves", "bundle_id": "resnet50-cifar10", "status": "success", "duration_s": 22.651617543771863}
+{"logged_at": 1783916683.303418, "phase": "phase1", "step": "manifest", "bundle_id": "resnet50-neucls64", "status": "success", "duration_s": 4.3735669031739235}
+{"logged_at": 1783916693.0923784, "phase": "phase1", "step": "exit_curves", "bundle_id": "resnet50-neucls64", "status": "success", "duration_s": 8.773762060329318}
+{"logged_at": 1783920558.0395718, "phase": "phase1", "step": "manifest", "bundle_id": "vit-base-cifar10", "status": "success", "duration_s": 10.270580695942044}
+{"logged_at": 1783920605.8050544, "phase": "phase1", "step": "exit_curves", "bundle_id": "vit-base-cifar10", "status": "success", "duration_s": 46.29069980792701}
+{"logged_at": 1783921185.862405, "phase": "phase1", "step": "manifest", "bundle_id": "vit-base-neucls64", "status": "success", "duration_s": 9.658741282299161}
+{"logged_at": 1783921200.3018582, "phase": "phase1", "step": "exit_curves", "bundle_id": "vit-base-neucls64", "status": "success", "duration_s": 13.071858633309603}
