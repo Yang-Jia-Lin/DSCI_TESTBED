@@ -27,11 +27,10 @@ Scope: resnet50-cifar10-ee-v1; cached PPO metrics, SolutionCache, segment profil
 - Early-exit total equals 82.61%; exit-point rates sum to 1.000000.
 
 ## Runtime-log sanity check
-- Observed DeviceResults cover 1004 samples across 7 rounds.
-- Observed exit locations: device.
-- Existing logs all terminate at device, so they validate the realized device-side fast path but do not contain per-head exit_id.
+- Observed DeviceResults cover 2104 samples across 13 rounds.
+- Observed exit locations: cloud, device, edge.
 
 ## Artifacts
-- PPO vs baselines: D:\Coding\Python\DSCI_testbed\Scripts\Results\Exp3_Convergency_and_Overhead\ppo_vs_baselines.csv
+- PPO vs baselines: 
 - Phase 3 latency breakdown: D:\Coding\Python\DSCI_testbed\Scripts\Results\Exp3_Convergency_and_Overhead\phase3_latency_breakdown.csv
 - Phase 3 exit distribution: D:\Coding\Python\DSCI_testbed\Scripts\Results\Exp3_Convergency_and_Overhead\phase3_exit_distribution.csv

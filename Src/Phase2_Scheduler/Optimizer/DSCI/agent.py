@@ -10,6 +10,7 @@ Src/Optimizer/DSCI/agent.py
 
 from __future__ import annotations
 
+import time
 from pathlib import Path
 from typing import cast
 
@@ -686,6 +687,7 @@ class PPOAgent:
         return final_obj, (X_best, Y_best, F_e.copy(), F_c.copy())
 
     def train(self, initial_solution=None):
+        started_at = time.perf_counter()
         best_val = -np.inf
         best_sol = None
         history = []
@@ -888,6 +890,7 @@ class PPOAgent:
                     "y_variance_coef": float(y_variance_coef),
                     "steps_collected": int(steps),
                     "num_episodes": int(len(episode_final_objs)),
+                    "elapsed_s": float(time.perf_counter() - started_at),
                 }
             )
             print(
