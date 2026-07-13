@@ -1,12 +1,11 @@
 """Train every early-exit head while the backbone remains frozen in eval mode."""
 import argparse, copy, hashlib
-import pandas as pd
 import torch, torch.nn as nn
 from Src.Shared.Config.model_config import get_bundle
 from Src.Shared.Config.paths import bundle_paths
 from Src.Shared.Data.registry import build_loader
 from Src.Shared.Models.factory import build_model, freeze_for_exit
-from Src.Phase1_Offline.Training.runtime import atomic_save, checkpoint_payload, cosine_warmup, restore, run_epoch, seed_all, cpu_state
+from Src.Phase1_Offline.Training.runtime import atomic_save, checkpoint_payload, cosine_warmup, restore, run_epoch, seed_all, cpu_state, append_epoch_log
 
 def frozen_digest(model):
  h=hashlib.sha256()
@@ -16,7 +15,7 @@ def frozen_digest(model):
 
 def main(argv=None):
  p=argparse.ArgumentParser(); p.add_argument("--bundle-id",required=True); p.add_argument("--data-root"); p.add_argument("--epochs-per-exit",type=int,default=20); p.add_argument("--batch-size",type=int); p.add_argument("--num-workers",type=int,default=16); p.add_argument("--lr",type=float,default=1e-3); p.add_argument("--warmup-epochs",type=int,default=2); p.add_argument("--patience",type=int,default=5); p.add_argument("--resume",action="store_true"); a=p.parse_args(argv)
- seed_all(); bundle=get_bundle(a.bundle_id); paths=bundle_paths(bundle.bundle_id); device=torch.device("cuda" if torch.cuda.is_available() else "cpu"); model=build_model(bundle).to(device); model.load_state_dict(torch.load(paths.weight_path,map_location=device,weights_only=True)); baseline=frozen_digest(model); batch=a.batch_size or (128 if bundle.architecture=="vit-base" else 256); log_path=paths.analysis_root/"finetune_exits_log.csv"; logs=pd.read_csv(log_path).to_dict("records") if a.resume and log_path.is_file() else []; criterion=nn.CrossEntropyLoss()
+ seed_all(); bundle=get_bundle(a.bundle_id); paths=bundle_paths(bundle.bundle_id); device=torch.device("cuda" if torch.cuda.is_available() else "cpu"); model=build_model(bundle).to(device); model.load_state_dict(torch.load(paths.weight_path,map_location=device,weights_only=True)); baseline=frozen_digest(model); batch=a.batch_size or (128 if bundle.architecture=="vit-base" else 256); log_path=paths.analysis_root/"finetune_exits_log.csv"; criterion=nn.CrossEntropyLoss()
  def loaders(bs):
   kw=dict(batch_size=bs,num_workers=a.num_workers,data_root=a.data_root); return build_loader(bundle,"train",**kw),build_loader(bundle,"val",**kw)
  for exit_spec in bundle.exits:
@@ -33,8 +32,8 @@ def main(argv=None):
    val_loss,val_acc=run_epoch(model,val_loader,criterion,device,exit_id=exit_spec.exit_id,train_head=head)
    if val_acc>best: best=val_acc; bad=0; best_head=cpu_state(head)
    else: bad+=1
-   scheduler.step(); logs.append(dict(stage=exit_spec.exit_id,epoch=epoch+1,train_loss=train_loss,train_acc=train_acc,val_loss=val_loss,val_acc=val_acc,best_val_acc=best,batch_size=batch,accumulation=accumulation)); atomic_save(checkpoint_payload(model,optimizer,scheduler,scaler,epoch,best,bad,{"best_head":best_head,"batch_size":batch,"accumulation":accumulation}),checkpoint); print(f"exit={exit_spec.exit_id} epoch={epoch+1} val_acc={val_acc:.2f} best={best:.2f}"); epoch+=1
+   scheduler.step(); row=dict(stage=exit_spec.exit_id,epoch=epoch+1,train_loss=train_loss,train_acc=train_acc,val_loss=val_loss,val_acc=val_acc,best_val_acc=best,batch_size=batch,accumulation=accumulation); append_epoch_log(log_path,row); atomic_save(checkpoint_payload(model,optimizer,scheduler,scaler,epoch,best,bad,{"best_head":best_head,"batch_size":batch,"accumulation":accumulation}),checkpoint); print(f"exit={exit_spec.exit_id} epoch={epoch+1} val_acc={val_acc:.2f} best={best:.2f}"); epoch+=1
   head.load_state_dict(best_head); atomic_save(model.state_dict(),paths.weight_path)
   if frozen_digest(model)!=baseline: raise RuntimeError("Frozen backbone or running statistics changed during exit training")
- pd.DataFrame(logs).to_csv(log_path,index=False); print(f"Saved exit weights: {paths.weight_path}")
+ print(f"Saved exit weights: {paths.weight_path}")
 if __name__=="__main__": main()

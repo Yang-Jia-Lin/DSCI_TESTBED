@@ -26,16 +26,18 @@ __pycache__
 venv/
 dsci_env/
 
-# Dataset directory skeletons are tracked, but downloaded data is not.
+# Raw/downloaded datasets are ignored; fixed terminal TestSets are tracked.
 Data/Datasets/**
 !Data/Datasets/
-!Data/Datasets/.gitkeep
 !Data/Datasets/CIFAR10/
-!Data/Datasets/CIFAR10/.gitkeep
+!Data/Datasets/CIFAR10/TestSets/
+!Data/Datasets/CIFAR10/TestSets/**
 !Data/Datasets/ImageNet100/
-!Data/Datasets/ImageNet100/.gitkeep
+!Data/Datasets/ImageNet100/TestSets/
+!Data/Datasets/ImageNet100/TestSets/**
 !Data/Datasets/NEU-CLS-64/
-!Data/Datasets/NEU-CLS-64/.gitkeep
+!Data/Datasets/NEU-CLS-64/TestSets/
+!Data/Datasets/NEU-CLS-64/TestSets/**
 
 # Runtime experiment outputs are small enough to track in this repository.
 !Data/Runtime/SolutionCache/*.pt

@@ -12,6 +12,24 @@ def seed_all(seed=42):
 def atomic_save(payload,path):
  path=Path(path); path.parent.mkdir(parents=True,exist_ok=True); tmp=path.with_suffix(path.suffix+".tmp"); torch.save(payload,tmp); os.replace(tmp,path)
 
+def append_epoch_log(path, row):
+ import csv
+ path=Path(path); path.parent.mkdir(parents=True,exist_ok=True)
+ fieldnames=list(row)
+ if path.is_file() and path.stat().st_size:
+  with path.open("r",encoding="utf-8",newline="") as handle:
+   reader=csv.DictReader(handle); existing_fields=reader.fieldnames or fieldnames
+   for current in reader:
+    if str(current.get("stage"))==str(row.get("stage")) and int(current.get("epoch",-1))==int(row.get("epoch",-2)):
+     return False
+  fieldnames=existing_fields
+ new_file=not path.is_file() or path.stat().st_size==0
+ with path.open("a",encoding="utf-8",newline="") as handle:
+  writer=csv.DictWriter(handle,fieldnames=fieldnames,extrasaction="ignore")
+  if new_file: writer.writeheader()
+  writer.writerow(row); handle.flush(); os.fsync(handle.fileno())
+ return True
+
 def cpu_state(module):
  return {key:value.detach().cpu().clone() for key,value in module.state_dict().items()}
 

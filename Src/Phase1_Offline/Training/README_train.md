@@ -177,3 +177,15 @@ Use `--dry-run`, `--stages`, or `--bundles` to inspect or limit work. New bundle
 `resnet50-{cifar10,imagenet100,neucls64}` and
 `vit-base-{cifar10,imagenet100,neucls64}`. ImageNet-100 reads through
 `Data/Datasets/ImageNet100/source`; it never downloads or copies ImageNet images.
+
+
+## Export the three terminal test packages
+
+Export the same model-independent, class-balanced test samples for every terminal:
+
+```bash
+conda run --no-capture-output -n DSCI python -m Src.Phase1_Offline.Datasets.export_manifest_test_packages --samples-per-class 10 --seed 42 --overwrite
+```
+
+This creates 100 CIFAR-10, 1,000 ImageNet-100, and 60 NEU-CLS test images.
+Each package contains `manifest.csv`, `metadata.json`, and class-organized `images/`.

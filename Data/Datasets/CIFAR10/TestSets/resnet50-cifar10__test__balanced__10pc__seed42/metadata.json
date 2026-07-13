@@ -1,0 +1,26 @@
+{
+  "bundle_id": "resnet50-cifar10",
+  "dataset_id": "cifar10",
+  "split": "test",
+  "mode": "balanced",
+  "num_classes": 10,
+  "samples_per_class": 10,
+  "total_samples": 100,
+  "seed": 42,
+  "difficulty": "unknown; package selection is model-independent",
+  "source_manifest": "Data/Datasets/CIFAR10/metadata/test_manifest.csv",
+  "source_manifest_sha256": "76d91f656719814818b082f2b17689796c623ec8f71c37deac4776ec2ea26b45",
+  "class_counts": {
+    "0": 10,
+    "1": 10,
+    "2": 10,
+    "3": 10,
+    "4": 10,
+    "5": 10,
+    "6": 10,
+    "7": 10,
+    "8": 10,
+    "9": 10
+  },
+  "created_at": "2026-07-13T03:23:27.530956+00:00"
+}

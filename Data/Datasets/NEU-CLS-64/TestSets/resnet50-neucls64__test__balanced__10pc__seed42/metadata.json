@@ -1,0 +1,22 @@
+{
+  "bundle_id": "resnet50-neucls64",
+  "dataset_id": "neucls64",
+  "split": "test",
+  "mode": "balanced",
+  "num_classes": 6,
+  "samples_per_class": 10,
+  "total_samples": 60,
+  "seed": 42,
+  "difficulty": "unknown; package selection is model-independent",
+  "source_manifest": "Data/Datasets/NEU-CLS-64/metadata/test_manifest.csv",
+  "source_manifest_sha256": "300c63ce766edf7a258d8651bae69ae50e39033738b897e01c17c073310b0642",
+  "class_counts": {
+    "0": 10,
+    "1": 10,
+    "2": 10,
+    "3": 10,
+    "4": 10,
+    "5": 10
+  },
+  "created_at": "2026-07-13T03:23:28.272368+00:00"
+}
