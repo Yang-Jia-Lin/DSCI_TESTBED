@@ -188,8 +188,10 @@ def _validate_state_payload(state: dict) -> None:
         state.get("resource_mode")
         or edge.get("resource_mode")
         or cloud.get("resource_mode")
-        or "simulation_resource_mode"
+        or "fixed_worker_pool"
     )
+    if resource_mode != "fixed_worker_pool":
+        raise ValueError("Only fixed_worker_pool segment profiles are supported")
     if resource_mode == "fixed_worker_pool":
         all_owners = [*state["users"], edge, cloud]
         if any(owner.get("bundle_id") != state["bundle_id"] for owner in all_owners):
@@ -224,27 +226,7 @@ def _validate_state_payload(state: dict) -> None:
                 raise KeyError(f"users[{i}].BW_d2e")
         to_paras(state)
         return
-    for key in ("f_e_max",):
-        if key not in edge:
-            raise KeyError(f"edge.{key}")
-    if "compute_profile_id" not in edge:
-        raise KeyError("edge.compute_profile_id")
-    for key in ("f_c_max", "BW_e2c"):
-        if key not in cloud:
-            raise KeyError(f"cloud.{key}")
-    if "compute_profile_id" not in cloud:
-        raise KeyError("cloud.compute_profile_id")
 
-    for i, user in enumerate(state["users"]):
-        if not isinstance(user, dict):
-            raise KeyError(f"users[{i}]")
-        for key in ("f_u", "BW_d2e"):
-            if key not in user:
-                raise KeyError(f"users[{i}].{key}")
-        if "compute_profile_id" not in user:
-            raise KeyError(f"users[{i}].compute_profile_id")
-
-    to_paras(state)
 
 
 def run_server(

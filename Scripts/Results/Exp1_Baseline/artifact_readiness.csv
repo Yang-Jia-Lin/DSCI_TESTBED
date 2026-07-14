@@ -1,7 +1,0 @@
-﻿bundle_id,status,registered,weights,manifest,exit_curves,dataset_root,device_profiles,device_nx_profiles,device_nano_profiles,edge_profiles,cloud_profiles,notes
-resnet50-cifar10-ee-v1,ready,True,True,True,True,True,1,1,0,1,1,missing Nano device profile
-resnet50-neucls64-ee-v1,pending,True,False,False,False,True,0,0,0,0,0,missing weights.pth; missing or invalid manifest.json; missing exit_curves.csv; missing one or more device/edge/cloud segment profiles; missing NX device profile; missing Nano device profile
-resnet50-imagenet100-ee-v1,pending,True,False,False,False,True,0,0,0,0,0,missing weights.pth; missing or invalid manifest.json; missing exit_curves.csv; missing one or more device/edge/cloud segment profiles; missing NX device profile; missing Nano device profile
-deit-small-cifar10-ee-v1,pending,True,False,False,False,True,0,0,0,0,0,missing weights.pth; missing or invalid manifest.json; missing exit_curves.csv; missing one or more device/edge/cloud segment profiles; missing NX device profile; missing Nano device profile
-deit-small-neucls64-ee-v1,pending,True,False,False,False,True,0,0,0,0,0,missing weights.pth; missing or invalid manifest.json; missing exit_curves.csv; missing one or more device/edge/cloud segment profiles; missing NX device profile; missing Nano device profile
-deit-small-imagenet100-ee-v1,pending,True,False,False,False,True,0,0,0,0,0,missing weights.pth; missing or invalid manifest.json; missing exit_curves.csv; missing one or more device/edge/cloud segment profiles; missing NX device profile; missing Nano device profile

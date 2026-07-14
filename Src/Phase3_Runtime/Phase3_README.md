@@ -88,7 +88,7 @@ python -m Src.Phase3_Runtime.Device.run_device \
 | 现象 | 优先检查 |
 | --- | --- |
 | Device 一直等决策 | `--expected-users` 是否与 Device 数量一致，所有 Device 是否使用同一 `round_id` |
-| Scheduler 找不到 profile | 新生成的 profile 是否已复制到 Scheduler 的 `Data/Profiles/Segments/` |
+| Scheduler 找不到 profile | 新生成的 profile 是否已复制到 Scheduler 的 `Data/Profiles/` |
 | Edge/Cloud 状态查询失败 | `deploy_config.py` 中 IP 是否正确，HTTP 状态端口是否开放 |
 | 张量转发失败 | TCP socket 端口是否开放，Cloud/Edge runtime 是否已启动 |
 | 带宽测量失败 | `iperf3` 服务端是否已启动，端口是否对应 |

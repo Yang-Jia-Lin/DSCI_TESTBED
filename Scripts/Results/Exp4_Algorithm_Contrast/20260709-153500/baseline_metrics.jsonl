@@ -1,4 +1,0 @@
-{"algorithm": "GA", "step": 0, "current_obj": -10.192832172280001, "best_obj": -10.192832172280001, "evaluations": 6, "elapsed_s": 0.0020471999887377024, "final_obj": NaN}
-{"algorithm": "GA", "step": 1, "current_obj": -10.192832172280001, "best_obj": -10.192832172280001, "evaluations": 12, "elapsed_s": 0.006113999988883734, "final_obj": NaN}
-{"algorithm": "GA", "step": 2, "current_obj": -0.7830651213244166, "best_obj": -0.7830651213244166, "evaluations": 18, "elapsed_s": 0.011445400072261691, "final_obj": NaN}
-{"algorithm": "GA", "step": 3, "current_obj": -0.7830651213244166, "best_obj": -0.7830651213244166, "evaluations": 24, "elapsed_s": 0.015628699911758304, "final_obj": -0.7830651213244166}

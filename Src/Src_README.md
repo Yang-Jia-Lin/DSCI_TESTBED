@@ -30,7 +30,7 @@
 | `Shared/Data/` | 数据集注册与加载 |
 | `Shared/Models/` | Multi-Exit ResNet、DeiT 等模型定义 |
 | `Shared/Partitioning/` | manifest 读取、boundary 校验、PyTorch segment executor |
-| `Shared/Profiles/` | compute profile 和 segment profile 的读写 |
+| `Shared/Profiles/` | Device/Edge/Cloud segment profile 的读写与校验 |
 | `Shared/Utils/` | 训练日志、绘图、计时等通用工具 |
 
 ## 快速开始：两台 Device 联跑
@@ -78,7 +78,7 @@ python -m Src.Phase1_Offline.Profiling.profile_segments device-nano1-pytorch-res
 #### 复制 Profile 到 Scheduler 机器
 
 > [!attention] 重要
-> 所有新生成的 profile 目录都要复制到 Scheduler 所在机器的 `Data/Profiles/Segments/` 下。
+> 所有新生成的 profile 目录都要复制到 Scheduler 所在机器的 `Data/Profiles/` 下。
 
 ### 运行顺序
 

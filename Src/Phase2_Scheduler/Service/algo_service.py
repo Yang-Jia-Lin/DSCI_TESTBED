@@ -167,7 +167,6 @@ class AlgoService:
                     "user_id": int(user.get("user_id", i)),
                     "f_u": cls._round_float(f_u_values[i]),
                     "BW_d2e": cls._round_float(bw_d2e_values[i]),
-                    "compute_profile_id": user.get("compute_profile_id"),
                     "execution_profile_id": user.get("execution_profile_id"),
                 }
             )
@@ -194,9 +193,6 @@ class AlgoService:
             "users": users,
             "edge": {
                 "f_e_max": cls._round_float(paras.f_e_max),
-                "compute_profile_id": (state.get("edge") or {}).get(
-                    "compute_profile_id"
-                ),
                 "execution_profile_id": (state.get("edge") or {}).get(
                     "execution_profile_id"
                 ),
@@ -205,9 +201,6 @@ class AlgoService:
             "cloud": {
                 "f_c_max": cls._round_float(paras.f_c_max),
                 "BW_e2c": cls._round_float(paras.b_c),
-                "compute_profile_id": (state.get("cloud") or {}).get(
-                    "compute_profile_id"
-                ),
                 "execution_profile_id": (state.get("cloud") or {}).get(
                     "execution_profile_id"
                 ),
@@ -217,7 +210,7 @@ class AlgoService:
 
     @staticmethod
     def _profile_token(entry: dict[str, Any]) -> Any:
-        return entry.get("execution_profile_id") or entry.get("compute_profile_id")
+        return entry.get("execution_profile_id")
 
     @classmethod
     def _compat_key(cls, signature: dict[str, Any]) -> dict[str, Any]:
@@ -1156,45 +1149,3 @@ def make_decision(state: dict, service: AlgoService | None = None) -> dict:
 def report_measurements(payload: dict, service: AlgoService | None = None) -> dict:
     svc = service or AlgoService()
     return svc.report_measurements(payload)
-
-
-if __name__ == "__main__":
-    import json as _json
-
-    state = {
-        "round_id": "round_0001",
-        "bundle_id": "resnet50-cifar10-ee-v1",
-        "users": [
-            {
-                "user_id": 0,
-                "BW_d2e": 18.5,
-                "f_u": 2e9,
-                "compute_profile_id": "device-pytorch",
-            },
-            {
-                "user_id": 1,
-                "BW_d2e": 12.0,
-                "f_u": 2e9,
-                "compute_profile_id": "device-pytorch",
-            },
-        ],
-        "edge": {
-            "f_e_max": 20e9,
-            "compute_profile_id": "edge-pytorch",
-            "cpu_util": 0.6,
-        },
-        "cloud": {
-            "BW_e2c": 120.0,
-            "f_c_max": 50e9,
-            "compute_profile_id": "cloud-pytorch",
-            "cpu_util": 0.4,
-        },
-    }
-
-    svc = AlgoService(config=AlgoServiceConfig(auto_train=False))
-    decision = svc.make_decision(state)
-    print("=== Decision JSON (excerpt) ===")
-    print(_json.dumps({k: decision[k] for k in decision if k != "users"}, indent=2))
-    print("user[0]:", _json.dumps(decision["users"][0], indent=2)[:500], "...")
-    print("\n=== Health ===")
-    print(_json.dumps(svc.health(), indent=2))

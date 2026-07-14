@@ -1,1 +1,1 @@
-"""Shared measured compute-profile support."""
+"""Shared measured segment-profile support."""

@@ -34,10 +34,10 @@
    - `cloud_host` 指向 Cloud 机器。
    - `algo_host` 指向 Scheduler 机器。
 3. Scheduler 机器必须拥有所有 profile：
-   - `Data/Profiles/Segments/<device0_profile>/`
-   - `Data/Profiles/Segments/<device1_profile>/`
-   - `Data/Profiles/Segments/<edge_profile>/`
-   - `Data/Profiles/Segments/<cloud_profile>/`
+   - `Data/Profiles/<device0_profile>/`
+   - `Data/Profiles/<device1_profile>/`
+   - `Data/Profiles/<edge_profile>/`
+   - `Data/Profiles/<cloud_profile>/`
 4. 两台 Device 使用不同 profile、不同 `--user-id`，但每个 case 使用同一个 `--round-id`。
 5. 建议每个 case 使用相同样本数，例如 `--test-samples 500`。调试时可先用 `--test-samples 20`。
 

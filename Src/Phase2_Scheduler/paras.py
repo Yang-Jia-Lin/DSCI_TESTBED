@@ -14,7 +14,6 @@ from Src.Shared.Config.deploy_config import DEFAULT as TESTBED_CFG
 from Src.Shared.Config.model_config import ModelBundleSpec, require_bundle_id
 from Src.Shared.Config.paths import BundleArtifactPaths, bundle_paths
 from Src.Shared.Partitioning.manifest import load_partition_manifest
-from Src.Shared.Profiles.compute_profile import load_compute_profile
 from Src.Shared.Profiles.segment_profile import load_segment_profile
 
 
@@ -173,6 +172,8 @@ class Paras:
                 raise ValueError("Every node model_hash must match the manifest")
         users, edge, cloud = state["users"], state["edge"], state["cloud"]
         resource_mode = str(state.get("resource_mode", "fixed_worker_pool"))
+        if resource_mode != "fixed_worker_pool":
+            raise ValueError("Only fixed_worker_pool segment profiles are supported")
         m = len(manifest.boundaries)
         exits = list(manifest.exit_boundary_ids)
         exit_ids = list(manifest.exit_ids)
@@ -245,26 +246,3 @@ class Paras:
                 tensor_transport_dtype=transport_dtype,
                 transport_byte_scale=transport_byte_scale,
             )
-
-        stats = pd.read_csv(bundle_paths(bundle.bundle_id).layer_stats_path)
-        if len(stats) != m or not {"name", "num_bytes", "approx_flops"}.issubset(stats.columns):
-            raise ValueError("Bundle layer_stats.csv must align with manifest boundaries")
-        names = stats["name"].astype(str).tolist()
-        flops = stats["approx_flops"].astype(float).tolist()
-        profiles = [
-            load_compute_profile(str(owner["compute_profile_id"]), expected_layers=names, expected_bundle=bundle.bundle_id)
-            for owner in owners
-        ]
-        return cls(
-            n=len(users), m=m, E=exits, exit_ids=exit_ids, bundle=bundle,
-            partition_manifest=manifest, D=stats["num_bytes"].astype(int).tolist(),
-            C=flops, C_u=np.stack([p.equivalent_flops for p in profiles[:len(users)]]),
-            C_e=profiles[-2].equivalent_flops, C_c=profiles[-1].equivalent_flops,
-            F_u=np.array([p.theta for p in profiles[:len(users)]]),
-            f_e_max=profiles[-2].theta, f_c_max=profiles[-1].theta,
-            B_u=np.array([float(user["BW_d2e"]) for user in users]),
-            b_c=float(cloud["BW_e2c"]), alpha=algo_cfg.alpha, beta=algo_cfg.beta,
-            resource_mode=resource_mode,
-            tensor_transport_dtype=transport_dtype,
-            transport_byte_scale=transport_byte_scale,
-        )

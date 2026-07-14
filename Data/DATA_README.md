@@ -10,8 +10,7 @@
 | --- | --- | --- |
 | `Datasets/` | 原始数据集与设备端测试包 | 手动准备、torchvision 下载、`create_test_package` 生成 |
 | `Bundles/<bundle_id>/` | 每个模型包的权重、manifest、早退曲线、分析结果 | Phase 1 训练和离线分析生成 |
-| `Profiles/Compute/` | 仿真模式使用的算力 profile | 手动整理或历史实验产物 |
-| `Profiles/Segments/<profile_id>/` | 真机 PyTorch/MNN 分段时延 profile | `profile_segments` 或 MNN profile 流程生成 |
+| `Profiles/<profile_id>/` | Device/Edge/Cloud 的 PyTorch/MNN 分段时延 profile | `profile_segments` 或 MNN profile 流程生成 |
 | `Runtime/` | 当前运行缓存、调度解、设备输出、实验日志 | Phase 2/3 在线运行生成 |
 | `Archive/` | 旧版或历史输入输出归档 | 仅人工参考，当前代码不应读取 |
 
@@ -70,7 +69,7 @@ $bundle = "resnet50-cifar10-ee-v1"
 真机运行时，Scheduler 需要知道 Device、Edge、Cloud 上每个 segment 的实测时延。Profile 位于：
 
 ```text
-Data/Profiles/Segments/<profile_id>/
+Data/Profiles/<profile_id>/
   metadata.json
   segments.csv
 ```
@@ -83,7 +82,7 @@ device-nano1-pytorch-resnet50-cifar10
 cloud-v100-pytorch-resnet50-cifar10
 ```
 
-新生成的 Device/Edge/Cloud profile 都要复制到 Scheduler 所在机器的 `Data/Profiles/Segments/` 下。否则 Scheduler 只能收到节点状态，无法用对应 profile 计算端到端时延。
+新生成的 Device/Edge/Cloud profile 都要复制到 Scheduler 所在机器的 `Data/Profiles/` 下。否则 Scheduler 只能收到节点状态，无法用对应 profile 计算端到端时延。当前系统只支持 `fixed_worker_pool` segment profile；旧的逐层 Compute profile 和 `simulation_resource_mode` 不再属于有效数据契约。
 
 ## Runtime
 

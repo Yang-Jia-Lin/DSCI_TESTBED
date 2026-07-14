@@ -1,6 +1,6 @@
 # Phase 2 README
 
-Phase 2 是在线调度层。Scheduler 接收 Device/Edge/Cloud 的状态，加载 `Data/Bundles/<bundle_id>/` 与 `Data/Profiles/Segments/<profile_id>/`，为每个用户生成模型切分点和早退阈值。
+Phase 2 是在线调度层。Scheduler 接收 Device/Edge/Cloud 的状态，加载 `Data/Bundles/<bundle_id>/` 与 `Data/Profiles/<profile_id>/`，为每个用户生成模型切分点和早退阈值。
 
 ## 主要入口
 
@@ -50,9 +50,9 @@ python -m Src.Phase2_Scheduler.Service.api_server --no-auto-train
 | 产物 | 路径 |
 | --- | --- |
 | 模型包 manifest 和 early-exit curves | `Data/Bundles/<bundle_id>/manifest.json`、`exit_curves.csv` |
-| Device profile | `Data/Profiles/Segments/<device_profile_id>/` |
-| Edge profile | `Data/Profiles/Segments/<edge_profile_id>/` |
-| Cloud profile | `Data/Profiles/Segments/<cloud_profile_id>/` |
+| Device profile | `Data/Profiles/<device_profile_id>/` |
+| Edge profile | `Data/Profiles/<edge_profile_id>/` |
+| Cloud profile | `Data/Profiles/<cloud_profile_id>/` |
 
 新生成的 profile 必须复制到 Scheduler 机器，见 [DATA_README](../../Data/DATA_README.md) 和 [Phase1_README](../Phase1_Offline/Phase1_README.md)。
 

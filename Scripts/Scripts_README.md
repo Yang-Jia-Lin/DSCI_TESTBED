@@ -18,7 +18,7 @@
 实验脚本通常依赖以下产物：
 
 - `Data/Bundles/<bundle_id>/manifest.json` 和 `exit_curves.csv`。
-- `Data/Profiles/Segments/<profile_id>/`。
+- `Data/Profiles/<profile_id>/`。
 - `Data/Runtime/SolutionCache/latest_solution.npz` 和 `latest_solution_meta.json`，或指定的历史 solution。
 - Phase 3 真机运行生成的测量日志或 runtime summary。
 

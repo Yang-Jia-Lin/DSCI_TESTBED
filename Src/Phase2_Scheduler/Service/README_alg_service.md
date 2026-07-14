@@ -8,7 +8,7 @@
 
 - 模型信息：`bundle_id`、`manifest_id`、`model_hash`、层数 `m`、早退出口 `exit_ids`
 - 系统结构：用户数、`resource_mode`
-- 用户状态：每个用户的 `BW_d2e`、`f_u`、compute/execution profile
+- 用户状态：每个用户的 `BW_d2e`、worker 配置和 execution profile
 - 边缘/云状态：算力、`BW_e2c`、worker count、profile
 
 服务仍保持“快速返回 + 后台训练”的模式：当前请求不会等待 PPO 收敛，后台训练完成后再更新缓存。
@@ -30,14 +30,14 @@
 - `bundle_id`、`manifest_id`、`model_hash`
 - `resource_mode`
 - 用户数、模型层数、早退出口
-- 每个用户 profile
+- 每个用户 execution profile
 - edge/cloud profile
 
 兼容后，服务用归一化欧氏距离比较状态向量。状态向量包含：
 
 - 每个用户的 `BW_d2e` 和 `f_u`
-- edge `f_e_max` 和 worker count
-- cloud `f_c_max`、`BW_e2c` 和 worker count
+- edge worker count
+- cloud `BW_e2c` 和 worker count
 
 距离计算按每个字段自身量级归一化，避免 Hz、Mbps、worker count 的量纲差异直接主导结果。
 

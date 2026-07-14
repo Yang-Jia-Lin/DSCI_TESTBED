@@ -12,8 +12,9 @@ DATA_DIR = PROJECT_ROOT / "Data"
 DATASET_DIR = DATA_DIR / "Datasets"
 BUNDLE_DIR = DATA_DIR / "Bundles"
 PROFILE_DIR = DATA_DIR / "Profiles"
-COMPUTE_PROFILE_DIR = PROFILE_DIR / "Compute"
-SEGMENT_PROFILE_DIR = PROFILE_DIR / "Segments"
+# Segment execution profiles live directly under Data/Profiles/<profile_id>/.
+# The constant name identifies the profile format, not a required subdirectory.
+SEGMENT_PROFILE_DIR = PROFILE_DIR
 ARCHIVE_DIR = DATA_DIR / "Archive"
 RUNTIME_DIR = DATA_DIR / "Runtime"
 SOLUTION_CACHE_DIR = RUNTIME_DIR / "SolutionCache"

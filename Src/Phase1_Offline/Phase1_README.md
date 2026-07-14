@@ -10,7 +10,7 @@ Phase 1 负责所有在线运行前的离线准备：训练或准备 Multi-Exit 
 | 早退头微调 | `weights.pth`、训练/验证集 | `weights.pth`、`analysis/finetune_exits_log.csv` |
 | Manifest 生成 | 模型结构、权重、bundle 配置 | `Data/Bundles/<bundle_id>/manifest.json` |
 | Exit curves | 验证集、模型权重、manifest | `Data/Bundles/<bundle_id>/exit_curves.csv` |
-| Segment profile | 目标硬件、模型权重、manifest | `Data/Profiles/Segments/<profile_id>/` |
+| Segment profile | 目标硬件、模型权重、manifest | `Data/Profiles/<profile_id>/` |
 | MNN 导出 | 模型权重、manifest | `Data/Bundles/<bundle_id>/mnn_segments/` |
 
 数据目录说明见 [DATA_README](../../Data/DATA_README.md)。
@@ -55,7 +55,7 @@ python -m Src.Phase1_Offline.Profiling.profile_segments edge-kaijielaptop-pytorc
 python -m Src.Phase1_Offline.Profiling.profile_segments cloud-v100-pytorch-resnet50-cifar10 --bundle-id $bundle
 ```
 
-新机器的 `profile_id` 要起新名字，避免覆盖已有 profile。生成后把 `Data/Profiles/Segments/<profile_id>/` 复制到 Scheduler 所在机器。
+新机器的 `profile_id` 要起新名字，避免覆盖已有 profile。生成后把 `Data/Profiles/<profile_id>/` 复制到 Scheduler 所在机器。
 
 ## 子目录
 

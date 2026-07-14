@@ -1,9 +1,0 @@
-{"algorithm": "Greedy", "step": 0, "current_obj": 0.7516082788272508, "best_obj": 0.7516082788272508, "evaluations": 1, "elapsed_s": 0.0, "final_obj": NaN}
-{"algorithm": "Greedy", "step": 1, "current_obj": 1.0444114088696228, "best_obj": 1.0444114088696228, "evaluations": 4801, "elapsed_s": 0.9557489000726491, "final_obj": NaN}
-{"algorithm": "Greedy", "step": 2, "current_obj": 1.1359788606916403, "best_obj": 1.1359788606916403, "evaluations": 9601, "elapsed_s": 1.9233872999902815, "final_obj": 1.1359788606916403}
-{"algorithm": "GA", "step": 0, "current_obj": -23.844145435078065, "best_obj": -23.844145435078065, "evaluations": 1, "elapsed_s": 0.0, "final_obj": NaN}
-{"algorithm": "GA", "step": 1, "current_obj": -10.22353709626655, "best_obj": -10.22353709626655, "evaluations": 7, "elapsed_s": 0.005515833307678501, "final_obj": NaN}
-{"algorithm": "GA", "step": 2, "current_obj": -10.22353709626655, "best_obj": -10.22353709626655, "evaluations": 13, "elapsed_s": 0.011031666615357002, "final_obj": NaN}
-{"algorithm": "GA", "step": 3, "current_obj": 0.8073850372216389, "best_obj": 0.8073850372216389, "evaluations": 19, "elapsed_s": 0.016547499923035502, "final_obj": 0.8073850372216389}
-{"algorithm": "BF", "step": 0, "current_obj": 0.7516082788272508, "best_obj": 0.7516082788272508, "evaluations": 1, "elapsed_s": 0.0, "final_obj": NaN}
-{"algorithm": "BF", "step": 1, "current_obj": 1.1359788606916403, "best_obj": 1.1359788606916403, "evaluations": 9601, "elapsed_s": 2.0778241001535207, "final_obj": 1.1359788606916403}

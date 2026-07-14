@@ -1,8 +1,0 @@
-{"algorithm": "Random", "step": 0, "current_obj": -45.05877149709106, "best_obj": -45.05877149709106, "evaluations": 1, "elapsed_s": 0.0003260001540184021, "final_obj": NaN}
-{"algorithm": "Random", "step": 1, "current_obj": -1.6117390776718703, "best_obj": -1.6117390776718703, "evaluations": 2, "elapsed_s": 0.0005795999895781279, "final_obj": NaN}
-{"algorithm": "Random", "step": 2, "current_obj": -41.58986011942021, "best_obj": -1.6117390776718703, "evaluations": 3, "elapsed_s": 0.0008144001476466656, "final_obj": -1.6117390776718703}
-{"algorithm": "Greedy", "step": 0, "current_obj": 0.7516082788272508, "best_obj": 0.7516082788272508, "evaluations": 1, "elapsed_s": 0.0, "final_obj": NaN}
-{"algorithm": "Greedy", "step": 1, "current_obj": 1.0444114088696228, "best_obj": 1.0444114088696228, "evaluations": 4801, "elapsed_s": 0.9429273998830467, "final_obj": NaN}
-{"algorithm": "Greedy", "step": 2, "current_obj": 1.1359788606916403, "best_obj": 1.1359788606916403, "evaluations": 9601, "elapsed_s": 1.9163164999336004, "final_obj": 1.1359788606916403}
-{"algorithm": "BF", "step": 0, "current_obj": -142.7087508211233, "best_obj": -142.7087508211233, "evaluations": 1, "elapsed_s": 0.0, "final_obj": NaN}
-{"algorithm": "BF", "step": 1, "current_obj": 1.1359788606916403, "best_obj": 1.1359788606916403, "evaluations": 9601, "elapsed_s": 1.9231271999888122, "final_obj": 1.1359788606916403}

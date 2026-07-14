@@ -357,14 +357,17 @@ Edge/Cloud/Device 支持两种推理后端：
 | PyTorch | `--backend pytorch` | 默认，直接使用 PyTorch 执行 Segment |
 | MNN | `--backend mnn` | 移动端轻量后端，需先用 `export_mnn_segments` 导出 |
 
-## 双模式时延计算
+## Segment 时延计算
 
-Scheduler 在优化时有两种时延估算模式：
+Scheduler 统一使用 `fixed_worker_pool` 模式，根据各节点在
+`Data/Profiles/<profile_id>/` 中实测并校准的逐 segment 时延计算执行时间：
 
-| 模式 | `resource_mode` 值 | 时延公式 | 适用场景 |
-|------|-------------------|---------|---------|
-| 真机模式 | `fixed_worker_pool` | `T = Σ calibrated_latency[segment]` | 真机部署（默认） |
-| 仿真模式 | `simulation_resource_mode` | `T = FLOPs / throughput` | 论文仿真实验 |
+```text
+T = Σ calibrated_latency[segment]
+```
+
+Device、Edge、Cloud 必须上报与当前 bundle、manifest、model hash 和 backend
+匹配的 `execution_profile_id`。旧的 `simulation_resource_mode` 不再支持。
 
 ## 端口与网络配置
 
