@@ -9,6 +9,7 @@ import torch
 from Src.Phase3_Runtime.Device.comm import send_tensor
 from Src.Phase3_Runtime.Shared.model_loader import load_full_model
 from Src.Phase3_Runtime.Shared.request_identity import request_identity
+from Src.Phase3_Runtime.Shared.request_trace import append_node_trace, finalize_request_trace
 from Src.Shared.Config.deploy_config import DEFAULT as TESTBED_CFG
 from Src.Shared.Partitioning.manifest import load_partition_manifest
 from Src.Shared.Partitioning.pytorch_executor import PyTorchSegmentExecutor
@@ -65,14 +66,19 @@ def run_partitioned_inference(
     )
     executor.synchronize()
     t_device = time.perf_counter() - started
+    device_result["T_worker_elapsed_s"] = t_device
+    trace = append_node_trace([], "device", device_result)
     if device_result["prediction"] is not None:
-        return {
+        terminal = {
             **device_result,
             **identity,
             "exit_location": "device",
             "T_compute_device": t_device,
             "T_total": time.perf_counter() - total_started,
+            "node_trace": trace,
         }
+        terminal["request_trace"] = finalize_request_trace(terminal)
+        return terminal
     device_output = device_result["tensors"]
     payload = {
         **identity,
@@ -81,6 +87,7 @@ def run_partitioned_inference(
         "model_hash": manifest.model_hash,
         "boundary_id": b1,
         "tensors": device_output,
+        "node_trace": trace,
         "meta": {
             "partition_boundary_2": b2,
             "exit_thresholds": user.get("exit_thresholds", {}),
@@ -95,4 +102,5 @@ def run_partitioned_inference(
     response["T_total"] = time.perf_counter() - total_started
     if request_identity(response) != identity:
         raise ValueError("Response identity does not match request identity")
+    response["request_trace"] = finalize_request_trace(response)
     return response

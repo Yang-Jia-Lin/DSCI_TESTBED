@@ -144,6 +144,18 @@ def create_app(
         except RoundConflictError as exc:
             return _error(str(exc), 409)
 
+    @app.route(
+        "/api/v2/rounds/<round_id>/requests/<int:request_seq>/ready/<int:user_id>",
+        methods=["POST"],
+    )
+    def ready_request(round_id: str, request_seq: int, user_id: int):
+        try:
+            return jsonify(rounds.ready_request(round_id, user_id, request_seq))
+        except RoundCoordinatorError as exc:
+            return _error(str(exc), 400)
+        except RoundConflictError as exc:
+            return _error(str(exc), 409)
+
     @app.route("/api/v2/rounds/<round_id>/status", methods=["GET"])
     def round_status(round_id: str):
         try:

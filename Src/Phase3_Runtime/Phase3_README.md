@@ -98,3 +98,20 @@ python -m Src.Phase3_Runtime.Device.run_device \
 - [Src_README](../Src_README.md)：系统代码复现入口和快速开始。
 - [DATA_README](../../Data/DATA_README.md)：数据、模型包和 profile 结构。
 - [Phase2_README](../Phase2_Scheduler/Phase2_README.md)：Scheduler 和 API 服务。
+## 论文实验请求同步与 Trace
+
+Device 默认在每个样本执行前调用请求级屏障：
+
+```text
+POST /api/v2/rounds/{round_id}/requests/{request_seq}/ready/{user_id}
+```
+
+所有设备就绪后获得同一个 `release_at`，屏障等待不计入 `T_total`；请求记录
+保存 `barrier_ready_at_utc`、`barrier_release_at_utc`、`actual_start_at_utc`
+和 `start_skew_s`。
+仅兼容旧流程时可使用 Device 参数 `--no-request-barrier`。
+
+推理响应中的 `request_trace` 会累积 Device/Edge/Cloud 的执行 segment、
+最终出口、置信度、worker queue、segment/exit-head/exit-check 计算、两段传输、
+端到端时延和 `unattributed_overhead`。各互斥分项加 residual 必须等于
+`total_latency`。

@@ -17,6 +17,7 @@ from Src.Phase3_Runtime.Shared.pytorch_segment_worker import (
     init_pytorch_worker,
 )
 from Src.Phase3_Runtime.Shared.request_identity import request_identity
+from Src.Phase3_Runtime.Shared.request_trace import append_node_trace
 from Src.Phase3_Runtime.Shared.socket_server import serve_requests
 from Src.Shared.Config.deploy_config import DEFAULT as TESTBED_CFG
 from Src.Shared.Config.model_config import get_bundle
@@ -135,6 +136,7 @@ def main(argv=None):
             b1, b2, payload["tensors"], meta.get("exit_thresholds", {})
         ).result()
         t_node_edge = time.perf_counter() - node_started
+        trace = append_node_trace(payload.get("node_trace"), "edge", result)
         print(
             f"[edge] local range {b1}->{b2} done, "
             f"prediction={result.get('prediction')}"
@@ -147,6 +149,7 @@ def main(argv=None):
                 "exit_location": "edge",
                 "T_compute_edge": float(result.get("T_compute_s", 0.0)),
                 "T_node_edge": t_node_edge,
+                "node_trace": trace,
             }
         if b2 == int(state.get("final_boundary_id", -1)):
             result = _strip_tensors_if_terminal(result)
@@ -156,6 +159,7 @@ def main(argv=None):
                 "exit_location": "edge",
                 "T_compute_edge": float(result.get("T_compute_s", 0.0)),
                 "T_node_edge": t_node_edge,
+                "node_trace": trace,
             }
         cloud_payload = {
             **identity,
@@ -164,6 +168,7 @@ def main(argv=None):
             "model_hash": state["model_hash"],
             "boundary_id": b2,
             "tensors": result["tensors"],
+            "node_trace": trace,
             "meta": meta,
         }
         tx_started = time.perf_counter()

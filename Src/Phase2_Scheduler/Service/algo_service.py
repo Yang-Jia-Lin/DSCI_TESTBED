@@ -1107,7 +1107,8 @@ class AlgoService:
             return {
                 "status": "ok",
                 "decision_id": reward_result.decision_id,
-                "round_reward": reward_result.round_reward,
+                "utility_sum": reward_result.utility_sum,
+                "utility_mean": reward_result.utility_mean,
                 "per_user_rewards": reward_result.per_user_rewards,
                 "policy_updated": False,
             }

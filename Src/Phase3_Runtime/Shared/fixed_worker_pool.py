@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import threading
+import time
 from concurrent.futures import Future, ProcessPoolExecutor
 from dataclasses import dataclass
 
@@ -21,8 +22,15 @@ def _configure_worker(threads_per_worker: int, initializer, initargs):
         initializer(*initargs)
 
 
-def _run_job(fn, args, kwargs):
-    return fn(*args, **kwargs)
+def _run_job(fn, args, kwargs, queued_at):
+    started = time.perf_counter()
+    result = fn(*args, **kwargs)
+    finished = time.perf_counter()
+    if isinstance(result, dict):
+        result = dict(result)
+        result["T_queue_s"] = max(0.0, started - float(queued_at))
+        result["T_worker_elapsed_s"] = max(0.0, finished - started)
+    return result
 
 
 @dataclass(frozen=True)
@@ -62,7 +70,8 @@ class FixedWorkerPool:
         with self._lock:
             self._inflight += 1
 
-        future = self._executor.submit(_run_job, self._fn, args, kwargs)
+        queued_at = time.perf_counter()
+        future = self._executor.submit(_run_job, self._fn, args, kwargs, queued_at)
 
         def done(_completed):
             with self._lock:

@@ -3,15 +3,18 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import csv
 import json
 import os
 import threading
+import time
 import uuid
 from pathlib import Path
 
 import requests
 
+from Src.Phase2_Scheduler.algo_config import DEFAULT as ALGO_CFG
 from Src.Phase3_Runtime.Device.runtime_v2 import run_partitioned_inference
 from Src.Phase3_Runtime.Shared.bandwidth_iperf import measure_bandwidth_iperf
 from Src.Phase3_Runtime.Shared.state_reporter import RoundClient
@@ -29,6 +32,8 @@ def collect_device_state(
     bw_d2e_override: float | None = None,
     iperf_duration: float | None = None,
     iperf_timeout: float | None = None,
+    d2e_link_id: str | None = None,
+    d2e_capacity_mbps: float | None = None,
 ):
     device = segment_profile_state("device", backend, bundle_id)
     if bw_d2e_override is not None:
@@ -48,10 +53,15 @@ def collect_device_state(
             )
         else:
             bw_d2e = float(measured_bw)
-    return {
+    result = {
         **device,
         "BW_d2e": bw_d2e,
     }
+    if d2e_link_id:
+        result["d2e_link_id"] = str(d2e_link_id)
+    if d2e_capacity_mbps is not None:
+        result["d2e_capacity_mbps"] = float(d2e_capacity_mbps)
+    return result
 
 
 def registration_payload(
@@ -100,6 +110,7 @@ def _measurement_record(
     label: int,
     is_correct: bool,
     sample_metadata: dict | None = None,
+    synchronization: dict | None = None,
 ) -> dict:
     record = {
         "request_id": str(result["request_id"]),
@@ -110,7 +121,31 @@ def _measurement_record(
         "exit_location": result.get("exit_location"),
         "T_total": float(result["T_total"]),
         "is_correct": bool(is_correct),
+        "exit_id": result.get("exit_id"),
+        "exit_boundary_id": result.get("exit_boundary_id"),
+        "confidence": result.get("confidence"),
+        "executed_segments_by_node": copy.deepcopy(
+            (result.get("request_trace") or {}).get("executed_segments_by_node", {})
+        ),
     }
+    trace = copy.deepcopy(result.get("request_trace") or {})
+    for key in (
+        "device_compute",
+        "d2e_transport",
+        "edge_queue",
+        "edge_segment_compute",
+        "edge_exit_head_compute",
+        "edge_exit_check",
+        "e2c_transport",
+        "cloud_queue",
+        "cloud_segment_compute",
+        "cloud_exit_head_compute",
+        "cloud_exit_check",
+        "unattributed_overhead",
+        "total_latency",
+    ):
+        if key in trace:
+            record[key] = float(trace[key])
     for key in ("sample_id", "source_index", "difficulty"):
         value = _metadata_value(sample_metadata, key)
         if value is not None:
@@ -123,6 +158,24 @@ def _measurement_record(
     for key, value in result.items():
         if key.startswith("T_") and key != "T_total" and value is not None:
             record[key] = float(value)
+    if synchronization:
+        record.update(copy.deepcopy(synchronization))
+    request_utility = (
+        float(ALGO_CFG.alpha) * float(bool(is_correct))
+        - float(ALGO_CFG.beta) * float(result["T_total"])
+    )
+    record["observed_accuracy"] = float(bool(is_correct))
+    record["observed_latency"] = float(result["T_total"])
+    record["observed_utility"] = request_utility
+    trace.update(
+        {
+            "sample_id": record.get("sample_id"),
+            "label": int(label),
+            "correct": bool(is_correct),
+            "observed_utility": request_utility,
+        }
+    )
+    record["request_trace"] = trace
     _add_latency_aliases(record)
     return record
 
@@ -138,6 +191,8 @@ def _add_latency_aliases(record: dict) -> None:
         value = float(record["T_device_edge_roundtrip"])
         if "T_node_edge" in record:
             value -= float(record["T_node_edge"])
+        if "T_edge_cloud_roundtrip" in record:
+            value -= float(record["T_edge_cloud_roundtrip"])
         record["T_d2e"] = max(0.0, value)
     if "T_edge_cloud_roundtrip" in record:
         value = float(record["T_edge_cloud_roundtrip"])
@@ -170,6 +225,19 @@ def _summary_payload(
         "T_d2e",
         "T_e2c",
         "T_total",
+        "device_compute",
+        "d2e_transport",
+        "edge_queue",
+        "edge_segment_compute",
+        "edge_exit_head_compute",
+        "edge_exit_check",
+        "e2c_transport",
+        "cloud_queue",
+        "cloud_segment_compute",
+        "cloud_exit_head_compute",
+        "cloud_exit_check",
+        "unattributed_overhead",
+        "total_latency",
     ):
         values = [float(record[key]) for record in measurements if key in record]
         mean_value = _mean(values)
@@ -184,6 +252,14 @@ def _summary_payload(
         "samples": int(total),
         "correct": int(correct),
         "accuracy": correct / max(total, 1),
+        "utility_mean": _mean(
+            [float(record["observed_utility"]) for record in measurements]
+        ),
+        "utility_sum": sum(
+            float(record["observed_utility"]) for record in measurements
+        ),
+        "alpha": float(ALGO_CFG.alpha),
+        "beta": float(ALGO_CFG.beta),
         "latency": latency_summary,
         "decision": decision,
         "device_state": device_state,
@@ -327,9 +403,23 @@ def main(argv=None):
     parser.add_argument("--heartbeat-interval", type=float, default=5.0)
     parser.add_argument("--decision-timeout", type=float, default=90.0)
     parser.add_argument(
+        "--no-request-barrier",
+        action="store_true",
+        help="Run samples immediately instead of synchronizing every request across devices.",
+    )
+    parser.add_argument(
         "--override-bw-d2e",
         type=float,
         help="Use this Device->Edge bandwidth in Mbps instead of iperf.",
+    )
+    parser.add_argument(
+        "--d2e-link-id",
+        help="Shared-link identifier; use the same value for devices on one AP/link.",
+    )
+    parser.add_argument(
+        "--d2e-capacity-mbps",
+        type=float,
+        help="Total capacity of the shared Device-to-Edge link in Mbps.",
     )
     parser.add_argument(
         "--iperf-duration",
@@ -373,6 +463,8 @@ def main(argv=None):
         bw_d2e_override=args.override_bw_d2e,
         iperf_duration=args.iperf_duration,
         iperf_timeout=args.iperf_timeout,
+        d2e_link_id=args.d2e_link_id,
+        d2e_capacity_mbps=args.d2e_capacity_mbps,
     )
     print(f"Device state BW_d2e={float(device['BW_d2e']):.4f} Mbps")
     client = RoundClient(TESTBED_CFG.algo_base_url, args.round_id, args.user_id)
@@ -416,6 +508,22 @@ def main(argv=None):
                 images, labels = batch
                 sample_metadata = None
             request_id = uuid.uuid4().hex
+            synchronization = None
+            if not args.no_request_barrier:
+                barrier = client.wait_for_request_release(
+                    sample_index, timeout_s=args.decision_timeout
+                )
+                actual_start_at = time.time()
+                release_at = float(barrier["release_at"])
+                synchronization = {
+                    "request_seq": int(sample_index),
+                    "barrier_ready_at_utc": float(
+                        barrier["ready_at"][str(args.user_id)]
+                    ),
+                    "barrier_release_at_utc": release_at,
+                    "actual_start_at_utc": actual_start_at,
+                    "start_skew_s": actual_start_at - release_at,
+                }
             result = run_partitioned_inference(
                 images,
                 decision,
@@ -433,6 +541,7 @@ def main(argv=None):
                     label=label,
                     is_correct=is_correct,
                     sample_metadata=sample_metadata,
+                    synchronization=synchronization,
                 )
             )
             total += 1

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 import torch
 
 from Src.Shared.Partitioning.manifest import PartitionManifest
@@ -78,18 +79,31 @@ class PyTorchSegmentExecutor:
         self.manifest.validate_exit_thresholds(exit_thresholds)
         bundle = tensors
         executed = []
+        segment_compute_s = 0.0
+        exit_head_compute_s = 0.0
+        exit_check_s = 0.0
         for segment_id in range(start_boundary, end_boundary):
+            self.synchronize()
+            segment_started = time.perf_counter()
             bundle = self.execute_segment(segment_id, bundle)
+            self.synchronize()
+            segment_compute_s += time.perf_counter() - segment_started
             executed.append(segment_id)
             boundary_id = segment_id + 1
             item = self.manifest.exit_for_boundary(boundary_id)
             if item is None:
                 continue
+            self.synchronize()
+            head_started = time.perf_counter()
             logits = self.exit_logits(boundary_id, bundle)
+            self.synchronize()
+            exit_head_compute_s += time.perf_counter() - head_started
             if logits is not None:
                 logits = logits.detach()
+            check_started = time.perf_counter()
             confidence, prediction = torch.softmax(logits, dim=1).max(dim=1)
             threshold = exit_thresholds.get(str(item["exit_id"]))
+            exit_check_s += time.perf_counter() - check_started
             if item.get("final") or threshold is not None and confidence.item() >= float(threshold):
                 return {
                     "tensors": bundle,
@@ -99,6 +113,11 @@ class PyTorchSegmentExecutor:
                     "exit_boundary_id": boundary_id,
                     "exit_id": str(item["exit_id"]),
                     "executed_segments": executed,
+                    "compute_breakdown": {
+                        "segment_compute_s": segment_compute_s,
+                        "exit_head_compute_s": exit_head_compute_s,
+                        "exit_check_s": exit_check_s,
+                    },
                 }
         return {
             "tensors": bundle,
@@ -108,4 +127,9 @@ class PyTorchSegmentExecutor:
             "exit_boundary_id": None,
             "exit_id": None,
             "executed_segments": executed,
+            "compute_breakdown": {
+                "segment_compute_s": segment_compute_s,
+                "exit_head_compute_s": exit_head_compute_s,
+                "exit_check_s": exit_check_s,
+            },
         }

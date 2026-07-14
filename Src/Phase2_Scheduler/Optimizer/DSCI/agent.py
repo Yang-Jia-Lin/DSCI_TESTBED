@@ -113,7 +113,7 @@ def _build_state(
 
 
 # ---------- 初始化一个可行解（给未决策用户用作 baseline） ----------
-def _init_feasible_XY(paras):
+def _init_feasible_XY(paras, decision_spec=None):
     """
     生成一个“默认可行”的 X, Y，用作 episode 初始基线和未决策用户的占位。
     - X: 每行一个合法部署 pair (k1,k2)，这里用 (m//3, 2m//3)
@@ -122,17 +122,32 @@ def _init_feasible_XY(paras):
     n, m = paras.n, paras.m
     X = np.zeros((n, m), dtype=np.float32)
     final = m - 1
-    k1 = max(0, min(final - 1, final // 3))
-    k2 = max(k1 + 1, min(final, (2 * final) // 3))
+    if decision_spec is not None and decision_spec.split_rule == "fixed":
+        fixed_pairs = decision_spec.split_pairs_for(n)
+    else:
+        allowed = (
+            list(decision_spec.allowed_split_pairs)
+            if decision_spec is not None and decision_spec.allowed_split_pairs
+            else None
+        )
+        if allowed:
+            fixed_pairs = [tuple(allowed[0])] * n
+        else:
+            k1 = max(0, min(final - 1, final // 3))
+            k2 = max(k1 + 1, min(final, (2 * final) // 3))
+            fixed_pairs = [(k1, k2)] * n
 
     for i in range(n):
-        X[i] = encode_split_row(k1, k2, m, dtype=np.float32)
+        X[i] = encode_split_row(*fixed_pairs[i], m, dtype=np.float32)
 
     Y = np.ones((n, m), dtype=np.float32)
     # 早退层也先设 1（不强制），RL 会学到更优的阈值
-    for ee in paras.E:
-        if 0 <= ee < m:
-            Y[:, ee] = 1.0
+    if decision_spec is not None and decision_spec.exit_rule == "fixed":
+        Y = decision_spec.threshold_rows_for(paras)
+    else:
+        for ee in paras.E:
+            if 0 <= ee < m:
+                Y[:, ee] = 1.0
     return X, Y
 
 
@@ -165,16 +180,22 @@ def allocate_resources(iota, kappa, f_e_max, f_c_max):
 
 
 class PPOAgent:
-    def __init__(self, paras, hyperparams):
+    def __init__(self, paras, hyperparams, *, evaluator=None, decision_spec=None):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.paras = paras
         self.hparams = hyperparams
+        self.evaluator = evaluator
+        self.decision_spec = decision_spec
         self.initial_entropy_coef = hyperparams.get("entropy_coef", 0.01)  # 熵系数衰减
         self.entropy_decay = hyperparams.get("entropy_decay", 0.99)  # 熵系数衰减
 
         # ---------- 维度 ----------
         self.state_dim = self._compute_state_dim(paras)
-        self.action_dim_Y = len(self.paras.E)  # 动作 Y：早退层（|E|）
+        self.action_dim_Y = (
+            len(self.paras.E)
+            if decision_spec is None or decision_spec.exit_rule == "optimize"
+            else 0
+        )
 
         # ---------- 网络 ----------
         policy_net = ActorCritic(
@@ -182,6 +203,15 @@ class PPOAgent:
             num_layers=self.paras.m,
             action_dim_Y=self.action_dim_Y,
             partition_boundary_ids=self.paras.partition_boundary_ids,
+            allowed_split_pairs=(
+                list(decision_spec.allowed_split_pairs)
+                if decision_spec is not None and decision_spec.allowed_split_pairs
+                else (
+                    decision_spec.split_pairs_for(paras.n)
+                    if decision_spec is not None and decision_spec.split_rule == "fixed"
+                    else None
+                )
+            ),
         ).to(self.device)
         self.policy: ActorCritic = policy_net
 
@@ -196,6 +226,11 @@ class PPOAgent:
             None  # 保存历史最优策略（用于最终 best checkpoint），不做频繁 rollback
         )
         self.logs = []  # 每个 epoch 一个 dict
+
+    def _objective(self, X, Y, F_e, F_c):
+        if self.evaluator is not None:
+            return self.evaluator.evaluate(X, Y, F_e, F_c)
+        return objective(X, Y, F_e, F_c, self.paras)
 
     @staticmethod
     def _compute_state_dim(paras) -> int:
@@ -385,8 +420,8 @@ class PPOAgent:
         if F_e is None or F_c is None:
             F_e, F_c = self.default_resources(self.paras)
 
-        X, Y = _init_feasible_XY(self.paras)
-        prev_obj = objective(X, Y, F_e, F_c, self.paras)
+        X, Y = _init_feasible_XY(self.paras, self.decision_spec)
+        prev_obj = self._objective(X, Y, F_e, F_c)
 
         for i in range(self.paras.n):
             state = _build_state(
@@ -431,12 +466,12 @@ class PPOAgent:
                 X_new, Y_new, user_i=i, x_idx=x_idx_int, y_vec=y_vec_np
             )
             X, Y = X_new, Y_new
-            prev_obj = objective(X, Y, F_e, F_c, self.paras)
+            prev_obj = self._objective(X, Y, F_e, F_c)
 
         F_e, F_c = self.allocate_resources_for_XY(
             X, Y, F_e=F_e, F_c=F_c, outer_ema=outer_ema
         )
-        final_obj = float(objective(X, Y, F_e, F_c, self.paras))
+        final_obj = float(self._objective(X, Y, F_e, F_c))
         return X, Y, F_e, F_c, final_obj
 
     def _apply_action_to_XY(
@@ -450,14 +485,21 @@ class PPOAgent:
         n, m = self.paras.n, self.paras.m
         assert 0 <= user_i < n
 
-        x_pairs = cast(torch.Tensor, self.policy.x_pairs)
-        pair = x_pairs[x_idx].detach().cpu().numpy()  # [k1,k2]
-        k1, k2 = int(pair[0]), int(pair[1])
+        if self.decision_spec is not None and self.decision_spec.split_rule == "fixed":
+            k1, k2 = self.decision_spec.split_pairs_for(n)[user_i]
+        else:
+            x_pairs = cast(torch.Tensor, self.policy.x_pairs)
+            pair = x_pairs[x_idx].detach().cpu().numpy()  # [k1,k2]
+            k1, k2 = int(pair[0]), int(pair[1])
         X[user_i, :] = encode_split_row(k1, k2, m, dtype=np.float32)
 
         # ---- 写 Y：默认全 1，只写早退层阈值 ----
         Y[user_i, :] = 1.0
-        if len(self.paras.E) > 0:
+        if self.decision_spec is not None and self.decision_spec.exit_rule == "fixed":
+            Y[user_i, :] = self.decision_spec.threshold_rows_for(self.paras)[user_i]
+        elif self.decision_spec is not None and self.decision_spec.exit_rule == "disabled":
+            pass
+        elif len(self.paras.E) > 0:
             for j, layer_idx in enumerate(self.paras.E):
                 if 0 <= layer_idx < m:
                     Y[user_i, layer_idx] = float(y_vec[j])
@@ -580,7 +622,7 @@ class PPOAgent:
                 if len(self.paras.E) == 0:
                     Y_try = Y_best.copy()
                     Y_try[i, :] = 1.0
-                    obj = objective(X_try, Y_try, F_e, F_c, self.paras)
+                    obj = self._objective(X_try, Y_try, F_e, F_c)
                     if np.isfinite(obj) and obj > best_user_obj:
                         best_user_obj = obj
                         best_k1k2 = (k1, k2)
@@ -592,7 +634,7 @@ class PPOAgent:
                         Y_try = Y_best.copy()
                         Y_try[i, :] = 1.0
                         Y_try[i, self.paras.E[0]] = t / 100.0
-                        obj = objective(X_try, Y_try, F_e, F_c, self.paras)
+                        obj = self._objective(X_try, Y_try, F_e, F_c)
                         if np.isfinite(obj) and obj > best_user_obj:
                             best_user_obj = obj
                             best_k1k2 = (k1, k2)
@@ -604,7 +646,7 @@ class PPOAgent:
                             Y_try[i, :] = 1.0
                             Y_try[i, self.paras.E[0]] = t1 / 100.0
                             Y_try[i, self.paras.E[1]] = t2 / 100.0
-                            obj = objective(X_try, Y_try, F_e, F_c, self.paras)
+                            obj = self._objective(X_try, Y_try, F_e, F_c)
                             if np.isfinite(obj) and obj > best_user_obj:
                                 best_user_obj = obj
                                 best_k1k2 = (k1, k2)
@@ -620,7 +662,7 @@ class PPOAgent:
                                 Y_try[i, self.paras.E[j]] = Y_ppo[
                                     i, self.paras.E[j]
                                 ]
-                            obj = objective(X_try, Y_try, F_e, F_c, self.paras)
+                            obj = self._objective(X_try, Y_try, F_e, F_c)
                             if np.isfinite(obj) and obj > best_user_obj:
                                 best_user_obj = obj
                                 best_k1k2 = (k1, k2)
@@ -655,7 +697,7 @@ class PPOAgent:
                         Y_try = Y_best.copy()
                         Y_try[i, :] = 1.0
                         Y_try[i, self.paras.E[0]] = t / 100.0
-                        obj = objective(X_try, Y_try, F_e, F_c, self.paras)
+                        obj = self._objective(X_try, Y_try, F_e, F_c)
                         if np.isfinite(obj) and obj > best_user_obj:
                             best_user_obj = obj
                             best_thresholds = [t / 100.0]
@@ -668,7 +710,7 @@ class PPOAgent:
                             Y_try[i, self.paras.E[1]] = t2 / 100.0
                             for j in range(2, len(self.paras.E)):
                                 Y_try[i, self.paras.E[j]] = best_thresholds[j]
-                            obj = objective(X_try, Y_try, F_e, F_c, self.paras)
+                            obj = self._objective(X_try, Y_try, F_e, F_c)
                             if np.isfinite(obj) and obj > best_user_obj:
                                 best_user_obj = obj
                                 best_thresholds[0] = t1 / 100.0
@@ -683,7 +725,7 @@ class PPOAgent:
                         if j < len(best_thresholds):
                             Y_best[i, eidx] = best_thresholds[j]
 
-        final_obj = float(objective(X_best, Y_best, F_e, F_c, self.paras))
+        final_obj = float(self._objective(X_best, Y_best, F_e, F_c))
         return final_obj, (X_best, Y_best, F_e.copy(), F_c.copy())
 
     def train(self, initial_solution=None):
@@ -703,7 +745,7 @@ class PPOAgent:
             F_c = np.asarray(F_c0, dtype=np.float32).reshape(self.paras.n, 1)
             X0 = np.asarray(X0, dtype=np.float32)
             Y0 = np.asarray(Y0, dtype=np.float32)
-            initial_obj = float(objective(X0, Y0, F_e, F_c, self.paras))
+            initial_obj = float(self._objective(X0, Y0, F_e, F_c))
             if np.isfinite(initial_obj):
                 best_val = initial_obj
                 best_sol = (X0.copy(), Y0.copy(), F_e.copy(), F_c.copy())
@@ -724,8 +766,8 @@ class PPOAgent:
             steps = 0
             while steps < target_steps:
                 # ---- 新 episode：以 baseline X,Y 开始 ----
-                X, Y = _init_feasible_XY(self.paras)
-                prev_obj = objective(X, Y, F_e, F_c, self.paras)
+                X, Y = _init_feasible_XY(self.paras, self.decision_spec)
+                prev_obj = self._objective(X, Y, F_e, F_c)
 
                 # episode 长度 = n（每步决策一个用户）
                 for i in range(self.paras.n):
@@ -772,7 +814,7 @@ class PPOAgent:
                     )
 
                     # 增量奖励：r_t = U(s_{t+1}) - U(s_t)
-                    new_obj = objective(X_new, Y_new, F_e, F_c, self.paras)
+                    new_obj = self._objective(X_new, Y_new, F_e, F_c)
                     if not np.isfinite(new_obj) or not np.isfinite(prev_obj):
                         reward = -float(self.hparams.get("obj_scale", 1000.0))
                         new_obj = prev_obj if np.isfinite(prev_obj) else 0.0
@@ -852,7 +894,7 @@ class PPOAgent:
                 latency, acc = float("nan"), float("nan")
             else:
                 outer_obj = float(
-                    objective(best_epoch_X, best_epoch_Y, F_e, F_c, self.paras)
+                    self._objective(best_epoch_X, best_epoch_Y, F_e, F_c)
                 )
                 latency, acc = get_lat_and_acc(
                     best_epoch_X, best_epoch_Y, F_e, F_c, self.paras
@@ -893,6 +935,8 @@ class PPOAgent:
                     "elapsed_s": float(time.perf_counter() - started_at),
                 }
             )
+            if self.evaluator is not None:
+                self.evaluator.record("ppo", epoch, outer_obj, self.evaluator.best_value)
             print(
                 f"Epoch {epoch}: "
                 f"inner_best_obj={inner_best_obj:.6f}, outer_obj={outer_obj:.6f}, "
@@ -920,6 +964,13 @@ class PPOAgent:
         if (
             getattr(self.paras, "resource_mode", None) == "fixed_worker_pool"
             and best_sol is not None
+            and (
+                self.decision_spec is None
+                or (
+                    self.decision_spec.split_rule == "optimize"
+                    and self.decision_spec.exit_rule == "optimize"
+                )
+            )
         ):
             polished_val, polished_sol = self._deterministic_polish(best_sol)
             if polished_val > best_val:

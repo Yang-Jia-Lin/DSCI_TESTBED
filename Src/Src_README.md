@@ -11,6 +11,9 @@
 | `Phase3_Runtime/` | Cloud、Edge、Device 三端运行时和张量传输 | [Phase3_README](Phase3_Runtime/Phase3_README.md) |
 | `Shared/` | 跨阶段共享的配置、模型、数据、manifest、profile 工具 | 本文件下方说明 |
 
+论文实验新增的同步约束求解、共享资源模型、请求级并发屏障和 RequestTrace 见
+[论文实验 Src 底层修改记录](PaperEvaluation_CORE_CHANGES_20260713.md)。
+
 #### 复现顺序
 
 1. 准备数据和模型包：检查 `Data/Datasets/`、`Data/Bundles/<bundle_id>/`，见 [DATA_README](../Data/DATA_README.md)。

@@ -29,6 +29,14 @@ class DeviceRegistration:
 
 
 @dataclass
+class RequestBarrier:
+    request_seq: int
+    ready_users: set[int] = field(default_factory=set)
+    ready_at: dict[int, float] = field(default_factory=dict)
+    release_at: float | None = None
+
+
+@dataclass
 class SchedulingRound:
     round_id: str
     expected_users: int
@@ -40,6 +48,8 @@ class SchedulingRound:
     measurements: dict[int, dict] = field(default_factory=dict)
     decision_version: int = 0
     error: str | None = None
+    request_barriers: dict[int, RequestBarrier] = field(default_factory=dict)
+    active_request_seq: int | None = None
 
 
 class RoundCoordinator:
@@ -53,6 +63,7 @@ class RoundCoordinator:
         node_state_provider: Callable[[], tuple[dict, dict]],
         heartbeat_timeout_s: float = 15.0,
         barrier_timeout_s: float = 60.0,
+        request_release_delay_s: float = 0.25,
         clock: Callable[[], float] = time.time,
     ):
         if expected_users <= 0:
@@ -62,6 +73,7 @@ class RoundCoordinator:
         self.node_state_provider = node_state_provider
         self.heartbeat_timeout_s = float(heartbeat_timeout_s)
         self.barrier_timeout_s = float(barrier_timeout_s)
+        self.request_release_delay_s = float(request_release_delay_s)
         self.clock = clock
         self._lock = threading.RLock()
         self._round: SchedulingRound | None = None
@@ -123,10 +135,49 @@ class RoundCoordinator:
             decision = current.per_user_decisions.get(int(user_id))
             return copy.deepcopy(decision) if decision is not None else None
 
+    def ready_request(self, round_id: str, user_id: int, request_seq: int) -> dict:
+        """Join a per-request barrier and return its common release timestamp."""
+        now = self.clock()
+        with self._lock:
+            current = self._require_round(round_id)
+            if current.status not in {"decision_ready", "request_barrier", "running"}:
+                raise RoundConflictError(
+                    f"Round {round_id!r} is {current.status}; request barriers are closed"
+                )
+            user_id = int(user_id)
+            request_seq = int(request_seq)
+            if user_id not in current.registered_devices:
+                raise RoundCoordinatorError(f"user_id {user_id} is not registered")
+            if request_seq < 0:
+                raise RoundCoordinatorError("request_seq must be non-negative")
+            expected_seq = 0 if current.active_request_seq is None else current.active_request_seq + 1
+            if request_seq > expected_seq:
+                raise RoundConflictError(
+                    f"request_seq {request_seq} is ahead of expected {expected_seq}"
+                )
+            barrier = current.request_barriers.setdefault(
+                request_seq, RequestBarrier(request_seq=request_seq)
+            )
+            barrier.ready_users.add(user_id)
+            barrier.ready_at.setdefault(user_id, now)
+            if barrier.release_at is None and len(barrier.ready_users) == current.expected_users:
+                barrier.release_at = now + self.request_release_delay_s
+                current.active_request_seq = request_seq
+                current.status = "running"
+            elif barrier.release_at is None:
+                current.status = "request_barrier"
+            return self._barrier_status(current, barrier)
+
     def submit_measurements(self, round_id: str, user_id: int, payload: dict) -> dict:
         with self._lock:
             current = self._require_round(round_id)
-            if current.status not in {"ready", "completed"}:
+            if current.status not in {
+                "ready",
+                "decision_ready",
+                "request_barrier",
+                "running",
+                "completed",
+            }:
                 raise RoundConflictError(
                     f"Round {round_id!r} is {current.status}; measurements are not accepted"
                 )
@@ -143,7 +194,7 @@ class RoundCoordinator:
                     )
                 if (
                     len(current.measurements) == current.expected_users
-                    and current.status == "ready"
+                    and current.status != "completed"
                 ):
                     self._complete_locked(current)
                 return self._status_locked(current)
@@ -233,6 +284,7 @@ class RoundCoordinator:
                 "round_id": round_id,
                 "bundle_id": users[0]["bundle_id"],
                 "resource_mode": "fixed_worker_pool",
+                "shared_resource_model": len(users) > 1,
                 "users": users,
                 "edge": copy.deepcopy(edge),
                 "cloud": copy.deepcopy(cloud),
@@ -280,7 +332,7 @@ class RoundCoordinator:
             current.decision_version = 1
             current.batch_decision = copy.deepcopy(decision)
             current.per_user_decisions = copy.deepcopy(per_user_decisions)
-            current.status = "ready"
+            current.status = "decision_ready"
 
     @staticmethod
     def _parse_registration(payload: dict) -> tuple[int, dict, str | None]:
@@ -413,6 +465,11 @@ class RoundCoordinator:
 
     @staticmethod
     def _status_locked(current: SchedulingRound) -> dict:
+        active_barrier = (
+            current.request_barriers.get(current.active_request_seq)
+            if current.active_request_seq is not None
+            else None
+        )
         return {
             "round_id": current.round_id,
             "status": current.status,
@@ -426,5 +483,24 @@ class RoundCoordinator:
             ),
             "decision_version": current.decision_version,
             "measurement_users": sorted(current.measurements),
+            "active_request_seq": current.active_request_seq,
+            "request_release_at": (
+                active_barrier.release_at if active_barrier is not None else None
+            ),
             "error": current.error,
+        }
+
+    @staticmethod
+    def _barrier_status(current: SchedulingRound, barrier: RequestBarrier) -> dict:
+        return {
+            "round_id": current.round_id,
+            "status": "released" if barrier.release_at is not None else "waiting",
+            "request_seq": barrier.request_seq,
+            "ready_users": sorted(barrier.ready_users),
+            "ready_at": {
+                str(user_id): ready_at
+                for user_id, ready_at in sorted(barrier.ready_at.items())
+            },
+            "expected_users": current.expected_users,
+            "release_at": barrier.release_at,
         }

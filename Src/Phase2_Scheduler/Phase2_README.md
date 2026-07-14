@@ -72,3 +72,30 @@ python -m Src.Phase2_Scheduler.Service.api_server --no-auto-train
 - [Src_README](../Src_README.md)：代码总入口和快速开始。
 - [Phase3_README](../Phase3_Runtime/Phase3_README.md)：Cloud/Edge/Device 启动顺序。
 - [Scripts_README](../../Scripts/Scripts_README.md)：实验脚本如何调用调度产物。
+## 论文实验同步决策接口
+
+论文实验应直接调用 `Src.Phase2_Scheduler.Service.solve_decision(state, spec)`，
+而不是依赖在线服务的默认/缓存决策。`DecisionSpec` 可约束切分、早退、合法
+部署对、联合/独立求解、两阶段求解、优化器、随机种子和统一目标函数预算。
+
+```python
+from Src.Phase2_Scheduler.Service import DecisionSpec, solve_decision
+
+result = solve_decision(
+    state,
+    DecisionSpec(
+        coordination="joint",
+        split_rule="optimize",
+        exit_rule="disabled",       # Split only
+        optimizer="ppo",
+        evaluation_budget=5000,
+        seed=42,
+    ),
+)
+```
+
+多用户同步求解会自动启用共享资源模型。共享 D2E 链路的用户应报告相同
+`d2e_link_id`，并通过 `edge.d2e_capacity_mbps`（或用户级
+`d2e_capacity_mbps`）报告链路总容量；E2C 可通过 `cloud.e2c_link_id` 和
+`cloud.e2c_capacity_mbps` 配置。返回值同时包含决策、预测指标、统一
+optimizer trace、目标函数调用次数以及 setup/solve/total 耗时。

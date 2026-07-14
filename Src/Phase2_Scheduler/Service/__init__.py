@@ -4,10 +4,13 @@ __all__ = [
     "AlgoService",
     "AlgoServiceConfig",
     "compute_round_reward",
+    "DecisionSpec",
     "create_app",
     "encode",
     "infer_one_round",
     "run_server",
+    "SolveResult",
+    "solve_decision",
     "to_paras",
     "validate_decision",
 ]
@@ -19,10 +22,22 @@ _LAZY_EXPORTS = {
         "Src.Phase2_Scheduler.Service.reward_adapter",
         "compute_round_reward",
     ),
+    "DecisionSpec": (
+        "Src.Phase2_Scheduler.Service.decision_solver",
+        "DecisionSpec",
+    ),
     "create_app": ("Src.Phase2_Scheduler.Service.api_server", "create_app"),
     "encode": ("Src.Phase2_Scheduler.Service.decision_codec", "encode"),
     "infer_one_round": ("Src.Phase2_Scheduler.Optimizer.DSCI.run_DSCI", "infer_one_round"),
     "run_server": ("Src.Phase2_Scheduler.Service.api_server", "run_server"),
+    "SolveResult": (
+        "Src.Phase2_Scheduler.Service.decision_solver",
+        "SolveResult",
+    ),
+    "solve_decision": (
+        "Src.Phase2_Scheduler.Service.decision_solver",
+        "solve_decision",
+    ),
     "to_paras": ("Src.Phase2_Scheduler.Service.state_adapter", "to_paras"),
     "validate_decision": ("Src.Phase2_Scheduler.Service.decision_codec", "validate_decision"),
 }

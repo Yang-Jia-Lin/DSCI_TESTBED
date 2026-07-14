@@ -15,6 +15,7 @@ from Src.Phase3_Runtime.Shared.pytorch_segment_worker import (
     init_pytorch_worker,
 )
 from Src.Phase3_Runtime.Shared.request_identity import request_identity
+from Src.Phase3_Runtime.Shared.request_trace import append_node_trace
 from Src.Phase3_Runtime.Shared.socket_server import serve_requests
 from Src.Shared.Config.deploy_config import DEFAULT as TESTBED_CFG
 from Src.Shared.Config.model_config import get_bundle
@@ -78,12 +79,14 @@ def main(argv=None):
             payload.get("meta", {}).get("exit_thresholds", {}),
         ).result()
         result = _strip_tensors_if_terminal(result)
+        trace = append_node_trace(payload.get("node_trace"), "cloud", result)
         return {
             **result,
             **identity,
             "exit_location": "cloud",
             "T_compute_cloud": float(result.get("T_compute_s", 0.0)),
             "T_node_cloud": time.perf_counter() - node_started,
+            "node_trace": trace,
         }
 
     threading.Thread(

@@ -8,6 +8,7 @@ import numpy as np
 from Src.Phase2_Scheduler.Objective.compute_exit_points import compute_exit_points
 from Src.Phase2_Scheduler.Objective.compute_P import compute_layer_exit_probs
 from Src.Phase2_Scheduler.paras import Paras
+from Src.Phase2_Scheduler.Objective.shared_resources import SharedResourceModel
 
 
 def _compute_end_to_edge_delay(d_i, h_i, B_e, G, delta):
@@ -241,8 +242,81 @@ def _fixed_worker_components(X, P, paras):
     return local, d2e, edge_service, e2c, cloud_service
 
 
+def _fixed_worker_shared_breakdown(X, P, paras):
+    local, _d2e, edge_service, _e2c, cloud_service = _fixed_worker_components(
+        X, P, paras
+    )
+    cuts = compute_exit_points(X, paras)
+    boundary_bytes = (
+        np.asarray(paras.boundary_bytes, dtype=np.float64)
+        * float(getattr(paras, "transport_byte_scale", 1.0))
+    )
+    exit_boundaries = np.array(list(paras.E) + [paras.m - 1], dtype=np.int64)
+    reach_edge = np.zeros(paras.n, dtype=np.float64)
+    reach_cloud = np.zeros(paras.n, dtype=np.float64)
+    d2e_work = np.zeros(paras.n, dtype=np.float64)
+    e2c_work = np.zeros(paras.n, dtype=np.float64)
+    for i in range(paras.n):
+        b1, b2 = int(cuts[i, 0]), int(cuts[i, 1])
+        exit_probs = np.array([float(P[i, boundary]) for boundary in exit_boundaries])
+        reach_edge[i] = float(exit_probs[exit_boundaries > b1].sum())
+        reach_cloud[i] = float(exit_probs[exit_boundaries > b2].sum())
+        d2e_work[i] = reach_edge[i] * boundary_bytes[b1] * 8.0 / 1e6
+        e2c_work[i] = reach_cloud[i] * boundary_bytes[b2] * 8.0 / 1e6
+
+    d2e_ids = list(paras.d2e_link_ids)
+    d2e_capacities = dict(paras.d2e_link_capacities_mbps)
+    e2c_id = str(paras.e2c_link_id)
+    result = SharedResourceModel().evaluate(
+        device_compute=local,
+        d2e_work_megabits=d2e_work,
+        d2e_max_rates_mbps=np.asarray(paras.B_u, dtype=np.float64),
+        d2e_link_ids=d2e_ids,
+        d2e_capacities_mbps=d2e_capacities,
+        d2e_overhead_s=reach_edge * float(paras.protocol_overhead_d2e_s),
+        edge_service_s=edge_service,
+        edge_worker_count=int(paras.edge_worker_count),
+        e2c_work_megabits=e2c_work,
+        e2c_max_rates_mbps=np.full(paras.n, float(paras.b_c), dtype=np.float64),
+        e2c_link_ids=[e2c_id] * paras.n,
+        e2c_capacities_mbps={e2c_id: float(paras.e2c_link_capacity_mbps)},
+        e2c_overhead_s=reach_cloud * float(paras.protocol_overhead_e2c_s),
+        cloud_service_s=cloud_service,
+        cloud_worker_count=int(paras.cloud_worker_count),
+    )
+    return result.as_dict()
+
+
+def compute_latency_breakdown(X, P, paras, F_e=None, F_c=None):
+    """Return mutually exclusive per-user latency components in seconds."""
+    if getattr(paras, "resource_mode", None) == "fixed_worker_pool":
+        if bool(getattr(paras, "shared_resource_model", False)):
+            return _fixed_worker_shared_breakdown(X, P, paras)
+        local, d2e, edge, e2c, cloud = _fixed_worker_components(X, P, paras)
+    else:
+        if F_e is None:
+            F_e = np.full((paras.n, 1), paras.f_e_max / paras.n)
+        if F_c is None:
+            F_c = np.full((paras.n, 1), paras.f_c_max / paras.n)
+        local, d2e, edge, e2c, cloud = compute_5_latency(X, P, F_e, F_c, paras)
+    zeros = np.zeros_like(np.asarray(local, dtype=np.float64))
+    result = {
+        "device_compute": np.asarray(local, dtype=np.float64),
+        "d2e_transfer": np.asarray(d2e, dtype=np.float64),
+        "edge_queue": zeros.copy(),
+        "edge_compute": np.asarray(edge, dtype=np.float64),
+        "e2c_transfer": np.asarray(e2c, dtype=np.float64),
+        "cloud_queue": zeros.copy(),
+        "cloud_compute": np.asarray(cloud, dtype=np.float64),
+    }
+    result["total"] = sum(result.values())
+    return result
+
+
 def compute_total_latency(X, P, F_e, F_c, paras):
     if getattr(paras, "resource_mode", None) == "fixed_worker_pool":
+        if bool(getattr(paras, "shared_resource_model", False)):
+            return compute_latency_breakdown(X, P, paras, F_e, F_c)["total"]
         return np.sum(np.vstack(_fixed_worker_components(X, P, paras)), axis=0)
     n = X.shape[0]
     m = X.shape[1]

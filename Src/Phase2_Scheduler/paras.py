@@ -52,6 +52,11 @@ class Paras:
     exit_head_latency_c: dict[str, float] | None = None
     edge_worker_count: int = 1
     cloud_worker_count: int = 1
+    shared_resource_model: bool = False
+    d2e_link_ids: list[str] | None = None
+    d2e_link_capacities_mbps: dict[str, float] | None = None
+    e2c_link_id: str = "edge-cloud"
+    e2c_link_capacity_mbps: float | None = None
     protocol_overhead_d2e_s: float = 0.0
     protocol_overhead_e2c_s: float = 0.0
     tensor_transport_dtype: str = "float32"
@@ -88,8 +93,22 @@ class Paras:
         self.C_c = np.asarray(self.C if self.C_c is None else self.C_c, dtype=float)
         if self.H_u is not None:
             self.H_u = np.asarray(self.H_u, dtype=float)
-        if self.B_u is not None:
-            self.B_u = np.asarray(self.B_u, dtype=float)
+        self.B_u = (
+            np.full(self.n, float(self.b_e), dtype=float)
+            if self.B_u is None
+            else np.asarray(self.B_u, dtype=float)
+        )
+        if self.d2e_link_ids is None:
+            self.d2e_link_ids = [f"user-{index}" for index in range(self.n)]
+        if len(self.d2e_link_ids) != self.n:
+            raise ValueError("d2e_link_ids must contain one entry per user")
+        if self.d2e_link_capacities_mbps is None:
+            self.d2e_link_capacities_mbps = {
+                str(self.d2e_link_ids[index]): float(self.B_u[index])
+                for index in range(self.n)
+            }
+        if self.e2c_link_capacity_mbps is None:
+            self.e2c_link_capacity_mbps = float(self.b_c)
         if self.C_u.shape != (self.n, self.m) or self.C_e.shape != (self.m,) or self.C_c.shape != (self.m,):
             raise ValueError("Bundle computation arrays do not match manifest boundary dimension")
         from Src.Phase2_Scheduler.Utils.parsing_data import parsing_rate_and_acc
@@ -179,6 +198,24 @@ class Paras:
                 float(user.get("protocol_overhead_s", 0.0))
                 for user in users
             ]
+            d2e_link_ids = [
+                str(user.get("d2e_link_id", f"user-{index}"))
+                for index, user in enumerate(users)
+            ]
+            shared_d2e_capacity = edge.get("d2e_capacity_mbps")
+            d2e_capacities: dict[str, float] = {}
+            for index, user in enumerate(users):
+                link_id = d2e_link_ids[index]
+                capacity = user.get("d2e_capacity_mbps", shared_d2e_capacity)
+                if capacity is None:
+                    capacity = user["BW_d2e"]
+                capacity = float(capacity)
+                previous = d2e_capacities.get(link_id)
+                if previous is not None and not np.isclose(previous, capacity):
+                    raise ValueError(
+                        f"inconsistent capacity for shared D2E link {link_id!r}"
+                    )
+                d2e_capacities[link_id] = capacity
             zero_work = np.zeros(m)
             return cls(
                 n=len(users), m=m, E=exits, exit_ids=exit_ids, bundle=bundle,
@@ -196,6 +233,13 @@ class Paras:
                 exit_head_latency_c=cloud_profile.exit_head_latencies,
                 edge_worker_count=edge_profile.worker_count,
                 cloud_worker_count=cloud_profile.worker_count,
+                shared_resource_model=bool(state.get("shared_resource_model", False)),
+                d2e_link_ids=d2e_link_ids,
+                d2e_link_capacities_mbps=d2e_capacities,
+                e2c_link_id=str(cloud.get("e2c_link_id", "edge-cloud")),
+                e2c_link_capacity_mbps=float(
+                    cloud.get("e2c_capacity_mbps", cloud["BW_e2c"])
+                ),
                 protocol_overhead_d2e_s=max(d2e_overheads, default=0.0),
                 protocol_overhead_e2c_s=float(edge.get("protocol_overhead_s", 0.0)),
                 tensor_transport_dtype=transport_dtype,

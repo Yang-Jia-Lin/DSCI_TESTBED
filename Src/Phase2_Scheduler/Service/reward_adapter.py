@@ -20,7 +20,8 @@ class RewardAdapterError(ValueError):
 class RoundRewardResult:
     decision_id: str
     per_user_rewards: list[float]
-    round_reward: float
+    utility_sum: float
+    utility_mean: float
     alpha: float
     beta: float
 
@@ -28,7 +29,8 @@ class RoundRewardResult:
         return {
             "decision_id": self.decision_id,
             "per_user_rewards": self.per_user_rewards,
-            "round_reward": self.round_reward,
+            "utility_sum": self.utility_sum,
+            "utility_mean": self.utility_mean,
             "alpha": self.alpha,
             "beta": self.beta,
         }
@@ -112,7 +114,7 @@ def compute_round_reward(
     expected_decision_id: str | None = None,
     expected_num_users: int | None = None,
 ) -> RoundRewardResult:
-    """Compute per-user and mean round reward from a measurement payload."""
+    """Compute per-user, sum, and mean utility from a measurement payload."""
     records = validate_measurements(
         payload,
         expected_decision_id=expected_decision_id,
@@ -138,11 +140,13 @@ def compute_round_reward(
             )
         )
 
-    round_reward = float(np.mean(per_user)) if per_user else 0.0
+    utility_sum = float(np.sum(per_user)) if per_user else 0.0
+    utility_mean = float(np.mean(per_user)) if per_user else 0.0
     return RoundRewardResult(
         decision_id=str(payload["decision_id"]),
         per_user_rewards=per_user,
-        round_reward=round_reward,
+        utility_sum=utility_sum,
+        utility_mean=utility_mean,
         alpha=float(alpha),
         beta=float(beta),
     )

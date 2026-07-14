@@ -19,6 +19,7 @@ class ActorCritic(nn.Module):
         num_layers: int,
         action_dim_Y: int,
         partition_boundary_ids: list[int] | None = None,
+        allowed_split_pairs: list[tuple[int, int]] | None = None,
         hidden_dim: int = 128,
         beta_eps: float = 1e-4,
     ):
@@ -54,7 +55,11 @@ class ActorCritic(nn.Module):
             if partition_boundary_ids is not None
             else list(range(num_layers))
         )
-        pairs = enumerate_deployment_pairs(boundaries)
+        pairs = (
+            [(int(first), int(second)) for first, second in allowed_split_pairs]
+            if allowed_split_pairs is not None
+            else enumerate_deployment_pairs(boundaries)
+        )
         if not pairs:
             raise ValueError("No valid deployment split pairs were generated")
         pair_tensor = torch.tensor(pairs, dtype=torch.long)  # [num_pairs, 2]

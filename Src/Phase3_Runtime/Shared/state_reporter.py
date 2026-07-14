@@ -69,3 +69,28 @@ class RoundClient:
         )
         response.raise_for_status()
         return response.json()
+
+    def wait_for_request_release(
+        self,
+        request_seq: int,
+        *,
+        poll_interval_s: float = 0.05,
+        timeout_s: float = 90.0,
+    ) -> dict:
+        """Join a request barrier and wait for its common UTC release time."""
+        deadline = time.monotonic() + float(timeout_s)
+        suffix = f"requests/{int(request_seq)}/ready/{self.user_id}"
+        while time.monotonic() < deadline:
+            response = requests.post(self._url(suffix), timeout=10)
+            response.raise_for_status()
+            payload = response.json()
+            release_at = payload.get("release_at")
+            if release_at is not None:
+                delay = float(release_at) - time.time()
+                if delay > 0:
+                    time.sleep(delay)
+                return payload
+            time.sleep(float(poll_interval_s))
+        raise TimeoutError(
+            f"Timed out waiting for request barrier {request_seq} in round {self.round_id!r}"
+        )

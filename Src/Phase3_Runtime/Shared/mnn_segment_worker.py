@@ -29,25 +29,34 @@ def execute_mnn_range(
         raise RuntimeError("MNN worker is not initialized")
     _MANIFEST.validate_exit_thresholds(exit_thresholds or {})
     started = time.perf_counter()
+    segment_compute_s = 0.0
+    exit_head_compute_s = 0.0
+    exit_check_s = 0.0
 
     bundle = tensors
     executed_segments = []
     logits = None
     confidence = prediction = exit_boundary_id = exit_id = None
     for segment_id in range(start_boundary, end_boundary):
+        segment_started = time.perf_counter()
         bundle = _EXECUTOR.execute_segment(segment_id, bundle)
+        segment_compute_s += time.perf_counter() - segment_started
         executed_segments.append(segment_id)
         boundary_id = segment_id + 1
+        head_started = time.perf_counter()
         candidate = _EXECUTOR.exit_logits(boundary_id, bundle)
+        exit_head_compute_s += time.perf_counter() - head_started
         if candidate is None:
             continue
         item = _MANIFEST.exit_for_boundary(boundary_id)
         candidate_exit_id = str(item["exit_id"]) if item is not None else None
+        check_started = time.perf_counter()
         flat = np.asarray(candidate, dtype=np.float64).reshape(-1)
         probabilities = np.exp(flat - np.max(flat))
         probabilities /= probabilities.sum()
         candidate_confidence = float(np.max(probabilities))
         threshold = (exit_thresholds or {}).get(candidate_exit_id)
+        exit_check_s += time.perf_counter() - check_started
         if (
             boundary_id == _MANIFEST.final_boundary_id
             or threshold is not None
@@ -68,4 +77,9 @@ def execute_mnn_range(
         "exit_id": exit_id,
         "T_compute_s": time.perf_counter() - started,
         "executed_segments": executed_segments,
+        "compute_breakdown": {
+            "segment_compute_s": segment_compute_s,
+            "exit_head_compute_s": exit_head_compute_s,
+            "exit_check_s": exit_check_s,
+        },
     }
