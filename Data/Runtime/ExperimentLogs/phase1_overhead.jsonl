@@ -9,3 +9,5 @@
 {"logged_at": 1783921200.3018582, "phase": "phase1", "step": "exit_curves", "bundle_id": "vit-base-neucls64", "status": "success", "duration_s": 13.071858633309603}
 {"logged_at": 1783945679.7061305, "phase": "phase1", "step": "manifest", "bundle_id": "resnet50-imagenet100", "status": "success", "duration_s": 6.076383350417018}
 {"logged_at": 1783945722.0101538, "phase": "phase1", "step": "exit_curves", "bundle_id": "resnet50-imagenet100", "status": "success", "duration_s": 39.92367331311107}
+{"logged_at": 1783954548.9661646, "phase": "phase1", "step": "manifest", "bundle_id": "vit-base-imagenet100", "status": "success", "duration_s": 14.172777142375708}
+{"logged_at": 1783954648.4817073, "phase": "phase1", "step": "exit_curves", "bundle_id": "vit-base-imagenet100", "status": "success", "duration_s": 96.77343412861228}
