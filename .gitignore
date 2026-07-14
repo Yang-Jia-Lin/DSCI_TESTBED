@@ -49,6 +49,9 @@ Data/Datasets/*/TestSets/*__val__*
 !Data/Runtime/SolutionCache/*.json
 !Data/Runtime/SolutionCache/*.jsonl
 !Data/Runtime/DeviceResults/**
+Data/Bundles/six_experiments.log
 
 # Local pretrained-model caches
 Data/.cache/
+Data/Bundles/Archive/
+Data/Bundles/Archive/**
