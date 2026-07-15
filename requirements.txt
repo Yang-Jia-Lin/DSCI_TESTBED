@@ -1,0 +1,34 @@
+# DSCI Testbed general Python dependencies (Python 3.8+).
+#
+# Install the platform-appropriate torch and torchvision builds first, then run:
+#
+#   python -m pip install -r requirements.txt
+#
+# torch and torchvision are intentionally omitted because their versions and
+# installation sources depend on the target CPU/CUDA/JetPack platform. Jetson
+# Linux R35 can use requirements-jetson-nano.txt for platform-specific notes.
+# MNN and the iperf3 executable are also platform/system-level dependencies.
+
+# Online Device / Edge / Cloud / Scheduler runtime
+numpy==1.24.4
+pandas==2.0.3
+Flask==3.0.3
+requests==2.32.3
+psutil==6.1.1
+Pillow==10.4.0
+tqdm==4.67.1
+
+# Offline training, profiling, evaluation, and plots
+matplotlib==3.7.3
+PyYAML==6.0.2
+scipy==1.10.1
+scikit-learn==1.3.2
+fvcore==0.1.5.post20221221
+
+# ViT / DeiT bundles and model downloads
+timm==1.0.15
+huggingface_hub==0.36.0
+
+# ONNX export used by export_mnn_segments.py. The MNN converter/runtime itself
+# remains a separate platform-specific installation.
+onnx==1.17.0
