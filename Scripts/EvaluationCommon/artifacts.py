@@ -31,6 +31,7 @@ class BundleReadiness:
     device_profiles: int
     device_nx_profiles: int
     device_nano_profiles: int
+    device_pi5_profiles: int
     edge_profiles: int
     cloud_profiles: int
     notes: str
@@ -47,14 +48,15 @@ class BundleReadiness:
             "device_profiles": self.device_profiles,
             "device_nx_profiles": self.device_nx_profiles,
             "device_nano_profiles": self.device_nano_profiles,
+            "device_pi5_profiles": self.device_pi5_profiles,
             "edge_profiles": self.edge_profiles,
             "cloud_profiles": self.cloud_profiles,
             "notes": self.notes,
         }
 
 
-def _profile_counts(bundle_id: str) -> tuple[int, int, int, int, int]:
-    device = nx = nano = edge = cloud = 0
+def _profile_counts(bundle_id: str) -> tuple[int, int, int, int, int, int]:
+    device = nx = nano = pi5 = edge = cloud = 0
     for metadata_path in SEGMENT_PROFILE_DIR.glob("*/metadata.json"):
         try:
             with metadata_path.open("r", encoding="utf-8") as handle:
@@ -70,11 +72,13 @@ def _profile_counts(bundle_id: str) -> tuple[int, int, int, int, int]:
                 nx += 1
             if profile_id.startswith("device-nano"):
                 nano += 1
+            if profile_id.startswith("device-pi5"):
+                pi5 += 1
         elif profile_id.startswith("edge-"):
             edge += 1
         elif profile_id.startswith("cloud-"):
             cloud += 1
-    return device, nx, nano, edge, cloud
+    return device, nx, nano, pi5, edge, cloud
 
 
 def check_bundle_readiness(bundle_id: str) -> BundleReadiness:
@@ -94,6 +98,7 @@ def check_bundle_readiness(bundle_id: str) -> BundleReadiness:
             device_profiles=0,
             device_nx_profiles=0,
             device_nano_profiles=0,
+            device_pi5_profiles=0,
             edge_profiles=0,
             cloud_profiles=0,
             notes=f"not registered in Src.Shared.Config.model_config: {exc}",
@@ -110,10 +115,26 @@ def check_bundle_readiness(bundle_id: str) -> BundleReadiness:
         except Exception as exc:
             manifest = False
             notes.append(f"manifest invalid: {exc}")
-    device_profiles, device_nx_profiles, device_nano_profiles, edge_profiles, cloud_profiles = _profile_counts(bundle.bundle_id)
+    (
+        device_profiles,
+        device_nx_profiles,
+        device_nano_profiles,
+        device_pi5_profiles,
+        edge_profiles,
+        cloud_profiles,
+    ) = _profile_counts(bundle.bundle_id)
 
     required = (weights, manifest, exit_curves, dataset_root)
-    profile_ready = device_profiles > 0 and edge_profiles > 0 and cloud_profiles > 0
+    profile_ready = all(
+        count > 0
+        for count in (
+            device_nx_profiles,
+            device_nano_profiles,
+            device_pi5_profiles,
+            edge_profiles,
+            cloud_profiles,
+        )
+    )
     status = "ready" if all(required) and profile_ready else "pending"
     if not weights:
         notes.append("missing weights.pth")
@@ -129,6 +150,8 @@ def check_bundle_readiness(bundle_id: str) -> BundleReadiness:
         notes.append("missing NX device profile")
     if device_nano_profiles == 0:
         notes.append("missing Nano device profile")
+    if device_pi5_profiles == 0:
+        notes.append("missing Pi5 device profile")
 
     return BundleReadiness(
         bundle_id=bundle.bundle_id,
@@ -141,6 +164,7 @@ def check_bundle_readiness(bundle_id: str) -> BundleReadiness:
         device_profiles=device_profiles,
         device_nx_profiles=device_nx_profiles,
         device_nano_profiles=device_nano_profiles,
+        device_pi5_profiles=device_pi5_profiles,
         edge_profiles=edge_profiles,
         cloud_profiles=cloud_profiles,
         notes="; ".join(notes) if notes else "ok",

@@ -8,7 +8,7 @@ from itertools import product
 
 from Src.Shared.Config.paths import RESULT_DIR
 
-EXP1_RESULT_DIR = RESULT_DIR / "Exp1_Baseline"
+EXP1_RESULT_DIR = RESULT_DIR / "Exp1_SEAM"
 EXP2_RESULT_DIR = RESULT_DIR / "Exp2_Ablation"
 EXP3_RESULT_DIR = RESULT_DIR / "Exp3_Convergency_and_Overhead"
 
@@ -17,15 +17,15 @@ DEFAULT_SOLUTION_META = Path("Data/Runtime/SolutionCache/latest_solution_meta.js
 DEFAULT_TRAINING_EVENTS = Path("Data/Runtime/SolutionCache/training_events.jsonl")
 
 PRIMARY_BUNDLES = (
-    "resnet50-cifar10-ee-v1",
+    "resnet50-cifar10",
+    "resnet50-neucls64",
+    "resnet50-imagenet100",
 )
 
 PENDING_BUNDLES = (
-    "resnet50-neucls64-ee-v1",
-    "resnet50-imagenet100-ee-v1",
-    "deit-small-cifar10-ee-v1",
-    "deit-small-neucls64-ee-v1",
-    "deit-small-imagenet100-ee-v1",
+    "vit-base-cifar10",
+    "vit-base-neucls64",
+    "vit-base-imagenet100",
 )
 
 EXPECTED_BUNDLES = PRIMARY_BUNDLES + PENDING_BUNDLES

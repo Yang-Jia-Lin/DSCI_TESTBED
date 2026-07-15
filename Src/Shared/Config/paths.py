@@ -76,7 +76,7 @@ def bundle_paths(bundle_id: str | None = None) -> BundleArtifactPaths:
     return BundleArtifactPaths(get_bundle(bundle_id))
 
 
-RESULT_TESTBED_PATH = RESULT_DIR / "Exp1_Testbed"
+RESULT_TESTBED_PATH = RESULT_DIR / "Exp1_SEAM"
 RESULT_SOTA_PATH = RESULT_DIR / "Exp2_Baseline"
 RESULT_DYNAMIC_PATH = RESULT_DIR / "Exp3_Dynamic"
 RESULT_CONVERGENCE_PATH = RESULT_DIR / "Exp4_DSCI_Convergency"

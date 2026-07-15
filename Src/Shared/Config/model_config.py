@@ -141,7 +141,7 @@ for dataset in (_CIFAR10_DEIT, _IMAGENET100, _NEUCLS64_DEIT):
         pretrained_source="timm/vit_base_patch16_224.orig_in21k_ft_in1k", interpolation="bicubic")
     BUNDLE_REGISTRY[spec.bundle_id] = spec
 
-DEFAULT_BUNDLE_ID = "resnet50-cifar10-ee-v1"
+DEFAULT_BUNDLE_ID = "resnet50-cifar10"
 
 
 def get_bundle(bundle_id: str | None = None) -> ModelBundleSpec:

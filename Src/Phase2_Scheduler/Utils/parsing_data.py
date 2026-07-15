@@ -14,6 +14,11 @@ from Src.Shared.Partitioning.split_actions import decode_split_row
 def parsing_rate_and_acc(paras, table_path: str | Path | None = None):
     path = Path(table_path or paras.bundle_paths.offline_table_path)
     frame = pd.read_csv(path)
+    # Some synchronized Phase-1 CSVs were written with a space after each
+    # delimiter (for example ``" final_accuracy"``).  Column names are part of
+    # the bundle contract, so normalize harmless surrounding whitespace before
+    # validating the three-exit schema.
+    frame.columns = [str(column).strip() for column in frame.columns]
     required = {"threshold", "final_accuracy"}
     for exit_id in paras.exit_ids:
         required.update({f"{exit_id}_rate", f"{exit_id}_accuracy"})

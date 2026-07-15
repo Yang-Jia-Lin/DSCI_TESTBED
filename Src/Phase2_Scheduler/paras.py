@@ -180,6 +180,7 @@ class Paras:
         transport_dtype = cls._transport_dtype_from_state(state)
         transport_byte_scale = cls._transport_byte_scale(transport_dtype)
         curves = pd.read_csv(bundle_paths(bundle.bundle_id).offline_table_path)
+        curves.columns = [str(column).strip() for column in curves.columns]
         if not {"threshold", "final_accuracy"}.issubset(curves.columns):
             raise ValueError("Legacy offline tables are not supported")
 

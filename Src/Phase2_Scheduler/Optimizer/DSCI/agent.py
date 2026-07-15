@@ -599,133 +599,93 @@ class PPOAgent:
             self.optimizer.step()
 
     def _deterministic_polish(self, ppo_sol):
-        """对 fixed_worker_pool 逐用户枚举最优 (split, threshold)。"""
+        """Polish every user's split and all manifest-defined exit thresholds.
+
+        A Cartesian threshold grid becomes exponential once a model has three or
+        more exits.  Use deterministic coordinate search instead: two coarse
+        passes over every exit for every legal split, followed by a fine pass on
+        the best split.  A user's row is replaced only when the shared objective
+        improves, so polishing cannot degrade the PPO solution.
+        """
         X_ppo, Y_ppo, F_e, F_c = ppo_sol
         n, m = self.paras.n, self.paras.m
         pairs = self.policy.x_pairs.detach().cpu().numpy()
+        exit_boundaries = [int(boundary) for boundary in self.paras.E]
 
         X_best = X_ppo.copy()
         Y_best = Y_ppo.copy()
+        coarse_grid = [value / 100.0 for value in range(0, 101, 5)]
 
-        coarse_grid = list(range(0, 101, 5))
+        def objective_for(X_try, Y_try):
+            value = float(self._objective(X_try, Y_try, F_e, F_c))
+            return value if np.isfinite(value) else float("-inf")
+
+        def sweep_coordinate(X_try, Y_try, user_index, boundary, values, best_obj):
+            best_threshold = float(Y_try[user_index, boundary])
+            for threshold in values:
+                candidate = Y_try.copy()
+                candidate[user_index, boundary] = float(threshold)
+                candidate_obj = objective_for(X_try, candidate)
+                if candidate_obj > best_obj:
+                    best_obj = candidate_obj
+                    best_threshold = float(threshold)
+            Y_try[user_index, boundary] = best_threshold
+            return best_obj
 
         for i in range(n):
-            best_user_obj = -np.inf
-            best_k1k2 = None
-            best_thresholds = None
+            best_user_obj = objective_for(X_best, Y_best)
+            best_user_X = X_best[i].copy()
+            best_user_Y = Y_best[i].copy()
 
-            for pair_idx in range(len(pairs)):
-                k1, k2 = int(pairs[pair_idx, 0]), int(pairs[pair_idx, 1])
+            for pair in pairs:
+                k1, k2 = int(pair[0]), int(pair[1])
                 X_try = X_best.copy()
                 X_try[i] = encode_split_row(k1, k2, m, dtype=np.float32)
+                Y_try = Y_best.copy()
+                Y_try[i, :] = 1.0
+                for boundary in exit_boundaries:
+                    Y_try[i, boundary] = float(Y_ppo[i, boundary])
 
-                if len(self.paras.E) == 0:
-                    Y_try = Y_best.copy()
-                    Y_try[i, :] = 1.0
-                    obj = self._objective(X_try, Y_try, F_e, F_c)
-                    if np.isfinite(obj) and obj > best_user_obj:
-                        best_user_obj = obj
-                        best_k1k2 = (k1, k2)
-                        best_thresholds = []
-                    continue
+                candidate_obj = objective_for(X_try, Y_try)
+                for _ in range(2):
+                    for boundary in exit_boundaries:
+                        candidate_obj = sweep_coordinate(
+                            X_try,
+                            Y_try,
+                            i,
+                            boundary,
+                            coarse_grid,
+                            candidate_obj,
+                        )
 
-                if len(self.paras.E) == 1:
-                    for t in coarse_grid:
-                        Y_try = Y_best.copy()
-                        Y_try[i, :] = 1.0
-                        Y_try[i, self.paras.E[0]] = t / 100.0
-                        obj = self._objective(X_try, Y_try, F_e, F_c)
-                        if np.isfinite(obj) and obj > best_user_obj:
-                            best_user_obj = obj
-                            best_k1k2 = (k1, k2)
-                            best_thresholds = [t / 100.0]
-                elif len(self.paras.E) == 2:
-                    for t1 in coarse_grid:
-                        for t2 in coarse_grid:
-                            Y_try = Y_best.copy()
-                            Y_try[i, :] = 1.0
-                            Y_try[i, self.paras.E[0]] = t1 / 100.0
-                            Y_try[i, self.paras.E[1]] = t2 / 100.0
-                            obj = self._objective(X_try, Y_try, F_e, F_c)
-                            if np.isfinite(obj) and obj > best_user_obj:
-                                best_user_obj = obj
-                                best_k1k2 = (k1, k2)
-                                best_thresholds = [t1 / 100.0, t2 / 100.0]
-                else:
-                    for t1 in coarse_grid:
-                        for t2 in coarse_grid:
-                            Y_try = Y_best.copy()
-                            Y_try[i, :] = 1.0
-                            Y_try[i, self.paras.E[0]] = t1 / 100.0
-                            Y_try[i, self.paras.E[1]] = t2 / 100.0
-                            for j in range(2, len(self.paras.E)):
-                                Y_try[i, self.paras.E[j]] = Y_ppo[
-                                    i, self.paras.E[j]
-                                ]
-                            obj = self._objective(X_try, Y_try, F_e, F_c)
-                            if np.isfinite(obj) and obj > best_user_obj:
-                                best_user_obj = obj
-                                best_k1k2 = (k1, k2)
-                                best_thresholds = [
-                                    t1 / 100.0,
-                                    t2 / 100.0,
-                                    *[
-                                        float(Y_ppo[i, self.paras.E[j]])
-                                        for j in range(2, len(self.paras.E))
-                                    ],
-                                ]
+                if candidate_obj > best_user_obj:
+                    best_user_obj = candidate_obj
+                    best_user_X = X_try[i].copy()
+                    best_user_Y = Y_try[i].copy()
 
-            if (
-                best_k1k2 is not None
-                and best_thresholds is not None
-                and len(self.paras.E) > 0
-            ):
-                k1, k2 = best_k1k2
-                X_try = X_best.copy()
-                X_try[i] = encode_split_row(k1, k2, m, dtype=np.float32)
-
-                coarse_t = [
-                    int(round(t * 100))
-                    for t in best_thresholds[: min(2, len(self.paras.E))]
+            X_try = X_best.copy()
+            X_try[i] = best_user_X
+            Y_try = Y_best.copy()
+            Y_try[i] = best_user_Y
+            for boundary in exit_boundaries:
+                center = int(round(float(Y_try[i, boundary]) * 100.0))
+                fine_grid = [
+                    value / 100.0
+                    for value in range(max(0, center - 10), min(100, center + 10) + 1)
                 ]
-                fine_ranges = [
-                    range(max(0, ct - 10), min(101, ct + 11)) for ct in coarse_t
-                ]
+                best_user_obj = sweep_coordinate(
+                    X_try,
+                    Y_try,
+                    i,
+                    boundary,
+                    fine_grid,
+                    best_user_obj,
+                )
 
-                if len(self.paras.E) == 1:
-                    for t in fine_ranges[0]:
-                        Y_try = Y_best.copy()
-                        Y_try[i, :] = 1.0
-                        Y_try[i, self.paras.E[0]] = t / 100.0
-                        obj = self._objective(X_try, Y_try, F_e, F_c)
-                        if np.isfinite(obj) and obj > best_user_obj:
-                            best_user_obj = obj
-                            best_thresholds = [t / 100.0]
-                else:
-                    for t1 in fine_ranges[0]:
-                        for t2 in fine_ranges[1]:
-                            Y_try = Y_best.copy()
-                            Y_try[i, :] = 1.0
-                            Y_try[i, self.paras.E[0]] = t1 / 100.0
-                            Y_try[i, self.paras.E[1]] = t2 / 100.0
-                            for j in range(2, len(self.paras.E)):
-                                Y_try[i, self.paras.E[j]] = best_thresholds[j]
-                            obj = self._objective(X_try, Y_try, F_e, F_c)
-                            if np.isfinite(obj) and obj > best_user_obj:
-                                best_user_obj = obj
-                                best_thresholds[0] = t1 / 100.0
-                                best_thresholds[1] = t2 / 100.0
+            X_best[i] = X_try[i]
+            Y_best[i] = Y_try[i]
 
-            if best_k1k2 is not None:
-                k1, k2 = best_k1k2
-                X_best[i] = encode_split_row(k1, k2, m, dtype=np.float32)
-                Y_best[i, :] = 1.0
-                if best_thresholds is not None:
-                    for j, eidx in enumerate(self.paras.E):
-                        if j < len(best_thresholds):
-                            Y_best[i, eidx] = best_thresholds[j]
-
-        final_obj = float(self._objective(X_best, Y_best, F_e, F_c))
+        final_obj = objective_for(X_best, Y_best)
         return final_obj, (X_best, Y_best, F_e.copy(), F_c.copy())
 
     def train(self, initial_solution=None):
