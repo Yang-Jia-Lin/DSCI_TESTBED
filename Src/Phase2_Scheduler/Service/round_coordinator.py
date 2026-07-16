@@ -302,6 +302,20 @@ class RoundCoordinator:
                 state["decision_mode"] = decision_modes.pop()
             self._validate_batch_state(state)
             decision = self.service.make_decision(state)
+            shared_decision_fields = {
+                key: decision.get(key)
+                for key in (
+                    "objective_mode",
+                    "objective_alpha",
+                    "objective_beta",
+                    "target_accuracy",
+                    "accuracy_tolerance",
+                    "expected_accuracy",
+                    "expected_latency",
+                    "constraint_status",
+                    "constraint_satisfied",
+                )
+            }
             per_user_decisions = {
                 int(user["user_id"]): {
                     "round_id": round_id,
@@ -313,6 +327,7 @@ class RoundCoordinator:
                     "resource_mode": decision.get("resource_mode"),
                     "decision_source": decision.get("decision_source"),
                     "objective": decision.get("objective"),
+                    **shared_decision_fields,
                     "user": copy.deepcopy(user),
                 }
                 for user in decision["users"]
@@ -454,6 +469,12 @@ class RoundCoordinator:
             self.service.report_measurements(
                 {
                     "decision_id": current.batch_decision["decision_id"],
+                    "objective_alpha": current.batch_decision.get(
+                        "objective_alpha"
+                    ),
+                    "objective_beta": current.batch_decision.get(
+                        "objective_beta"
+                    ),
                     "measurements": per_user_records,
                 }
             )

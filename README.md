@@ -334,11 +334,20 @@ python -m Src.Phase2_Scheduler.Service.api_server --no-auto-train
 
 # 首个 DSCI round 忽略历史缓存并重新进行一次 cold training
 python -m Src.Phase2_Scheduler.Service.api_server --expected-users 1 --force-retrain
+
+# 自动搜索满足平均预测准确率 90% 的 alpha（beta 固定为 1）
+python -m Src.Phase2_Scheduler.Service.api_server --expected-users 1 --target-accuracy 0.90
 ```
 
 `--force-retrain` 是一次性启动开关：首个有效 DSCI round 会先返回默认决策，
 同时忽略历史解和历史 policy 启动全新 cold training。训练启动后该开关自动消耗，
 后续 round 不会重复触发。它不能与 `--no-auto-train` 同时使用。
+
+`--target-accuracy` 开启准确率约束模式，默认允许 `0.005` 的准确率误差，
+可用 `--accuracy-tolerance` 修改。首个 round 仍会快速返回并标记
+`constraint_status=pending`；Scheduler 在后台最多训练 5 个热启动候选，完成后
+下一轮使用满足约束且预测时延最低的策略。正式推理前可通过 `/api/v1/health`
+确认 `constraint_search_status=satisfied`；若返回 `unmet`，说明当前搜索预算内目标不可达。
 
 也可在 State JSON 中通过 `decision_mode` 字段动态切换：
 
@@ -416,12 +425,13 @@ Device、Edge、Cloud 必须上报与当前 bundle、manifest、model hash 和 b
 | iperf 路径 | `DSCI_IPERF_EXE` | 指定自定义 iperf3 可执行文件 |
 | 固定策略测试 | `--decision-mode device\|edge\|cloud\|device_early_exit\|edge_early_exit\|cloud_early_exit` | Device 注册时请求预设策略，便于做基线测试 |
 | 目标函数权重 | `DSCI_OBJECTIVE_ALPHA` / `DSCI_OBJECTIVE_BETA` | 调整 `alpha * accuracy - beta * latency` 中精度和时延权重 |
+| 准确率约束模式 | `--target-accuracy <0..1>` | 自动校准 alpha，beta 固定为 1；未设置时仍使用手动权重 |
 | 协议额外时延 | `DSCI_{DEVICE\|EDGE\|CLOUD}_PROTOCOL_OVERHEAD_S` | 传入 fixed-worker 延迟模型，用于校准真机协议开销 |
 
 真机运行时 Device 会打印 `Decision summary`，其中包含：
 
 ```text
-source=<decision_source>, objective=<objective>, b1=<partition_boundary_1>, b2=<partition_boundary_2>
+source=<decision_source>, objective=<objective>, constraint=<constraint_status>, b1=<partition_boundary_1>, b2=<partition_boundary_2>
 ```
 
 常见 `decision_source`：

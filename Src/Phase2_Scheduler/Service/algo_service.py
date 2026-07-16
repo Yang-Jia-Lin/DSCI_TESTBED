@@ -6,7 +6,7 @@ import copy
 import json
 import threading
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -21,6 +21,7 @@ from Src.Phase2_Scheduler.Service.reward_adapter import (
 )
 from Src.Phase2_Scheduler.Service.state_adapter import to_paras
 from Src.Phase2_Scheduler.Objective.compute_P import compute_layer_exit_probs
+from Src.Phase2_Scheduler.Objective.evaluator import ObjectiveEvaluator
 from Src.Phase2_Scheduler.Objective.objective import objective
 from Src.Phase2_Scheduler.Optimizer.DSCI.agent import (
     PPOAgent,
@@ -73,6 +74,11 @@ class AlgoServiceConfig:
     custom_ppo_hyperparams: dict | None = None
     auto_train: bool = True
     force_retrain: bool = False
+    target_accuracy: float | None = None
+    accuracy_tolerance: float = 0.005
+    constraint_search_runs: int = 5
+    constraint_alpha_min: float = 1.0 / 16.0
+    constraint_alpha_max: float = 16.0
     latest_solution_path: str | Path = LATEST_SOLUTION_PATH
     latest_meta_path: str | Path = LATEST_META_PATH
     training_events_path: str | Path = TRAINING_EVENTS_PATH
@@ -94,6 +100,11 @@ class CachedSolution:
     state_vector: list[float] | None = None
     policy_path: str | None = None
     training_mode: str | None = None
+    objective_alpha: float | None = None
+    objective_beta: float | None = None
+    expected_accuracy: float | None = None
+    expected_latency: float | None = None
+    constraint_satisfied: bool | None = None
 
 
 @dataclass
@@ -102,6 +113,13 @@ class CacheMatch:
     distance: float
     training_mode: str
     policy_path: str | None = None
+
+
+@dataclass
+class ConstraintCandidate:
+    solution: CachedSolution
+    policy_state_dict: dict[str, Any]
+    feasible: bool
 
 
 @dataclass
@@ -135,10 +153,34 @@ class AlgoService:
     _last_training_duration_s: float | None = field(default=None, init=False, repr=False)
     _last_training_round_id: str | None = field(default=None, init=False, repr=False)
     _force_retrain_pending: bool = field(default=False, init=False, repr=False)
+    _constraint_search_status: str = field(default="disabled", init=False, repr=False)
+    _constraint_candidates_completed: int = field(default=0, init=False, repr=False)
+    _selected_alpha: float | None = field(default=None, init=False, repr=False)
+    _selected_beta: float | None = field(default=None, init=False, repr=False)
+    _achieved_expected_accuracy: float | None = field(default=None, init=False, repr=False)
+    _achieved_expected_latency: float | None = field(default=None, init=False, repr=False)
+    _constraint_satisfied: bool | None = field(default=None, init=False, repr=False)
 
     def __post_init__(self) -> None:
         if self.config.force_retrain and not self.config.auto_train:
             raise ValueError("force_retrain requires auto_train to be enabled")
+        if self.config.target_accuracy is not None:
+            self.config.target_accuracy = float(self.config.target_accuracy)
+            if not (0.0 < self.config.target_accuracy <= 1.0):
+                raise ValueError("target_accuracy must be in (0, 1]")
+            if not self.config.auto_train:
+                raise ValueError("target_accuracy requires auto_train to be enabled")
+            self._constraint_search_status = "idle"
+        self.config.accuracy_tolerance = float(self.config.accuracy_tolerance)
+        if not (0.0 <= self.config.accuracy_tolerance < 1.0):
+            raise ValueError("accuracy_tolerance must be in [0, 1)")
+        if int(self.config.constraint_search_runs) <= 0:
+            raise ValueError("constraint_search_runs must be positive")
+        if not (
+            0.0 < float(self.config.constraint_alpha_min)
+            <= float(self.config.constraint_alpha_max)
+        ):
+            raise ValueError("constraint alpha bounds must be positive and ordered")
         self.config.latest_solution_path = Path(self.config.latest_solution_path)
         self.config.latest_meta_path = Path(self.config.latest_meta_path)
         self.config.training_events_path = Path(self.config.training_events_path)
@@ -153,12 +195,86 @@ class AlgoService:
     def _ppo_params(self) -> dict:
         return _build_ppo_params(self.config.custom_ppo_hyperparams)
 
+    def _paras_for_state(self, state: dict) -> Paras:
+        if self.config.target_accuracy is None:
+            return to_paras(state)
+        auto_config = replace(DEFAULT_ALGO_CONFIG, alpha=1.0, beta=1.0)
+        return to_paras(state, algo_cfg=auto_config)
+
+    @staticmethod
+    def _paras_with_weights(paras: Paras, alpha: float, beta: float) -> Paras:
+        weighted = copy.copy(paras)
+        weighted.alpha = float(alpha)
+        weighted.beta = float(beta)
+        return weighted
+
+    @staticmethod
+    def _policy_state(agent: PPOAgent) -> dict[str, Any]:
+        return agent.best_policy_state_dict or {
+            key: value.detach().cpu().clone()
+            for key, value in agent.policy.state_dict().items()
+        }
+
+    def _annotate_solution(
+        self,
+        solution: CachedSolution,
+        paras: Paras,
+        *,
+        alpha: float | None = None,
+        beta: float | None = None,
+    ) -> CachedSolution:
+        alpha = float(paras.alpha if alpha is None else alpha)
+        beta = float(paras.beta if beta is None else beta)
+        weighted = self._paras_with_weights(paras, alpha, beta)
+        breakdown = ObjectiveEvaluator(weighted).breakdown(
+            solution.X, solution.Y, solution.F_e, solution.F_c
+        )
+        solution.objective = float(breakdown.utility_sum)
+        solution.objective_alpha = alpha
+        solution.objective_beta = beta
+        solution.expected_accuracy = float(np.mean(breakdown.expected_accuracy))
+        solution.expected_latency = float(np.mean(breakdown.expected_latency))
+        if self.config.target_accuracy is None:
+            solution.constraint_satisfied = None
+        else:
+            threshold = (
+                float(self.config.target_accuracy)
+                - float(self.config.accuracy_tolerance)
+            )
+            solution.constraint_satisfied = solution.expected_accuracy >= threshold
+        return solution
+
+    def _update_constraint_health(self, solution: CachedSolution) -> None:
+        if self.config.target_accuracy is None:
+            return
+        self._selected_alpha = solution.objective_alpha
+        self._selected_beta = solution.objective_beta
+        self._achieved_expected_accuracy = solution.expected_accuracy
+        self._achieved_expected_latency = solution.expected_latency
+        self._constraint_satisfied = solution.constraint_satisfied
+        self._constraint_search_status = (
+            "satisfied" if solution.constraint_satisfied else "unmet"
+        )
+
     @staticmethod
     def _round_float(value) -> float:
         return round(float(value), 4)
 
-    @classmethod
-    def _state_signature(cls, state: dict, paras: Paras) -> dict[str, Any]:
+    def _objective_signature(self, paras: Paras) -> dict[str, Any]:
+        if self.config.target_accuracy is None:
+            return {
+                "mode": "weighted",
+                "alpha": float(paras.alpha),
+                "beta": float(paras.beta),
+            }
+        return {
+            "mode": "accuracy_constraint",
+            "target_accuracy": float(self.config.target_accuracy),
+            "accuracy_tolerance": float(self.config.accuracy_tolerance),
+            "beta": 1.0,
+        }
+
+    def _state_signature(self, state: dict, paras: Paras) -> dict[str, Any]:
         users = []
         f_u_values = np.asarray(paras.F_u, dtype=float).reshape(-1)
         bw_d2e_values = (
@@ -170,8 +286,8 @@ class AlgoService:
             users.append(
                 {
                     "user_id": int(user.get("user_id", i)),
-                    "f_u": cls._round_float(f_u_values[i]),
-                    "BW_d2e": cls._round_float(bw_d2e_values[i]),
+                    "f_u": self._round_float(f_u_values[i]),
+                    "BW_d2e": self._round_float(bw_d2e_values[i]),
                     "execution_profile_id": user.get("execution_profile_id"),
                 }
             )
@@ -183,10 +299,11 @@ class AlgoService:
             },
             "num_users": int(paras.n),
             "resource_mode": paras.resource_mode,
+            "objective": self._objective_signature(paras),
             "tensor_transport_dtype": getattr(
                 paras, "tensor_transport_dtype", "float32"
             ),
-            "transport_byte_scale": cls._round_float(
+            "transport_byte_scale": self._round_float(
                 getattr(paras, "transport_byte_scale", 1.0)
             ),
             "manifest_id": paras.manifest_id,
@@ -197,15 +314,15 @@ class AlgoService:
             ),
             "users": users,
             "edge": {
-                "f_e_max": cls._round_float(paras.f_e_max),
+                "f_e_max": self._round_float(paras.f_e_max),
                 "execution_profile_id": (state.get("edge") or {}).get(
                     "execution_profile_id"
                 ),
                 "worker_count": (state.get("edge") or {}).get("worker_count"),
             },
             "cloud": {
-                "f_c_max": cls._round_float(paras.f_c_max),
-                "BW_e2c": cls._round_float(paras.b_c),
+                "f_c_max": self._round_float(paras.f_c_max),
+                "BW_e2c": self._round_float(paras.b_c),
                 "execution_profile_id": (state.get("cloud") or {}).get(
                     "execution_profile_id"
                 ),
@@ -224,6 +341,7 @@ class AlgoService:
             "model": copy.deepcopy(signature.get("model") or {}),
             "num_users": signature.get("num_users"),
             "resource_mode": signature.get("resource_mode"),
+            "objective": copy.deepcopy(signature.get("objective")),
             "tensor_transport_dtype": signature.get(
                 "tensor_transport_dtype", "float32"
             ),
@@ -314,6 +432,11 @@ class AlgoService:
             solution.compat_key = self._compat_key(solution.state_signature)
         if solution.state_vector is None:
             solution.state_vector = self._state_vector(solution.state_signature)
+        objective_config = solution.state_signature.get("objective") or {}
+        if solution.objective_alpha is None and objective_config.get("mode") == "weighted":
+            solution.objective_alpha = float(objective_config["alpha"])
+        if solution.objective_beta is None and objective_config.get("beta") is not None:
+            solution.objective_beta = float(objective_config["beta"])
         return solution
 
     def _remember_cache_entry(self, solution: CachedSolution) -> None:
@@ -396,7 +519,7 @@ class AlgoService:
         X, Y = _init_feasible_XY(paras)
         F_e, F_c = self._allocate_resources_for_xy(X, Y, paras)
         obj = float(objective(X, Y, F_e, F_c, paras))
-        return CachedSolution(
+        solution = CachedSolution(
             X=X,
             Y=Y,
             F_e=F_e,
@@ -406,6 +529,7 @@ class AlgoService:
             compat_key=self._compat_key(signature),
             state_vector=self._state_vector(signature),
         )
+        return self._annotate_solution(solution, paras)
 
     def _revalue_cached_solution(
         self, solution: CachedSolution, paras: Paras, signature: dict[str, Any]
@@ -413,19 +537,31 @@ class AlgoService:
         X = solution.X.astype(np.float32, copy=True)
         Y = solution.Y.astype(np.float32, copy=True)
         F_e, F_c = self._allocate_resources_for_xy(X, Y, paras)
-        obj = float(objective(X, Y, F_e, F_c, paras))
-        return CachedSolution(
+        alpha = (
+            solution.objective_alpha
+            if self.config.target_accuracy is not None
+            and solution.objective_alpha is not None
+            else float(paras.alpha)
+        )
+        beta = (
+            solution.objective_beta
+            if self.config.target_accuracy is not None
+            and solution.objective_beta is not None
+            else float(paras.beta)
+        )
+        refreshed = CachedSolution(
             X=X,
             Y=Y,
             F_e=F_e,
             F_c=F_c,
-            objective=obj,
+            objective=0.0,
             state_signature=copy.deepcopy(signature),
             compat_key=self._compat_key(signature),
             state_vector=self._state_vector(signature),
             policy_path=solution.policy_path,
             training_mode=solution.training_mode,
         )
+        return self._annotate_solution(refreshed, paras, alpha=alpha, beta=beta)
 
     @staticmethod
     def _normalise_decision_mode(state: dict) -> tuple[str, bool] | None:
@@ -678,6 +814,8 @@ class AlgoService:
             return warm, "cached_dsci:exact"
         if match.training_mode == "reuse":
             return warm, f"cached_dsci:reuse:{match.distance:.6f}"
+        if self.config.target_accuracy is not None:
+            return warm, f"cached_dsci:warm:{match.distance:.6f}"
 
         if warm.objective >= default.objective:
             return warm, f"cached_dsci:warm:{match.distance:.6f}"
@@ -711,6 +849,10 @@ class AlgoService:
         self._last_warm_start_source = match.policy_path if match else None
         self._training_started_at = started_at
         self._last_training_round_id = str(state.get("round_id") or "")
+        if self.config.target_accuracy is not None:
+            self._constraint_search_status = "running"
+            self._constraint_candidates_completed = 0
+            self._constraint_satisfied = None
         train_state = copy.deepcopy(state)
         train_signature = copy.deepcopy(signature)
         train_match = copy.deepcopy(match)
@@ -725,7 +867,7 @@ class AlgoService:
 
     def make_decision(self, state: dict) -> dict[str, Any]:
         """Return the current cached/default decision and train the next one in back."""
-        paras = to_paras(state)
+        paras = self._paras_for_state(state)
         signature = self._state_signature(state, paras)
         fixed_split = self._fixed_split_for_state(state)
         fixed_threshold = self._fixed_threshold_for_state(state)
@@ -746,6 +888,8 @@ class AlgoService:
                 self._last_reuse_distance = match.distance if match else None
                 if self._should_start_training(match, paras):
                     self._start_training_locked(state, signature, match)
+                elif self.config.target_accuracy is not None:
+                    self._update_constraint_health(solution)
         else:
             placement, early_exit = preset_mode
             solution = self._preset_solution(paras, signature, placement, early_exit)
@@ -756,6 +900,13 @@ class AlgoService:
         if fixed_threshold is not None:
             solution = self._with_fixed_threshold(solution, paras, fixed_threshold)
             decision_source = f"{decision_source}:threshold:{fixed_threshold:g}"
+
+        solution = self._annotate_solution(
+            solution,
+            paras,
+            alpha=solution.objective_alpha,
+            beta=solution.objective_beta,
+        )
 
         decision_id = state.get("round_id") or f"round_{int(time.time() * 1000)}"
         decision = encode(
@@ -770,6 +921,32 @@ class AlgoService:
         )
         decision["objective"] = float(solution.objective)
         decision["decision_source"] = decision_source
+        decision["objective_mode"] = (
+            "accuracy_constraint"
+            if self.config.target_accuracy is not None
+            else "weighted"
+        )
+        decision["objective_alpha"] = float(solution.objective_alpha)
+        decision["objective_beta"] = float(solution.objective_beta)
+        decision["target_accuracy"] = self.config.target_accuracy
+        decision["accuracy_tolerance"] = (
+            float(self.config.accuracy_tolerance)
+            if self.config.target_accuracy is not None
+            else None
+        )
+        decision["expected_accuracy"] = solution.expected_accuracy
+        decision["expected_latency"] = solution.expected_latency
+        if self.config.target_accuracy is None:
+            decision["constraint_status"] = "disabled"
+            decision["constraint_satisfied"] = None
+        elif self._training_status == "running":
+            decision["constraint_status"] = "pending"
+            decision["constraint_satisfied"] = solution.constraint_satisfied
+        else:
+            decision["constraint_status"] = (
+                "satisfied" if solution.constraint_satisfied else "unmet"
+            )
+            decision["constraint_satisfied"] = solution.constraint_satisfied
         return decision
 
     def _training_params(self, match: CacheMatch | None) -> dict[str, Any]:
@@ -841,30 +1018,68 @@ class AlgoService:
             sol.F_c.astype(np.float32, copy=True),
         )
 
-    def _train_background(
+    @staticmethod
+    def _solution_tuple(
+        solution: CachedSolution,
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        return (
+            solution.X.astype(np.float32, copy=True),
+            solution.Y.astype(np.float32, copy=True),
+            solution.F_e.astype(np.float32, copy=True),
+            solution.F_c.astype(np.float32, copy=True),
+        )
+
+    def _train_constraint_search(
         self,
         state: dict,
         signature: dict[str, Any],
-        match: CacheMatch | None = None,
-        started_at: float | None = None,
-    ) -> None:
-        started_at = float(started_at or time.time())
-        round_id = str(state.get("round_id") or "")
+        match: CacheMatch | None,
+        round_id: str,
+    ) -> tuple[CachedSolution, dict[str, Any], str, str | None]:
+        params = self._training_params(match)
+        alpha_min = float(self.config.constraint_alpha_min)
+        alpha_max = float(self.config.constraint_alpha_max)
+        alpha = 1.0
+        if match is not None and match.solution.objective_alpha is not None:
+            alpha = float(match.solution.objective_alpha)
+        alpha = min(alpha_max, max(alpha_min, alpha))
+
+        candidates: list[ConstraintCandidate] = []
+        tried: set[float] = set()
         training_mode = match.training_mode if match else "cold"
         policy_source = match.policy_path if match else None
-        try:
-            paras = to_paras(state)
-            params = self._training_params(match)
+
+        for index in range(int(self.config.constraint_search_runs)):
+            alpha = min(alpha_max, max(alpha_min, float(alpha)))
+            alpha_key = round(alpha, 12)
+            if alpha_key in tried:
+                break
+            tried.add(alpha_key)
+
+            candidate_config = replace(DEFAULT_ALGO_CONFIG, alpha=alpha, beta=1.0)
+            paras = to_paras(state, algo_cfg=candidate_config)
             agent = PPOAgent(paras, params)
-            training_mode, policy_source = self._load_warm_policy(agent, match)
-            initial_solution = self._initial_solution_from_match(match)
+
+            if candidates:
+                warm = min(
+                    candidates,
+                    key=lambda item: abs(
+                        np.log(float(item.solution.objective_alpha)) - np.log(alpha)
+                    ),
+                )
+                agent.load_policy_state_dict(warm.policy_state_dict)
+                initial_solution = self._solution_tuple(warm.solution)
+            else:
+                training_mode, policy_source = self._load_warm_policy(agent, match)
+                initial_solution = self._initial_solution_from_match(match)
+
             best_val, best_sol, _history = agent.train(
                 initial_solution=initial_solution
             )
             if best_sol is None:
-                raise RuntimeError("DSCI training returned no solution")
-            finished_at = time.time()
-            duration_s = finished_at - started_at
+                raise RuntimeError(
+                    f"DSCI constraint candidate alpha={alpha:g} returned no solution"
+                )
 
             X, Y, F_e, F_c = best_sol
             solution = CachedSolution(
@@ -878,6 +1093,126 @@ class AlgoService:
                 state_vector=self._state_vector(signature),
                 training_mode=training_mode,
             )
+            self._annotate_solution(solution, paras, alpha=alpha, beta=1.0)
+            candidate = ConstraintCandidate(
+                solution=solution,
+                policy_state_dict=self._policy_state(agent),
+                feasible=bool(solution.constraint_satisfied),
+            )
+            candidates.append(candidate)
+            with self._lock:
+                self._constraint_candidates_completed = len(candidates)
+
+            self._append_training_event(
+                {
+                    "event": "constraint_candidate_complete",
+                    "round_id": round_id,
+                    "candidate_index": index,
+                    "alpha": alpha,
+                    "beta": 1.0,
+                    "objective": solution.objective,
+                    "expected_accuracy": solution.expected_accuracy,
+                    "expected_latency": solution.expected_latency,
+                    "constraint_satisfied": solution.constraint_satisfied,
+                }
+            )
+
+            feasible_alphas = [
+                float(item.solution.objective_alpha)
+                for item in candidates
+                if item.feasible
+            ]
+            infeasible_alphas = [
+                float(item.solution.objective_alpha)
+                for item in candidates
+                if not item.feasible
+            ]
+            feasible_bound = min(feasible_alphas) if feasible_alphas else None
+            infeasible_bound = max(infeasible_alphas) if infeasible_alphas else None
+            if (
+                feasible_bound is not None
+                and infeasible_bound is not None
+                and infeasible_bound < feasible_bound
+            ):
+                alpha = float(np.sqrt(feasible_bound * infeasible_bound))
+            elif candidate.feasible:
+                alpha = float(solution.objective_alpha) / 2.0
+            else:
+                alpha = float(solution.objective_alpha) * 2.0
+
+        if not candidates:
+            raise RuntimeError("DSCI constraint search produced no candidates")
+
+        feasible = [candidate for candidate in candidates if candidate.feasible]
+        if feasible:
+            selected = min(
+                feasible,
+                key=lambda item: (
+                    float(item.solution.expected_latency),
+                    -float(item.solution.expected_accuracy),
+                ),
+            )
+        else:
+            selected = min(
+                candidates,
+                key=lambda item: (
+                    -float(item.solution.expected_accuracy),
+                    float(item.solution.expected_latency),
+                ),
+            )
+        return (
+            selected.solution,
+            selected.policy_state_dict,
+            training_mode,
+            policy_source,
+        )
+
+    def _train_background(
+        self,
+        state: dict,
+        signature: dict[str, Any],
+        match: CacheMatch | None = None,
+        started_at: float | None = None,
+    ) -> None:
+        started_at = float(started_at or time.time())
+        round_id = str(state.get("round_id") or "")
+        training_mode = match.training_mode if match else "cold"
+        policy_source = match.policy_path if match else None
+        try:
+            if self.config.target_accuracy is not None:
+                solution, policy_state, training_mode, policy_source = (
+                    self._train_constraint_search(
+                        state, signature, match, round_id
+                    )
+                )
+            else:
+                paras = to_paras(state)
+                params = self._training_params(match)
+                agent = PPOAgent(paras, params)
+                training_mode, policy_source = self._load_warm_policy(agent, match)
+                initial_solution = self._initial_solution_from_match(match)
+                best_val, best_sol, _history = agent.train(
+                    initial_solution=initial_solution
+                )
+                if best_sol is None:
+                    raise RuntimeError("DSCI training returned no solution")
+                X, Y, F_e, F_c = best_sol
+                solution = CachedSolution(
+                    X=np.asarray(X, dtype=np.float32),
+                    Y=np.asarray(Y, dtype=np.float32),
+                    F_e=np.asarray(F_e, dtype=np.float32).reshape(paras.n, 1),
+                    F_c=np.asarray(F_c, dtype=np.float32).reshape(paras.n, 1),
+                    objective=float(best_val),
+                    state_signature=copy.deepcopy(signature),
+                    compat_key=self._compat_key(signature),
+                    state_vector=self._state_vector(signature),
+                    training_mode=training_mode,
+                )
+                self._annotate_solution(solution, paras)
+                policy_state = self._policy_state(agent)
+
+            finished_at = time.time()
+            duration_s = finished_at - started_at
 
             with self._lock:
                 self._cached_solution = solution
@@ -892,12 +1227,9 @@ class AlgoService:
                 self._last_training_duration_s = duration_s
                 self._last_training_round_id = round_id
                 self._update_epoch += 1
+                self._update_constraint_health(solution)
 
             try:
-                policy_state = agent.best_policy_state_dict or {
-                    k: v.detach().cpu().clone()
-                    for k, v in agent.policy.state_dict().items()
-                }
                 self._save_latest_solution(
                     solution,
                     policy_state_dict=policy_state,
@@ -912,17 +1244,40 @@ class AlgoService:
                         "round_id": round_id,
                         "training_mode": training_mode,
                         "policy_source": policy_source,
-                        "objective": float(best_val),
+                        "objective": float(solution.objective),
+                        "objective_alpha": solution.objective_alpha,
+                        "objective_beta": solution.objective_beta,
+                        "expected_accuracy": solution.expected_accuracy,
+                        "expected_latency": solution.expected_latency,
+                        "constraint_satisfied": solution.constraint_satisfied,
                         "started_at": started_at,
                         "finished_at": finished_at,
                         "duration_s": duration_s,
                         "update_epoch": self._update_epoch,
                     }
                 )
+                if self.config.target_accuracy is not None:
+                    self._append_training_event(
+                        {
+                            "event": "constraint_search_complete",
+                            "round_id": round_id,
+                            "target_accuracy": self.config.target_accuracy,
+                            "accuracy_tolerance": self.config.accuracy_tolerance,
+                            "candidates_completed": self._constraint_candidates_completed,
+                            "selected_alpha": solution.objective_alpha,
+                            "selected_beta": solution.objective_beta,
+                            "expected_accuracy": solution.expected_accuracy,
+                            "expected_latency": solution.expected_latency,
+                            "constraint_satisfied": solution.constraint_satisfied,
+                            "duration_s": duration_s,
+                        }
+                    )
             except Exception as exc:  # pragma: no cover - filesystem dependent
                 with self._lock:
                     self._training_status = "error"
                     self._last_error = f"Failed to persist latest solution: {exc}"
+                    if self.config.target_accuracy is not None:
+                        self._constraint_search_status = "error"
         except Exception as exc:  # pragma: no cover - long-running training path
             finished_at = time.time()
             duration_s = finished_at - started_at
@@ -935,6 +1290,8 @@ class AlgoService:
                 self._last_training_duration_s = duration_s
                 self._last_training_round_id = round_id
                 self._last_error = str(exc)
+                if self.config.target_accuracy is not None:
+                    self._constraint_search_status = "error"
             self._append_training_event(
                 {
                     "event": "training_error",
@@ -1000,6 +1357,11 @@ class AlgoService:
             "training_started_at": training_started_at,
             "training_finished_at": training_finished_at,
             "training_duration_s": training_duration_s,
+            "objective_alpha": solution.objective_alpha,
+            "objective_beta": solution.objective_beta,
+            "expected_accuracy": solution.expected_accuracy,
+            "expected_latency": solution.expected_latency,
+            "constraint_satisfied": solution.constraint_satisfied,
             "saved_at": time.time(),
         }
         self._write_solution_pair(archived_solution, archived_meta, solution, meta)
@@ -1105,13 +1467,22 @@ class AlgoService:
             state_vector=meta.get("state_vector"),
             policy_path=policy_path,
             training_mode=meta.get("training_mode"),
+            objective_alpha=meta.get("objective_alpha"),
+            objective_beta=meta.get("objective_beta"),
+            expected_accuracy=meta.get("expected_accuracy"),
+            expected_latency=meta.get("expected_latency"),
+            constraint_satisfied=meta.get("constraint_satisfied"),
         )
         return self._normalise_cached_solution(solution)
 
     def report_measurements(self, payload: dict) -> dict[str, Any]:
         """Ingest deploy measurements without online PPO buffer updates."""
         with self._lock:
-            reward_result = compute_round_reward(payload)
+            reward_result = compute_round_reward(
+                payload,
+                alpha=payload.get("objective_alpha"),
+                beta=payload.get("objective_beta"),
+            )
             self._last_reward = reward_result
             return {
                 "status": "ok",
@@ -1134,8 +1505,34 @@ class AlgoService:
                 "auto_train": self.config.auto_train,
                 "force_retrain": self.config.force_retrain,
                 "force_retrain_pending": self._force_retrain_pending,
-                "objective_alpha": float(DEFAULT_ALGO_CONFIG.alpha),
-                "objective_beta": float(DEFAULT_ALGO_CONFIG.beta),
+                "objective_mode": (
+                    "accuracy_constraint"
+                    if self.config.target_accuracy is not None
+                    else "weighted"
+                ),
+                "objective_alpha": (
+                    self._selected_alpha
+                    if self.config.target_accuracy is not None
+                    else float(DEFAULT_ALGO_CONFIG.alpha)
+                ),
+                "objective_beta": (
+                    self._selected_beta
+                    if self.config.target_accuracy is not None
+                    else float(DEFAULT_ALGO_CONFIG.beta)
+                ),
+                "target_accuracy": self.config.target_accuracy,
+                "accuracy_tolerance": (
+                    self.config.accuracy_tolerance
+                    if self.config.target_accuracy is not None
+                    else None
+                ),
+                "constraint_search_status": self._constraint_search_status,
+                "constraint_candidates_completed": self._constraint_candidates_completed,
+                "selected_alpha": self._selected_alpha,
+                "selected_beta": self._selected_beta,
+                "achieved_expected_accuracy": self._achieved_expected_accuracy,
+                "achieved_expected_latency": self._achieved_expected_latency,
+                "constraint_satisfied": self._constraint_satisfied,
                 "training_status": self._training_status,
                 "training_state_signature": self._training_signature,
                 "training_started_at": self._training_started_at,

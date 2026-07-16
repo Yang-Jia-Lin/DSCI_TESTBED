@@ -248,6 +248,8 @@ def build_service_from_env(
     enable_training: bool = False,
     auto_train: bool = True,
     force_retrain: bool = False,
+    target_accuracy: float | None = None,
+    accuracy_tolerance: float = 0.005,
     deterministic: bool = True,
     buffer_size: int | None = None,
     fixed_split: tuple[int, int] | None = None,
@@ -258,6 +260,8 @@ def build_service_from_env(
         enable_training=enable_training,
         auto_train=auto_train,
         force_retrain=force_retrain,
+        target_accuracy=target_accuracy,
+        accuracy_tolerance=accuracy_tolerance,
         deterministic=deterministic,
         fixed_split=fixed_split,
         fixed_threshold=fixed_threshold,
@@ -307,12 +311,38 @@ if __name__ == "__main__":
             "start a fresh cold background training run"
         ),
     )
+    parser.add_argument(
+        "--target-accuracy",
+        type=float,
+        default=None,
+        metavar="VALUE",
+        help=(
+            "Automatically calibrate alpha for mean expected accuracy VALUE; "
+            "beta is fixed to 1"
+        ),
+    )
+    parser.add_argument(
+        "--accuracy-tolerance",
+        type=float,
+        default=0.005,
+        metavar="VALUE",
+        help="Allowed accuracy shortfall in constraint mode (default: 0.005)",
+    )
     parser.add_argument("--debug", action="store_true")
     args = parser.parse_args()
+    if args.target_accuracy is not None:
+        if not (0.0 < args.target_accuracy <= 1.0):
+            parser.error("--target-accuracy must be in (0, 1]")
+        if args.no_auto_train:
+            parser.error("--target-accuracy cannot be used with --no-auto-train")
+    if not (0.0 <= args.accuracy_tolerance < 1.0):
+        parser.error("--accuracy-tolerance must be in [0, 1)")
 
     service = build_service_from_env(
         auto_train=not args.no_auto_train,
         force_retrain=args.force_retrain,
+        target_accuracy=args.target_accuracy,
+        accuracy_tolerance=args.accuracy_tolerance,
         fixed_split=tuple(args.fixed_split) if args.fixed_split else None,
         fixed_threshold=args.fixed_threshold,
     )

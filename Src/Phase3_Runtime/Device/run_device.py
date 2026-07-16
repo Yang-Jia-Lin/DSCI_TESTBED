@@ -81,6 +81,16 @@ def registration_payload(
     return payload
 
 
+def _decision_objective_weights(decision: dict | None) -> tuple[float, float]:
+    decision = decision or {}
+    alpha = decision.get("objective_alpha")
+    beta = decision.get("objective_beta")
+    return (
+        float(ALGO_CFG.alpha if alpha is None else alpha),
+        float(ALGO_CFG.beta if beta is None else beta),
+    )
+
+
 def _heartbeat_loop(client: RoundClient, stop: threading.Event, interval_s: float):
     while not stop.wait(float(interval_s)):
         try:
@@ -111,6 +121,8 @@ def _measurement_record(
     is_correct: bool,
     sample_metadata: dict | None = None,
     synchronization: dict | None = None,
+    objective_alpha: float = float(ALGO_CFG.alpha),
+    objective_beta: float = float(ALGO_CFG.beta),
 ) -> dict:
     record = {
         "request_id": str(result["request_id"]),
@@ -161,12 +173,14 @@ def _measurement_record(
     if synchronization:
         record.update(copy.deepcopy(synchronization))
     request_utility = (
-        float(ALGO_CFG.alpha) * float(bool(is_correct))
-        - float(ALGO_CFG.beta) * float(result["T_total"])
+        float(objective_alpha) * float(bool(is_correct))
+        - float(objective_beta) * float(result["T_total"])
     )
     record["observed_accuracy"] = float(bool(is_correct))
     record["observed_latency"] = float(result["T_total"])
     record["observed_utility"] = request_utility
+    record["objective_alpha"] = float(objective_alpha)
+    record["objective_beta"] = float(objective_beta)
     trace.update(
         {
             "sample_id": record.get("sample_id"),
@@ -217,6 +231,7 @@ def _summary_payload(
     correct: int,
     total: int,
 ) -> dict:
+    objective_alpha, objective_beta = _decision_objective_weights(decision)
     latency_summary = {}
     for key in (
         "T_d_compute",
@@ -258,8 +273,12 @@ def _summary_payload(
         "utility_sum": sum(
             float(record["observed_utility"]) for record in measurements
         ),
-        "alpha": float(ALGO_CFG.alpha),
-        "beta": float(ALGO_CFG.beta),
+        "alpha": objective_alpha,
+        "beta": objective_beta,
+        "objective_mode": (decision or {}).get("objective_mode", "weighted"),
+        "target_accuracy": (decision or {}).get("target_accuracy"),
+        "constraint_status": (decision or {}).get("constraint_status", "disabled"),
+        "constraint_satisfied": (decision or {}).get("constraint_satisfied"),
         "latency": latency_summary,
         "decision": decision,
         "device_state": device_state,
@@ -486,11 +505,13 @@ def main(argv=None):
     measurements = []
     try:
         decision = client.wait_for_decision(timeout_s=args.decision_timeout)
+        objective_alpha, objective_beta = _decision_objective_weights(decision)
         user_decision = decision.get("user", {})
         print(
             "Decision summary: "
             f"source={decision.get('decision_source')}, "
             f"objective={decision.get('objective')}, "
+            f"constraint={decision.get('constraint_status')}, "
             f"b1={user_decision.get('partition_boundary_1')}, "
             f"b2={user_decision.get('partition_boundary_2')}"
         )
@@ -542,6 +563,8 @@ def main(argv=None):
                     is_correct=is_correct,
                     sample_metadata=sample_metadata,
                     synchronization=synchronization,
+                    objective_alpha=objective_alpha,
+                    objective_beta=objective_beta,
                 )
             )
             total += 1

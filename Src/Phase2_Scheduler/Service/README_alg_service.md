@@ -18,6 +18,12 @@ Scheduler 启动时可传入 `--force-retrain`。该参数只影响首个有效 
 `cold` 后台训练。训练启动后开关自动消耗，不会在后续 round 重复训练。
 `--force-retrain` 与 `--no-auto-train` 互斥。
 
+Scheduler 也可使用 `--target-accuracy 0.90` 开启准确率约束模式。该模式固定
+`beta=1`，在后台最多搜索 5 个 alpha 候选，并从达到
+`target_accuracy - accuracy_tolerance` 的候选中选择平均预测时延最低者。候选间
+热启动 policy 和 best solution，但沿用当前 `cold/near/medium` 的训练预算。
+首轮决策标记为 `pending`，搜索完成后的下一轮才使用最终策略。
+
 ## 历史缓存池
 
 服务维护多条历史缓存，默认最多保留 `max_cached_solutions=10`。每次 PPO 训练完成后会保存三类文件：
@@ -34,6 +40,7 @@ Scheduler 启动时可传入 `--force-retrain`。该参数只影响首个有效 
 
 - `bundle_id`、`manifest_id`、`model_hash`
 - `resource_mode`
+- objective 配置：手动模式的 `alpha/beta`，或约束模式的目标与容差
 - 用户数、模型层数、早退出口
 - 每个用户 execution profile
 - edge/cloud profile
@@ -97,6 +104,10 @@ PPO 内部一个 episode 仍是 `n` 步。10 个用户时就是 10 步，每步�
 - `last_training_mode`
 - `last_warm_start_source`
 - `policy_cache_enabled`
+- `objective_mode`、`target_accuracy`
+- `constraint_search_status`、`constraint_candidates_completed`
+- `selected_alpha/beta`、`achieved_expected_accuracy/latency`
+- `constraint_satisfied`
 
 返回的 decision 也会带 `decision_source`，例如：
 
