@@ -1,0 +1,16 @@
+{
+  "profile_id": "vit-base-cifar10-edge-jialin-desktop",
+  "manifest_id": "vit-base-cifar10-partition-v1",
+  "bundle_id": "vit-base-cifar10",
+  "model_hash": "fee60ffa57bba9b355670d5e57f75726ac8d321f10a97206fff3a2bc1a85bbc0",
+  "backend": "pytorch",
+  "worker_count": 1,
+  "threads_per_worker": 1,
+  "total_model_latency_s": 0.4197786599989437,
+  "num_segments": 15,
+  "exit_head_latencies_s": {
+    "after_block3": 0.00019182666668105715,
+    "after_block6": 0.00021080999965003382,
+    "after_block9": 0.00018108333315467462
+  }
+}
