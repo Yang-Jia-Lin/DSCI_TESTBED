@@ -1,4 +1,4 @@
-Src/Shared/Config/deploy_config.py
+# Src/Shared/Config/deploy_config.py
 
 *.pth
 *.pt
