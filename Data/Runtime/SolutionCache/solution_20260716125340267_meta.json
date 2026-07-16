@@ -67,12 +67,12 @@
     50.0,
     1.0
   ],
-  "objective": 4.304785837610444,
-  "created_at": 1784178214.4160924,
-  "policy_path": "D:\\Coding\\Python\\DSCI_SEAS\\Data\\Runtime\\SolutionCache\\latest_solution_policy.pt",
+  "objective": 9.200828340449164,
+  "created_at": 1784177620.2675817,
+  "policy_path": "D:\\Coding\\Python\\DSCI_SEAS\\Data\\Runtime\\SolutionCache\\solution_20260716125340267_policy.pt",
   "training_mode": "cold",
-  "training_started_at": 1784177925.7847373,
-  "training_finished_at": 1784178214.4160924,
-  "training_duration_s": 288.63135504722595,
-  "saved_at": 1784178214.5014
+  "training_started_at": 1784177316.6022644,
+  "training_finished_at": 1784177620.2675817,
+  "training_duration_s": 303.6653172969818,
+  "saved_at": 1784177620.3162093
 }
