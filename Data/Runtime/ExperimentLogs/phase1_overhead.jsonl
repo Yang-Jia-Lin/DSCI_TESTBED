@@ -11,3 +11,4 @@
 {"logged_at": 1783945722.0101538, "phase": "phase1", "step": "exit_curves", "bundle_id": "resnet50-imagenet100", "status": "success", "duration_s": 39.92367331311107}
 {"logged_at": 1783954548.9661646, "phase": "phase1", "step": "manifest", "bundle_id": "vit-base-imagenet100", "status": "success", "duration_s": 14.172777142375708}
 {"logged_at": 1783954648.4817073, "phase": "phase1", "step": "exit_curves", "bundle_id": "vit-base-imagenet100", "status": "success", "duration_s": 96.77343412861228}
+{"logged_at": 1784166489.587091, "phase": "phase1", "step": "profile_segments", "bundle_id": "resnet50-cifar10", "status": "success", "duration_s": 7.492730399593711, "profile_id": "resnet50-cifar10-edge-jialin-desktop", "worker_count": 1, "threads_per_worker": 1}
