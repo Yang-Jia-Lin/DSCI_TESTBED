@@ -247,6 +247,7 @@ def build_service_from_env(
     checkpoint: str | None = None,
     enable_training: bool = False,
     auto_train: bool = True,
+    force_retrain: bool = False,
     deterministic: bool = True,
     buffer_size: int | None = None,
     fixed_split: tuple[int, int] | None = None,
@@ -256,6 +257,7 @@ def build_service_from_env(
         checkpoint_path=checkpoint,
         enable_training=enable_training,
         auto_train=auto_train,
+        force_retrain=force_retrain,
         deterministic=deterministic,
         fixed_split=fixed_split,
         fixed_threshold=fixed_threshold,
@@ -295,12 +297,22 @@ if __name__ == "__main__":
             "decision request, for example: --fixed-threshold 0.7"
         ),
     )
-    parser.add_argument("--no-auto-train", action="store_true")
+    training_group = parser.add_mutually_exclusive_group()
+    training_group.add_argument("--no-auto-train", action="store_true")
+    training_group.add_argument(
+        "--force-retrain",
+        action="store_true",
+        help=(
+            "Ignore compatible solution caches for the first DSCI round and "
+            "start a fresh cold background training run"
+        ),
+    )
     parser.add_argument("--debug", action="store_true")
     args = parser.parse_args()
 
     service = build_service_from_env(
         auto_train=not args.no_auto_train,
+        force_retrain=args.force_retrain,
         fixed_split=tuple(args.fixed_split) if args.fixed_split else None,
         fixed_threshold=args.fixed_threshold,
     )

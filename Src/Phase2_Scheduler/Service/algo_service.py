@@ -72,6 +72,7 @@ class AlgoServiceConfig:
     buffer_size: int = DEFAULT_ALGO_CONFIG.buffer_size
     custom_ppo_hyperparams: dict | None = None
     auto_train: bool = True
+    force_retrain: bool = False
     latest_solution_path: str | Path = LATEST_SOLUTION_PATH
     latest_meta_path: str | Path = LATEST_META_PATH
     training_events_path: str | Path = TRAINING_EVENTS_PATH
@@ -133,8 +134,11 @@ class AlgoService:
     _last_training_finished_at: float | None = field(default=None, init=False, repr=False)
     _last_training_duration_s: float | None = field(default=None, init=False, repr=False)
     _last_training_round_id: str | None = field(default=None, init=False, repr=False)
+    _force_retrain_pending: bool = field(default=False, init=False, repr=False)
 
     def __post_init__(self) -> None:
+        if self.config.force_retrain and not self.config.auto_train:
+            raise ValueError("force_retrain requires auto_train to be enabled")
         self.config.latest_solution_path = Path(self.config.latest_solution_path)
         self.config.latest_meta_path = Path(self.config.latest_meta_path)
         self.config.training_events_path = Path(self.config.training_events_path)
@@ -142,6 +146,7 @@ class AlgoService:
         self.config.fixed_threshold = self._parse_fixed_threshold(
             self.config.fixed_threshold
         )
+        self._force_retrain_pending = bool(self.config.force_retrain)
         self._load_latest_solution()
         self._load_archived_solutions()
 
@@ -358,6 +363,15 @@ class AlgoService:
         if not candidates:
             return None
         return min(candidates, key=lambda match: (match.distance, -match.solution.created_at))
+
+    def _cache_match_for_decision(
+        self, signature: dict[str, Any], paras: Paras
+    ) -> tuple[CacheMatch | None, bool]:
+        """Consume the one-shot cold-retrain request before cache selection."""
+        if self._force_retrain_pending:
+            self._force_retrain_pending = False
+            return None, True
+        return self._best_cache_match(signature, paras), False
 
     @staticmethod
     def _allocate_resources_for_xy(
@@ -723,10 +737,12 @@ class AlgoService:
             decision_source = f"fixed_split:{s1}:{s2}"
         elif preset_mode is None:
             with self._lock:
-                match = self._best_cache_match(signature, paras)
+                match, force_retrain = self._cache_match_for_decision(signature, paras)
                 solution, decision_source = self._solution_for_response(
                     paras, signature, match
                 )
+                if force_retrain:
+                    decision_source = "default:force_retrain"
                 self._last_reuse_distance = match.distance if match else None
                 if self._should_start_training(match, paras):
                     self._start_training_locked(state, signature, match)
@@ -1116,6 +1132,8 @@ class AlgoService:
                 else None,
                 "enable_training": self.config.enable_training,
                 "auto_train": self.config.auto_train,
+                "force_retrain": self.config.force_retrain,
+                "force_retrain_pending": self._force_retrain_pending,
                 "objective_alpha": float(DEFAULT_ALGO_CONFIG.alpha),
                 "objective_beta": float(DEFAULT_ALGO_CONFIG.beta),
                 "training_status": self._training_status,

@@ -13,6 +13,11 @@
 
 服务仍保持“快速返回 + 后台训练”的模式：当前请求不会等待 PPO 收敛，后台训练完成后再更新缓存。
 
+Scheduler 启动时可传入 `--force-retrain`。该参数只影响首个有效 DSCI round：
+服务跳过全部历史缓存和 policy，先返回 `default:force_retrain`，并立即启动一次
+`cold` 后台训练。训练启动后开关自动消耗，不会在后续 round 重复训练。
+`--force-retrain` 与 `--no-auto-train` 互斥。
+
 ## 历史缓存池
 
 服务维护多条历史缓存，默认最多保留 `max_cached_solutions=10`。每次 PPO 训练完成后会保存三类文件：
@@ -99,6 +104,7 @@ PPO 内部一个 episode 仍是 `n` 步。10 个用户时就是 10 步，每步�
 - `cached_dsci:reuse:0.001234`
 - `cached_dsci:warm:0.032100`
 - `default`
+- `default:force_retrain`
 
 ## 当前边界
 

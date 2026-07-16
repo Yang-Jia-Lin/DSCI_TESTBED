@@ -331,7 +331,14 @@ python -m Src.Phase2_Scheduler.Service.api_server --fixed-threshold 0.7
 
 # 禁用后台 DSCI 训练
 python -m Src.Phase2_Scheduler.Service.api_server --no-auto-train
+
+# 首个 DSCI round 忽略历史缓存并重新进行一次 cold training
+python -m Src.Phase2_Scheduler.Service.api_server --expected-users 1 --force-retrain
 ```
+
+`--force-retrain` 是一次性启动开关：首个有效 DSCI round 会先返回默认决策，
+同时忽略历史解和历史 policy 启动全新 cold training。训练启动后该开关自动消耗，
+后续 round 不会重复触发。它不能与 `--no-auto-train` 同时使用。
 
 也可在 State JSON 中通过 `decision_mode` 字段动态切换：
 
@@ -422,6 +429,7 @@ source=<decision_source>, objective=<objective>, b1=<partition_boundary_1>, b2=<
 | 来源 | 含义 |
 |------|------|
 | `default` | 当前轮先返回默认解，后台启动 DSCI/PPO 训练 |
+| `default:force_retrain` | 本次启动要求忽略历史缓存，当前轮返回默认解并进行一次全新 cold training |
 | `cached_dsci:exact` | 当前状态与缓存完全匹配，直接复用策略 |
 | `cached_dsci:reuse:<distance>` | 状态距离较近，复用历史策略 |
 | `cached_dsci:warm:<distance>` | 先返回 warm-start 策略，同时后台继续训练 |
@@ -434,7 +442,7 @@ Scheduler 会把 PPO 训练事件写入：
 Data/Runtime/SolutionCache/training_events.jsonl
 ```
 
-`GET /api/v1/health` 可查看 `training_status`、`update_epochs`、`last_training_mode`、`last_training_duration_s`、`training_events_path` 等字段，用于判断新策略何时训练完成。
+`GET /api/v1/health` 可查看 `training_status`、`update_epochs`、`last_training_mode`、`last_training_duration_s`、`training_events_path`、`force_retrain` 和 `force_retrain_pending` 等字段，用于判断新策略何时训练完成。
 
 真机 socket 传输已改为“4 字节大端长度头 + pickle payload”的双向长度前缀协议。Device 汇总输出中会包含 `T_device_edge_roundtrip_avg_ms`，用于观察 Device -> Edge 的真实传输/等待开销；当早退在 Device 侧发生时，该字段可能不会出现。
 
