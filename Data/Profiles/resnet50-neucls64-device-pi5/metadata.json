@@ -6,11 +6,11 @@
   "backend": "pytorch",
   "worker_count": 1,
   "threads_per_worker": 1,
-  "total_model_latency_s": 0.25703978910363123,
+  "total_model_latency_s": 0.25352494412994325,
   "num_segments": 19,
   "exit_head_latencies_s": {
-    "after_layer1": 0.0010655626674027493,
-    "after_layer2": 0.0006961041673397024,
-    "after_layer3": 0.0006164007994811982
+    "after_layer1": 0.0011737642334386086,
+    "after_layer2": 0.0005612608016235754,
+    "after_layer3": 0.0006174354687876379
   }
 }
