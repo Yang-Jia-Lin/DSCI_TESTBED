@@ -1,0 +1,16 @@
+{
+  "profile_id": "vit-base-cifar10-cloud-v100",
+  "manifest_id": "vit-base-cifar10-partition-v1",
+  "bundle_id": "vit-base-cifar10",
+  "model_hash": "fee60ffa57bba9b355670d5e57f75726ac8d321f10a97206fff3a2bc1a85bbc0",
+  "backend": "pytorch",
+  "worker_count": 1,
+  "threads_per_worker": 1,
+  "total_model_latency_s": 0.01380163449794054,
+  "num_segments": 15,
+  "exit_head_latencies_s": {
+    "after_block3": 0.0002762807533144951,
+    "after_block6": 0.0002748665089408557,
+    "after_block9": 0.0002804495394229889
+  }
+}
