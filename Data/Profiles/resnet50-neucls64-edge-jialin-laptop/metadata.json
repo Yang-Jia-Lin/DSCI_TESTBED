@@ -1,0 +1,16 @@
+{
+  "profile_id": "resnet50-neucls64-edge-jialin-laptop",
+  "manifest_id": "resnet50-neucls64-partition-v1",
+  "bundle_id": "resnet50-neucls64",
+  "model_hash": "1db94b9047482ca37e3b8dce249b2fc1836c1f2bb20e240797ae865c47c2e8ba",
+  "backend": "pytorch",
+  "worker_count": 1,
+  "threads_per_worker": 1,
+  "total_model_latency_s": 0.12466715666741948,
+  "num_segments": 19,
+  "exit_head_latencies_s": {
+    "after_layer1": 0.00039425666691386143,
+    "after_layer2": 0.0002502333332813578,
+    "after_layer3": 0.00022626333314595588
+  }
+}
