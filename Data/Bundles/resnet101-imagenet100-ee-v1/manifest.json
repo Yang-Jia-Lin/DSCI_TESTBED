@@ -1,0 +1,1153 @@
+{
+  "manifest_id": "resnet101-imagenet100-ee-v1-partition-v1",
+  "bundle_id": "resnet101-imagenet100-ee-v1",
+  "dataset_id": "imagenet100",
+  "model_hash": "4dce3a2ca8b905441ed25ba315046b5fddfebca3b50494dcfafdedacdee693d0",
+  "input_shape": [
+    3,
+    224,
+    224
+  ],
+  "boundaries": [
+    {
+      "boundary_id": 0,
+      "label": "input",
+      "live_tensors": [
+        {
+          "name": "main",
+          "shape": [
+            1,
+            3,
+            224,
+            224
+          ],
+          "dtype": "float32",
+          "num_bytes": 602112
+        }
+      ],
+      "serialized_num_bytes": 602636
+    },
+    {
+      "boundary_id": 1,
+      "label": "stem",
+      "live_tensors": [
+        {
+          "name": "main",
+          "shape": [
+            1,
+            64,
+            56,
+            56
+          ],
+          "dtype": "float32",
+          "num_bytes": 802816
+        }
+      ],
+      "serialized_num_bytes": 803340
+    },
+    {
+      "boundary_id": 2,
+      "label": "layer1.0",
+      "live_tensors": [
+        {
+          "name": "main",
+          "shape": [
+            1,
+            256,
+            56,
+            56
+          ],
+          "dtype": "float32",
+          "num_bytes": 3211264
+        }
+      ],
+      "serialized_num_bytes": 3211789
+    },
+    {
+      "boundary_id": 3,
+      "label": "layer1.1",
+      "live_tensors": [
+        {
+          "name": "main",
+          "shape": [
+            1,
+            256,
+            56,
+            56
+          ],
+          "dtype": "float32",
+          "num_bytes": 3211264
+        }
+      ],
+      "serialized_num_bytes": 3211789
+    },
+    {
+      "boundary_id": 4,
+      "label": "layer1.2",
+      "live_tensors": [
+        {
+          "name": "main",
+          "shape": [
+            1,
+            256,
+            56,
+            56
+          ],
+          "dtype": "float32",
+          "num_bytes": 3211264
+        }
+      ],
+      "serialized_num_bytes": 3211789
+    },
+    {
+      "boundary_id": 5,
+      "label": "layer2.0",
+      "live_tensors": [
+        {
+          "name": "main",
+          "shape": [
+            1,
+            512,
+            28,
+            28
+          ],
+          "dtype": "float32",
+          "num_bytes": 1605632
+        }
+      ],
+      "serialized_num_bytes": 1606157
+    },
+    {
+      "boundary_id": 6,
+      "label": "layer2.1",
+      "live_tensors": [
+        {
+          "name": "main",
+          "shape": [
+            1,
+            512,
+            28,
+            28
+          ],
+          "dtype": "float32",
+          "num_bytes": 1605632
+        }
+      ],
+      "serialized_num_bytes": 1606157
+    },
+    {
+      "boundary_id": 7,
+      "label": "layer2.2",
+      "live_tensors": [
+        {
+          "name": "main",
+          "shape": [
+            1,
+            512,
+            28,
+            28
+          ],
+          "dtype": "float32",
+          "num_bytes": 1605632
+        }
+      ],
+      "serialized_num_bytes": 1606157
+    },
+    {
+      "boundary_id": 8,
+      "label": "layer2.3",
+      "live_tensors": [
+        {
+          "name": "main",
+          "shape": [
+            1,
+            512,
+            28,
+            28
+          ],
+          "dtype": "float32",
+          "num_bytes": 1605632
+        }
+      ],
+      "serialized_num_bytes": 1606157
+    },
+    {
+      "boundary_id": 9,
+      "label": "layer3.0",
+      "live_tensors": [
+        {
+          "name": "main",
+          "shape": [
+            1,
+            1024,
+            14,
+            14
+          ],
+          "dtype": "float32",
+          "num_bytes": 802816
+        }
+      ],
+      "serialized_num_bytes": 803340
+    },
+    {
+      "boundary_id": 10,
+      "label": "layer3.1",
+      "live_tensors": [
+        {
+          "name": "main",
+          "shape": [
+            1,
+            1024,
+            14,
+            14
+          ],
+          "dtype": "float32",
+          "num_bytes": 802816
+        }
+      ],
+      "serialized_num_bytes": 803340
+    },
+    {
+      "boundary_id": 11,
+      "label": "layer3.2",
+      "live_tensors": [
+        {
+          "name": "main",
+          "shape": [
+            1,
+            1024,
+            14,
+            14
+          ],
+          "dtype": "float32",
+          "num_bytes": 802816
+        }
+      ],
+      "serialized_num_bytes": 803340
+    },
+    {
+      "boundary_id": 12,
+      "label": "layer3.3",
+      "live_tensors": [
+        {
+          "name": "main",
+          "shape": [
+            1,
+            1024,
+            14,
+            14
+          ],
+          "dtype": "float32",
+          "num_bytes": 802816
+        }
+      ],
+      "serialized_num_bytes": 803340
+    },
+    {
+      "boundary_id": 13,
+      "label": "layer3.4",
+      "live_tensors": [
+        {
+          "name": "main",
+          "shape": [
+            1,
+            1024,
+            14,
+            14
+          ],
+          "dtype": "float32",
+          "num_bytes": 802816
+        }
+      ],
+      "serialized_num_bytes": 803340
+    },
+    {
+      "boundary_id": 14,
+      "label": "layer3.5",
+      "live_tensors": [
+        {
+          "name": "main",
+          "shape": [
+            1,
+            1024,
+            14,
+            14
+          ],
+          "dtype": "float32",
+          "num_bytes": 802816
+        }
+      ],
+      "serialized_num_bytes": 803340
+    },
+    {
+      "boundary_id": 15,
+      "label": "layer3.6",
+      "live_tensors": [
+        {
+          "name": "main",
+          "shape": [
+            1,
+            1024,
+            14,
+            14
+          ],
+          "dtype": "float32",
+          "num_bytes": 802816
+        }
+      ],
+      "serialized_num_bytes": 803340
+    },
+    {
+      "boundary_id": 16,
+      "label": "layer3.7",
+      "live_tensors": [
+        {
+          "name": "main",
+          "shape": [
+            1,
+            1024,
+            14,
+            14
+          ],
+          "dtype": "float32",
+          "num_bytes": 802816
+        }
+      ],
+      "serialized_num_bytes": 803340
+    },
+    {
+      "boundary_id": 17,
+      "label": "layer3.8",
+      "live_tensors": [
+        {
+          "name": "main",
+          "shape": [
+            1,
+            1024,
+            14,
+            14
+          ],
+          "dtype": "float32",
+          "num_bytes": 802816
+        }
+      ],
+      "serialized_num_bytes": 803340
+    },
+    {
+      "boundary_id": 18,
+      "label": "layer3.9",
+      "live_tensors": [
+        {
+          "name": "main",
+          "shape": [
+            1,
+            1024,
+            14,
+            14
+          ],
+          "dtype": "float32",
+          "num_bytes": 802816
+        }
+      ],
+      "serialized_num_bytes": 803340
+    },
+    {
+      "boundary_id": 19,
+      "label": "layer3.10",
+      "live_tensors": [
+        {
+          "name": "main",
+          "shape": [
+            1,
+            1024,
+            14,
+            14
+          ],
+          "dtype": "float32",
+          "num_bytes": 802816
+        }
+      ],
+      "serialized_num_bytes": 803340
+    },
+    {
+      "boundary_id": 20,
+      "label": "layer3.11",
+      "live_tensors": [
+        {
+          "name": "main",
+          "shape": [
+            1,
+            1024,
+            14,
+            14
+          ],
+          "dtype": "float32",
+          "num_bytes": 802816
+        }
+      ],
+      "serialized_num_bytes": 803340
+    },
+    {
+      "boundary_id": 21,
+      "label": "layer3.12",
+      "live_tensors": [
+        {
+          "name": "main",
+          "shape": [
+            1,
+            1024,
+            14,
+            14
+          ],
+          "dtype": "float32",
+          "num_bytes": 802816
+        }
+      ],
+      "serialized_num_bytes": 803340
+    },
+    {
+      "boundary_id": 22,
+      "label": "layer3.13",
+      "live_tensors": [
+        {
+          "name": "main",
+          "shape": [
+            1,
+            1024,
+            14,
+            14
+          ],
+          "dtype": "float32",
+          "num_bytes": 802816
+        }
+      ],
+      "serialized_num_bytes": 803340
+    },
+    {
+      "boundary_id": 23,
+      "label": "layer3.14",
+      "live_tensors": [
+        {
+          "name": "main",
+          "shape": [
+            1,
+            1024,
+            14,
+            14
+          ],
+          "dtype": "float32",
+          "num_bytes": 802816
+        }
+      ],
+      "serialized_num_bytes": 803340
+    },
+    {
+      "boundary_id": 24,
+      "label": "layer3.15",
+      "live_tensors": [
+        {
+          "name": "main",
+          "shape": [
+            1,
+            1024,
+            14,
+            14
+          ],
+          "dtype": "float32",
+          "num_bytes": 802816
+        }
+      ],
+      "serialized_num_bytes": 803340
+    },
+    {
+      "boundary_id": 25,
+      "label": "layer3.16",
+      "live_tensors": [
+        {
+          "name": "main",
+          "shape": [
+            1,
+            1024,
+            14,
+            14
+          ],
+          "dtype": "float32",
+          "num_bytes": 802816
+        }
+      ],
+      "serialized_num_bytes": 803340
+    },
+    {
+      "boundary_id": 26,
+      "label": "layer3.17",
+      "live_tensors": [
+        {
+          "name": "main",
+          "shape": [
+            1,
+            1024,
+            14,
+            14
+          ],
+          "dtype": "float32",
+          "num_bytes": 802816
+        }
+      ],
+      "serialized_num_bytes": 803340
+    },
+    {
+      "boundary_id": 27,
+      "label": "layer3.18",
+      "live_tensors": [
+        {
+          "name": "main",
+          "shape": [
+            1,
+            1024,
+            14,
+            14
+          ],
+          "dtype": "float32",
+          "num_bytes": 802816
+        }
+      ],
+      "serialized_num_bytes": 803340
+    },
+    {
+      "boundary_id": 28,
+      "label": "layer3.19",
+      "live_tensors": [
+        {
+          "name": "main",
+          "shape": [
+            1,
+            1024,
+            14,
+            14
+          ],
+          "dtype": "float32",
+          "num_bytes": 802816
+        }
+      ],
+      "serialized_num_bytes": 803340
+    },
+    {
+      "boundary_id": 29,
+      "label": "layer3.20",
+      "live_tensors": [
+        {
+          "name": "main",
+          "shape": [
+            1,
+            1024,
+            14,
+            14
+          ],
+          "dtype": "float32",
+          "num_bytes": 802816
+        }
+      ],
+      "serialized_num_bytes": 803340
+    },
+    {
+      "boundary_id": 30,
+      "label": "layer3.21",
+      "live_tensors": [
+        {
+          "name": "main",
+          "shape": [
+            1,
+            1024,
+            14,
+            14
+          ],
+          "dtype": "float32",
+          "num_bytes": 802816
+        }
+      ],
+      "serialized_num_bytes": 803340
+    },
+    {
+      "boundary_id": 31,
+      "label": "layer3.22",
+      "live_tensors": [
+        {
+          "name": "main",
+          "shape": [
+            1,
+            1024,
+            14,
+            14
+          ],
+          "dtype": "float32",
+          "num_bytes": 802816
+        }
+      ],
+      "serialized_num_bytes": 803340
+    },
+    {
+      "boundary_id": 32,
+      "label": "layer4.0",
+      "live_tensors": [
+        {
+          "name": "main",
+          "shape": [
+            1,
+            2048,
+            7,
+            7
+          ],
+          "dtype": "float32",
+          "num_bytes": 401408
+        }
+      ],
+      "serialized_num_bytes": 401932
+    },
+    {
+      "boundary_id": 33,
+      "label": "layer4.1",
+      "live_tensors": [
+        {
+          "name": "main",
+          "shape": [
+            1,
+            2048,
+            7,
+            7
+          ],
+          "dtype": "float32",
+          "num_bytes": 401408
+        }
+      ],
+      "serialized_num_bytes": 401932
+    },
+    {
+      "boundary_id": 34,
+      "label": "layer4.2",
+      "live_tensors": [
+        {
+          "name": "main",
+          "shape": [
+            1,
+            2048,
+            7,
+            7
+          ],
+          "dtype": "float32",
+          "num_bytes": 401408
+        }
+      ],
+      "serialized_num_bytes": 401932
+    },
+    {
+      "boundary_id": 35,
+      "label": "final_pool",
+      "live_tensors": [
+        {
+          "name": "main",
+          "shape": [
+            1,
+            2048
+          ],
+          "dtype": "float32",
+          "num_bytes": 8192
+        }
+      ],
+      "serialized_num_bytes": 8693
+    },
+    {
+      "boundary_id": 36,
+      "label": "final_classifier",
+      "live_tensors": [
+        {
+          "name": "logits",
+          "shape": [
+            1,
+            100
+          ],
+          "dtype": "float32",
+          "num_bytes": 400
+        }
+      ],
+      "serialized_num_bytes": 900
+    }
+  ],
+  "segments": [
+    {
+      "segment_id": 0,
+      "name": "stem",
+      "start_boundary": 0,
+      "end_boundary": 1,
+      "input_names": [
+        "main"
+      ],
+      "output_names": [
+        "main"
+      ]
+    },
+    {
+      "segment_id": 1,
+      "name": "layer1.0",
+      "start_boundary": 1,
+      "end_boundary": 2,
+      "input_names": [
+        "main"
+      ],
+      "output_names": [
+        "main"
+      ]
+    },
+    {
+      "segment_id": 2,
+      "name": "layer1.1",
+      "start_boundary": 2,
+      "end_boundary": 3,
+      "input_names": [
+        "main"
+      ],
+      "output_names": [
+        "main"
+      ]
+    },
+    {
+      "segment_id": 3,
+      "name": "layer1.2",
+      "start_boundary": 3,
+      "end_boundary": 4,
+      "input_names": [
+        "main"
+      ],
+      "output_names": [
+        "main"
+      ]
+    },
+    {
+      "segment_id": 4,
+      "name": "layer2.0",
+      "start_boundary": 4,
+      "end_boundary": 5,
+      "input_names": [
+        "main"
+      ],
+      "output_names": [
+        "main"
+      ]
+    },
+    {
+      "segment_id": 5,
+      "name": "layer2.1",
+      "start_boundary": 5,
+      "end_boundary": 6,
+      "input_names": [
+        "main"
+      ],
+      "output_names": [
+        "main"
+      ]
+    },
+    {
+      "segment_id": 6,
+      "name": "layer2.2",
+      "start_boundary": 6,
+      "end_boundary": 7,
+      "input_names": [
+        "main"
+      ],
+      "output_names": [
+        "main"
+      ]
+    },
+    {
+      "segment_id": 7,
+      "name": "layer2.3",
+      "start_boundary": 7,
+      "end_boundary": 8,
+      "input_names": [
+        "main"
+      ],
+      "output_names": [
+        "main"
+      ]
+    },
+    {
+      "segment_id": 8,
+      "name": "layer3.0",
+      "start_boundary": 8,
+      "end_boundary": 9,
+      "input_names": [
+        "main"
+      ],
+      "output_names": [
+        "main"
+      ]
+    },
+    {
+      "segment_id": 9,
+      "name": "layer3.1",
+      "start_boundary": 9,
+      "end_boundary": 10,
+      "input_names": [
+        "main"
+      ],
+      "output_names": [
+        "main"
+      ]
+    },
+    {
+      "segment_id": 10,
+      "name": "layer3.2",
+      "start_boundary": 10,
+      "end_boundary": 11,
+      "input_names": [
+        "main"
+      ],
+      "output_names": [
+        "main"
+      ]
+    },
+    {
+      "segment_id": 11,
+      "name": "layer3.3",
+      "start_boundary": 11,
+      "end_boundary": 12,
+      "input_names": [
+        "main"
+      ],
+      "output_names": [
+        "main"
+      ]
+    },
+    {
+      "segment_id": 12,
+      "name": "layer3.4",
+      "start_boundary": 12,
+      "end_boundary": 13,
+      "input_names": [
+        "main"
+      ],
+      "output_names": [
+        "main"
+      ]
+    },
+    {
+      "segment_id": 13,
+      "name": "layer3.5",
+      "start_boundary": 13,
+      "end_boundary": 14,
+      "input_names": [
+        "main"
+      ],
+      "output_names": [
+        "main"
+      ]
+    },
+    {
+      "segment_id": 14,
+      "name": "layer3.6",
+      "start_boundary": 14,
+      "end_boundary": 15,
+      "input_names": [
+        "main"
+      ],
+      "output_names": [
+        "main"
+      ]
+    },
+    {
+      "segment_id": 15,
+      "name": "layer3.7",
+      "start_boundary": 15,
+      "end_boundary": 16,
+      "input_names": [
+        "main"
+      ],
+      "output_names": [
+        "main"
+      ]
+    },
+    {
+      "segment_id": 16,
+      "name": "layer3.8",
+      "start_boundary": 16,
+      "end_boundary": 17,
+      "input_names": [
+        "main"
+      ],
+      "output_names": [
+        "main"
+      ]
+    },
+    {
+      "segment_id": 17,
+      "name": "layer3.9",
+      "start_boundary": 17,
+      "end_boundary": 18,
+      "input_names": [
+        "main"
+      ],
+      "output_names": [
+        "main"
+      ]
+    },
+    {
+      "segment_id": 18,
+      "name": "layer3.10",
+      "start_boundary": 18,
+      "end_boundary": 19,
+      "input_names": [
+        "main"
+      ],
+      "output_names": [
+        "main"
+      ]
+    },
+    {
+      "segment_id": 19,
+      "name": "layer3.11",
+      "start_boundary": 19,
+      "end_boundary": 20,
+      "input_names": [
+        "main"
+      ],
+      "output_names": [
+        "main"
+      ]
+    },
+    {
+      "segment_id": 20,
+      "name": "layer3.12",
+      "start_boundary": 20,
+      "end_boundary": 21,
+      "input_names": [
+        "main"
+      ],
+      "output_names": [
+        "main"
+      ]
+    },
+    {
+      "segment_id": 21,
+      "name": "layer3.13",
+      "start_boundary": 21,
+      "end_boundary": 22,
+      "input_names": [
+        "main"
+      ],
+      "output_names": [
+        "main"
+      ]
+    },
+    {
+      "segment_id": 22,
+      "name": "layer3.14",
+      "start_boundary": 22,
+      "end_boundary": 23,
+      "input_names": [
+        "main"
+      ],
+      "output_names": [
+        "main"
+      ]
+    },
+    {
+      "segment_id": 23,
+      "name": "layer3.15",
+      "start_boundary": 23,
+      "end_boundary": 24,
+      "input_names": [
+        "main"
+      ],
+      "output_names": [
+        "main"
+      ]
+    },
+    {
+      "segment_id": 24,
+      "name": "layer3.16",
+      "start_boundary": 24,
+      "end_boundary": 25,
+      "input_names": [
+        "main"
+      ],
+      "output_names": [
+        "main"
+      ]
+    },
+    {
+      "segment_id": 25,
+      "name": "layer3.17",
+      "start_boundary": 25,
+      "end_boundary": 26,
+      "input_names": [
+        "main"
+      ],
+      "output_names": [
+        "main"
+      ]
+    },
+    {
+      "segment_id": 26,
+      "name": "layer3.18",
+      "start_boundary": 26,
+      "end_boundary": 27,
+      "input_names": [
+        "main"
+      ],
+      "output_names": [
+        "main"
+      ]
+    },
+    {
+      "segment_id": 27,
+      "name": "layer3.19",
+      "start_boundary": 27,
+      "end_boundary": 28,
+      "input_names": [
+        "main"
+      ],
+      "output_names": [
+        "main"
+      ]
+    },
+    {
+      "segment_id": 28,
+      "name": "layer3.20",
+      "start_boundary": 28,
+      "end_boundary": 29,
+      "input_names": [
+        "main"
+      ],
+      "output_names": [
+        "main"
+      ]
+    },
+    {
+      "segment_id": 29,
+      "name": "layer3.21",
+      "start_boundary": 29,
+      "end_boundary": 30,
+      "input_names": [
+        "main"
+      ],
+      "output_names": [
+        "main"
+      ]
+    },
+    {
+      "segment_id": 30,
+      "name": "layer3.22",
+      "start_boundary": 30,
+      "end_boundary": 31,
+      "input_names": [
+        "main"
+      ],
+      "output_names": [
+        "main"
+      ]
+    },
+    {
+      "segment_id": 31,
+      "name": "layer4.0",
+      "start_boundary": 31,
+      "end_boundary": 32,
+      "input_names": [
+        "main"
+      ],
+      "output_names": [
+        "main"
+      ]
+    },
+    {
+      "segment_id": 32,
+      "name": "layer4.1",
+      "start_boundary": 32,
+      "end_boundary": 33,
+      "input_names": [
+        "main"
+      ],
+      "output_names": [
+        "main"
+      ]
+    },
+    {
+      "segment_id": 33,
+      "name": "layer4.2",
+      "start_boundary": 33,
+      "end_boundary": 34,
+      "input_names": [
+        "main"
+      ],
+      "output_names": [
+        "main"
+      ]
+    },
+    {
+      "segment_id": 34,
+      "name": "final_pool",
+      "start_boundary": 34,
+      "end_boundary": 35,
+      "input_names": [
+        "main"
+      ],
+      "output_names": [
+        "main"
+      ]
+    },
+    {
+      "segment_id": 35,
+      "name": "final_classifier",
+      "start_boundary": 35,
+      "end_boundary": 36,
+      "input_names": [
+        "main"
+      ],
+      "output_names": [
+        "logits"
+      ]
+    }
+  ],
+  "early_exits": [
+    {
+      "exit_id": "after_layer3_block5",
+      "attach_point": "layer3.4",
+      "boundary_id": 13,
+      "head_name": "exit_heads.after_layer3_block5",
+      "final": false
+    },
+    {
+      "exit_id": "after_layer3_block10",
+      "attach_point": "layer3.9",
+      "boundary_id": 18,
+      "head_name": "exit_heads.after_layer3_block10",
+      "final": false
+    },
+    {
+      "exit_id": "after_layer3_block15",
+      "attach_point": "layer3.14",
+      "boundary_id": 23,
+      "head_name": "exit_heads.after_layer3_block15",
+      "final": false
+    },
+    {
+      "exit_id": "after_layer3_block20",
+      "attach_point": "layer3.19",
+      "boundary_id": 28,
+      "head_name": "exit_heads.after_layer3_block20",
+      "final": false
+    },
+    {
+      "exit_id": "after_layer4",
+      "attach_point": "layer4",
+      "boundary_id": 34,
+      "head_name": "exit_heads.after_layer4",
+      "final": false
+    },
+    {
+      "exit_id": "final",
+      "attach_point": "final_classifier",
+      "boundary_id": 36,
+      "head_name": "fc",
+      "final": true
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "profile_id": "vit-base-neucls64-edge-kaijie-laptop",
+  "manifest_id": "vit-base-neucls64-partition-v1",
+  "bundle_id": "vit-base-neucls64",
+  "model_hash": "9cb682d2176c43a21b127c7bd0680c5d2b8c172a22d40eb9c957df255d421c31",
+  "backend": "pytorch",
+  "worker_count": 1,
+  "threads_per_worker": 1,
+  "total_model_latency_s": 0.43640083666653784,
+  "num_segments": 15,
+  "exit_head_latencies_s": {
+    "after_block3": 0.00013077333326994752,
+    "after_block6": 0.0001376066665519223,
+    "after_block9": 0.0001294633333600359
+  }
+}

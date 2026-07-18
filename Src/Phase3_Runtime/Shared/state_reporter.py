@@ -74,14 +74,31 @@ class RoundClient:
         self,
         request_seq: int,
         *,
-        poll_interval_s: float = 0.05,
+        poll_interval_s: float = 0.2,
         timeout_s: float = 90.0,
     ) -> dict:
         """Join a request barrier and wait for its common UTC release time."""
         deadline = time.monotonic() + float(timeout_s)
         suffix = f"requests/{int(request_seq)}/ready/{self.user_id}"
+        retry_delay_s = max(float(poll_interval_s), 0.2)
+        last_connection_error: requests.RequestException | None = None
         while time.monotonic() < deadline:
-            response = requests.post(self._url(suffix), timeout=10)
+            try:
+                response = requests.post(self._url(suffix), timeout=10)
+            except (
+                requests.exceptions.ConnectionError,
+                requests.exceptions.Timeout,
+            ) as exc:
+                last_connection_error = exc
+                print(
+                    f"Barrier request {int(request_seq)} temporarily failed; "
+                    f"retrying: {exc}"
+                )
+                time.sleep(retry_delay_s)
+                continue
+
+            # HTTP errors are application-level failures, such as stale
+            # rounds, and must not be hidden by the transport retry loop.
             response.raise_for_status()
             payload = response.json()
             release_at = payload.get("release_at")
@@ -90,7 +107,12 @@ class RoundClient:
                 if delay > 0:
                     time.sleep(delay)
                 return payload
-            time.sleep(float(poll_interval_s))
-        raise TimeoutError(
-            f"Timed out waiting for request barrier {request_seq} in round {self.round_id!r}"
+            last_connection_error = None
+            time.sleep(retry_delay_s)
+        message = (
+            f"Timed out waiting for request barrier {request_seq} "
+            f"in round {self.round_id!r}"
         )
+        if last_connection_error is not None:
+            message += f"; last connection error: {last_connection_error}"
+        raise TimeoutError(message)

@@ -1,0 +1,20 @@
+{
+  "total_samples": 5000,
+  "overall_accuracy": 0.7404,
+  "confidence_percentiles": {
+    "p10": 0.5064589381217957,
+    "p25": 0.7914114594459534,
+    "p50": 0.9887287616729736,
+    "p75": 0.9999686479568481,
+    "p90": 1.0
+  },
+  "suggested_thresholds": {
+    "easy_min": 0.9,
+    "hard_max": 0.6
+  },
+  "suggested_counts": {
+    "hard": 1523,
+    "easy": 3006,
+    "medium": 471
+  }
+}
