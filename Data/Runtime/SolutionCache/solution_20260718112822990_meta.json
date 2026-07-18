@@ -79,7 +79,7 @@
   ],
   "objective": 0.7450614314294792,
   "created_at": 1784345302.9908013,
-  "policy_path": "C:\\Users\\t1960\\DSCI_TESTBED\\Data\\Runtime\\SolutionCache\\latest_solution_policy.pt",
+  "policy_path": "C:\\Users\\t1960\\DSCI_TESTBED\\Data\\Runtime\\SolutionCache\\solution_20260718112822990_policy.pt",
   "training_mode": "medium",
   "training_started_at": 1784345237.6334765,
   "training_finished_at": 1784345302.9908013,
