@@ -24,19 +24,19 @@
       {
         "user_id": 0,
         "f_u": 1.0,
-        "BW_d2e": 110.222,
+        "BW_d2e": 108.823,
         "execution_profile_id": "resnet50-cifar10-device-nano"
       },
       {
         "user_id": 1,
         "f_u": 1.0,
-        "BW_d2e": 100.7876,
+        "BW_d2e": 98.2645,
         "execution_profile_id": "resnet50-cifar10-device-jialin-desktop"
       },
       {
         "user_id": 2,
         "f_u": 1.0,
-        "BW_d2e": 146.9114,
+        "BW_d2e": 130.0482,
         "execution_profile_id": "resnet50-cifar10-device-jialin-laptop"
       }
     ],
@@ -82,11 +82,11 @@
     "cloud_profile": "resnet50-cifar10-cloud-v100"
   },
   "state_vector": [
-    110.222,
+    108.823,
     1.0,
-    100.7876,
+    98.2645,
     1.0,
-    146.9114,
+    130.0482,
     1.0,
     1.0,
     1.0,
@@ -95,17 +95,17 @@
     11.9212,
     1.0
   ],
-  "objective": 1.7912049683846154,
-  "created_at": 1784356211.531033,
-  "policy_path": "C:\\Users\\t1960\\DSCI_TESTBED\\Data\\Runtime\\SolutionCache\\latest_solution_policy.pt",
-  "training_mode": "near",
-  "training_started_at": 1784356133.2292502,
-  "training_finished_at": 1784356211.5330815,
-  "training_duration_s": 78.30383133888245,
+  "objective": 1.7911948765922052,
+  "created_at": 1784355539.5918148,
+  "policy_path": "C:\\Users\\t1960\\DSCI_TESTBED\\Data\\Runtime\\SolutionCache\\solution_20260718141859592_policy.pt",
+  "training_mode": "cold",
+  "training_started_at": 1784354697.9318194,
+  "training_finished_at": 1784355539.5928144,
+  "training_duration_s": 841.6609950065613,
   "objective_alpha": 1.0,
   "objective_beta": 5.0,
   "expected_accuracy": 0.9467423354035946,
-  "expected_latency": 0.06993480252174455,
+  "expected_latency": 0.06993547530790527,
   "constraint_satisfied": null,
-  "saved_at": 1784356211.5585945
+  "saved_at": 1784355539.6440575
 }
