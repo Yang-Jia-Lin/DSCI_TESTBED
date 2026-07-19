@@ -1,0 +1,16 @@
+{
+  "profile_id": "resnet50-imagenet100-device-nano",
+  "manifest_id": "resnet50-imagenet100-partition-v1",
+  "bundle_id": "resnet50-imagenet100",
+  "model_hash": "8e5fa9e2d48cb24da816bcef7ccfa7cbe98eeceedd72a8c92449c339f7f517f1",
+  "backend": "pytorch",
+  "worker_count": 1,
+  "threads_per_worker": 1,
+  "total_model_latency_s": 0.05673628849981469,
+  "num_segments": 19,
+  "exit_head_latencies_s": {
+    "after_layer1": 0.000748496899541351,
+    "after_layer2": 0.0007185940667113755,
+    "after_layer3": 0.0007341594997948656
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "profile_id": "resnet50-neucls64-device-nano",
+  "manifest_id": "resnet50-neucls64-partition-v1",
+  "bundle_id": "resnet50-neucls64",
+  "model_hash": "1db94b9047482ca37e3b8dce249b2fc1836c1f2bb20e240797ae865c47c2e8ba",
+  "backend": "pytorch",
+  "worker_count": 1,
+  "threads_per_worker": 1,
+  "total_model_latency_s": 0.056687808899368974,
+  "num_segments": 19,
+  "exit_head_latencies_s": {
+    "after_layer1": 0.0007407633334272153,
+    "after_layer2": 0.0006064389002858661,
+    "after_layer3": 0.0006510878666934635
+  }
+}
