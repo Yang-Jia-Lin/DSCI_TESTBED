@@ -1,0 +1,6 @@
+{
+  "execution_profile_id": "resnet50-imagenet100-device-pi5",
+  "edge_host": "192.168.137.80",
+  "bw_d2e_mbps": 23.9452898137109,
+  "updated_at": 1784541494.725723
+}
