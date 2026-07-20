@@ -1,6 +1,14 @@
 # 新设备准备
 > [!info]
 > 本部分只在接入新机器时执行。已经部署完成的机器可直接进入“Pipeline 运行”。
+>
+> 当前六个正式 bundle：
+> - `resnet50-cifar10`
+> - `resnet50-imagenet100`
+> - `resnet50-neucls64`
+> - `vit-base-cifar10`
+> - `vit-base-imagenet100`
+> - `vit-base-neucls64`
 
 #### 0. Git 准备
 ###### 1. 安装 Git，并确认终端能执行
@@ -290,24 +298,24 @@ iperf3 -c <CLOUD_HOST> -p 32264 -t 10
 #### 8. 生成该机器的六个模型 Profile
 Profile 统一使用：`<bundle-id>-<role>-<machine>` 形式
 
-| 角色 | 机器 | ROLE_MACHINE |
-|---|---|---|
-| Cloud | V100 Linux | `cloud-v100` |
-| Edge | jialin-desktop Windows | `edge-jialin-desktop` |
-| Edge | jialin-laptop Windows | `edge-jialin-laptop` |
-| Edge | kaijie-laptop Windows | `edge-kaijie-laptop` |
-| Device | Raspberry Pi 5 | `device-pi5` |
-| Device | Raspberry Pi 4-1 | `device-pi4-1` |
-| Device | Raspberry Pi 4-2 | `device-pi4-2` |
-| Device | Jetson Nano | `device-nano` |
-| Device | Jetson NX | `device-nx` |
+| 角色     | 机器                     | ROLE_MACHINE            |
+| ------ | ---------------------- | ----------------------- |
+| Cloud  | V100 Linux             | `cloud-v100`            |
+| Edge   | jialin-desktop Windows | `edge-jialin-desktop`   |
+| Edge   | jialin-laptop Windows  | `edge-jialin-laptop`    |
+| Edge   | kaijie-laptop Windows  | `edge-kaijie-laptop`    |
+| Device | Raspberry Pi 5         | `device-pi5`            |
+| Device | Raspberry Pi 4-1       | `device-pi4-1`          |
+| Device | Raspberry Pi 4-2       | `device-pi4-2`          |
+| Device | Jetson Nano            | `device-nano`           |
+| Device | Jetson NX              | `device-nx`             |
 | Device | jialin-desktop Windows | `device-jialin-desktop` |
-| Device | jialin-laptop Windows | `device-jialin-laptop` |
+| Device | jialin-laptop Windows  | `device-jialin-laptop`  |
 
 ##### Linux：V100、Pi、Nano、NX
 先按上表设置本机唯一后缀，例如 Pi 5：
 ```bash
-export ROLE_MACHINE=device-pi5
+export ROLE_MACHINE=cloud-5880
 ```
 
 依次生成六个 profile：
@@ -340,7 +348,7 @@ python -m Src.Phase1_Offline.Profiling.profile_segments \
 ##### Windows：三个 Edge 候选和两个 Windows Device
 先按上表设置角色，例如 jialin-desktop 作为 Edge：
 ```powershell
-$ROLE_MACHINE="edge-jialin-desktop"
+$ROLE_MACHINE="edge-kaijie-laptop"
 ```
 
 依次生成六个 profile：
@@ -374,8 +382,8 @@ python -m Src.Phase1_Offline.Profiling.profile_segments `
 > Scheduler 所在机器必须拥有本轮 Device、Edge、Cloud 的完整 profile 目录。
 ###### 方案 1：Git 同步
 ```bash
-git add Data/Profiles
-git commit -m "Add segment profiles for new device"
+git add .
+git commit -m "nano profile结果更新"
 git push
 ```
 然后在 Scheduler：
@@ -454,7 +462,13 @@ $env:DSCI_EDGE_PYTORCH_SEGMENT_PROFILE_ID="__BUNDLE_ID__-edge-kaijie-laptop"
 ```powershell
 python -m Src.Phase3_Runtime.Edge.run_edge `
   --bundle-id __BUNDLE_ID__ `
-  --backend pytorch
+  --backend pytorch `
+  --dynamic-bandwidth `
+  --bandwidth-ewma-alpha 0.3 `
+  --bandwidth-change-threshold 0.20 `
+  --bandwidth-min-reschedule-interval 30 `
+  --bandwidth-stale-after 300 `
+  --iperf-calibration-duration 3
 ```
 在任意 Device 检查：
 ```bash
@@ -468,12 +482,25 @@ python -m Src.Phase2_Scheduler.Service.api_server `
   --expected-users 1 `
   --fixed-split 3 10 `
   --fixed-threshold 1.0 `
-  --no-auto-train
+  --no-auto-train `
+  --dynamic-bandwidth `
+  --bandwidth-ewma-alpha 0.3 `
+  --bandwidth-change-threshold 0.20 `
+  --bandwidth-min-reschedule-interval 30 `
+  --bandwidth-stale-after 300 `
+  --iperf-calibration-duration 3
 ```
 
 正常测试：
 ```powershell
-python -m Src.Phase2_Scheduler.Service.api_server --expected-users 1 
+python -m Src.Phase2_Scheduler.Service.api_server `
+  --expected-users 1 `
+  --dynamic-bandwidth `
+  --bandwidth-ewma-alpha 0.3 `
+  --bandwidth-change-threshold 0.20 `
+  --bandwidth-min-reschedule-interval 30 `
+  --bandwidth-stale-after 300 `
+  --iperf-calibration-duration 3
 ```
 
 #### 4. 测试 1 个 Device
@@ -503,7 +530,13 @@ python -m Src.Phase3_Runtime.Device.run_device \
   --bundle-id __BUNDLE_ID__ --backend pytorch \
   --user-id 0 --round-id "$ROUND_ID" \
   --test-package-mode balanced --test-package-samples-per-class 10 \
-  --test-samples 3 --decision-timeout 900
+  --test-samples 3 --decision-timeout 900 \
+  --dynamic-bandwidth \
+  --bandwidth-ewma-alpha 0.3 \
+  --bandwidth-change-threshold 0.20 \
+  --bandwidth-min-reschedule-interval 30 \
+  --bandwidth-stale-after 300 \
+  --iperf-calibration-duration 3
 ```
 
 ###### Windows 做端
@@ -520,7 +553,13 @@ python -m Src.Phase3_Runtime.Device.run_device `
   --bundle-id __BUNDLE_ID__ --backend pytorch `
   --user-id 0 --round-id "$env:ROUND_ID" `
   --test-package-mode balanced --test-package-samples-per-class 10 `
-  --test-samples 3 --decision-timeout 900
+  --test-samples 3 --decision-timeout 900 `
+  --dynamic-bandwidth `
+  --bandwidth-ewma-alpha 0.3 `
+  --bandwidth-change-threshold 0.20 `
+  --bandwidth-min-reschedule-interval 30 `
+  --bandwidth-stale-after 300 `
+  --iperf-calibration-duration 3
 ```
 
 
@@ -529,7 +568,14 @@ python -m Src.Phase3_Runtime.Device.run_device `
 
 停止旧 Scheduler，启动七用户训练策略：
 ```powershell
-python -m Src.Phase2_Scheduler.Service.api_server --expected-users 7 
+python -m Src.Phase2_Scheduler.Service.api_server `
+  --expected-users 7 `
+  --dynamic-bandwidth `
+  --bandwidth-ewma-alpha 0.3 `
+  --bandwidth-change-threshold 0.20 `
+  --bandwidth-min-reschedule-interval 30 `
+  --bandwidth-stale-after 300 `
+  --iperf-calibration-duration 3
 ```
 
 > [!WARNING]
@@ -557,7 +603,9 @@ Pi 5，`user-id=0`：
 export DSCI_DEVICE_PYTORCH_SEGMENT_PROFILE_ID="__BUNDLE_ID__-device-pi5"
 python -m Src.Phase3_Runtime.Device.run_device --bundle-id __BUNDLE_ID__ --backend pytorch \
   --user-id 0 --round-id "$ROUND_ID" --test-package-mode balanced \
-  --test-package-samples-per-class 10 --test-samples 3 --decision-timeout 900
+  --test-package-samples-per-class 10 --test-samples 3 --decision-timeout 900 \
+  --dynamic-bandwidth --bandwidth-ewma-alpha 0.3 --bandwidth-change-threshold 0.20 \
+  --bandwidth-min-reschedule-interval 30 --bandwidth-stale-after 300 --iperf-calibration-duration 3
 ```
 
 Pi 4-1，`user-id=1`：
@@ -565,7 +613,9 @@ Pi 4-1，`user-id=1`：
 export DSCI_DEVICE_PYTORCH_SEGMENT_PROFILE_ID="__BUNDLE_ID__-device-pi4-1"
 python -m Src.Phase3_Runtime.Device.run_device --bundle-id __BUNDLE_ID__ --backend pytorch \
   --user-id 1 --round-id "$ROUND_ID" --test-package-mode balanced \
-  --test-package-samples-per-class 10 --test-samples 3 --decision-timeout 900
+  --test-package-samples-per-class 10 --test-samples 3 --decision-timeout 900 \
+  --dynamic-bandwidth --bandwidth-ewma-alpha 0.3 --bandwidth-change-threshold 0.20 \
+  --bandwidth-min-reschedule-interval 30 --bandwidth-stale-after 300 --iperf-calibration-duration 3
 ```
 
 Pi 4-2，`user-id=2`：
@@ -573,7 +623,9 @@ Pi 4-2，`user-id=2`：
 export DSCI_DEVICE_PYTORCH_SEGMENT_PROFILE_ID="__BUNDLE_ID__-device-pi4-2"
 python -m Src.Phase3_Runtime.Device.run_device --bundle-id __BUNDLE_ID__ --backend pytorch \
   --user-id 2 --round-id "$ROUND_ID" --test-package-mode balanced \
-  --test-package-samples-per-class 10 --test-samples 3 --decision-timeout 900
+  --test-package-samples-per-class 10 --test-samples 3 --decision-timeout 900 \
+  --dynamic-bandwidth --bandwidth-ewma-alpha 0.3 --bandwidth-change-threshold 0.20 \
+  --bandwidth-min-reschedule-interval 30 --bandwidth-stale-after 300 --iperf-calibration-duration 3
 ```
 
 Nano，`user-id=3`：
@@ -581,7 +633,9 @@ Nano，`user-id=3`：
 export DSCI_DEVICE_PYTORCH_SEGMENT_PROFILE_ID="__BUNDLE_ID__-device-nano"
 python -m Src.Phase3_Runtime.Device.run_device --bundle-id __BUNDLE_ID__ --backend pytorch \
   --user-id 3 --round-id "$ROUND_ID" --test-package-mode balanced \
-  --test-package-samples-per-class 10 --test-samples 3 --decision-timeout 900
+  --test-package-samples-per-class 10 --test-samples 3 --decision-timeout 900 \
+  --dynamic-bandwidth --bandwidth-ewma-alpha 0.3 --bandwidth-change-threshold 0.20 \
+  --bandwidth-min-reschedule-interval 30 --bandwidth-stale-after 300 --iperf-calibration-duration 3
 ```
 
 NX，`user-id=4`：
@@ -589,7 +643,9 @@ NX，`user-id=4`：
 export DSCI_DEVICE_PYTORCH_SEGMENT_PROFILE_ID="__BUNDLE_ID__-device-nx"
 python -m Src.Phase3_Runtime.Device.run_device --bundle-id __BUNDLE_ID__ --backend pytorch \
   --user-id 4 --round-id "$ROUND_ID" --test-package-mode balanced \
-  --test-package-samples-per-class 10 --test-samples 3 --decision-timeout 900
+  --test-package-samples-per-class 10 --test-samples 3 --decision-timeout 900 \
+  --dynamic-bandwidth --bandwidth-ewma-alpha 0.3 --bandwidth-change-threshold 0.20 \
+  --bandwidth-min-reschedule-interval 30 --bandwidth-stale-after 300 --iperf-calibration-duration 3
 ```
 
 jialin-desktop Device，`user-id=5`：
@@ -597,7 +653,9 @@ jialin-desktop Device，`user-id=5`：
 $env:DSCI_DEVICE_PYTORCH_SEGMENT_PROFILE_ID="__BUNDLE_ID__-device-jialin-desktop"
 python -m Src.Phase3_Runtime.Device.run_device --bundle-id __BUNDLE_ID__ --backend pytorch `
   --user-id 5 --round-id "$env:ROUND_ID" --test-package-mode balanced `
-  --test-package-samples-per-class 10 --test-samples 3 --decision-timeout 900
+  --test-package-samples-per-class 10 --test-samples 3 --decision-timeout 900 `
+  --dynamic-bandwidth --bandwidth-ewma-alpha 0.3 --bandwidth-change-threshold 0.20 `
+  --bandwidth-min-reschedule-interval 30 --bandwidth-stale-after 300 --iperf-calibration-duration 3
 ```
 
 jialin-laptop Device，`user-id=6`：
@@ -605,7 +663,9 @@ jialin-laptop Device，`user-id=6`：
 $env:DSCI_DEVICE_PYTORCH_SEGMENT_PROFILE_ID="__BUNDLE_ID__-device-jialin-laptop"
 python -m Src.Phase3_Runtime.Device.run_device --bundle-id __BUNDLE_ID__ --backend pytorch `
   --user-id 6 --round-id "$env:ROUND_ID" --test-package-mode balanced `
-  --test-package-samples-per-class 10 --test-samples 3 --decision-timeout 900
+  --test-package-samples-per-class 10 --test-samples 3 --decision-timeout 900 `
+  --dynamic-bandwidth --bandwidth-ewma-alpha 0.3 --bandwidth-change-threshold 0.20 `
+  --bandwidth-min-reschedule-interval 30 --bandwidth-stale-after 300 --iperf-calibration-duration 3
 ```
 
 至此，基础流程就已跑通，可以开始正式运行实验了。
@@ -621,7 +681,14 @@ python -m Src.Phase3_Runtime.Device.run_device --bundle-id __BUNDLE_ID__ --backe
 ```powershell
 $env:DSCI_OBJECTIVE_ALPHA="1"
 $env:DSCI_OBJECTIVE_BETA="1"
-python -m Src.Phase2_Scheduler.Service.api_server --expected-users N
+python -m Src.Phase2_Scheduler.Service.api_server `
+  --expected-users N `
+  --dynamic-bandwidth `
+  --bandwidth-ewma-alpha 0.3 `
+  --bandwidth-change-threshold 0.20 `
+  --bandwidth-min-reschedule-interval 30 `
+  --bandwidth-stale-after 300 `
+  --iperf-calibration-duration 3
 ```
 
 #### 1. 固定切分（不训练）
@@ -631,7 +698,13 @@ python -m Src.Phase2_Scheduler.Service.api_server `
   --expected-users N `
   --fixed-split 3 10 `
   --fixed-threshold 1.0 `
-  --no-auto-train
+  --no-auto-train `
+  --dynamic-bandwidth `
+  --bandwidth-ewma-alpha 0.3 `
+  --bandwidth-change-threshold 0.20 `
+  --bandwidth-min-reschedule-interval 30 `
+  --bandwidth-stale-after 300 `
+  --iperf-calibration-duration 3
 ```
 
 #### 2. 强制训练冷启动（从头训练）
@@ -640,7 +713,13 @@ $env:DSCI_OBJECTIVE_ALPHA="1"
 $env:DSCI_OBJECTIVE_BETA="1"
 python -m Src.Phase2_Scheduler.Service.api_server `
   --expected-users N `
-  --force-retrain
+  --force-retrain `
+  --dynamic-bandwidth `
+  --bandwidth-ewma-alpha 0.3 `
+  --bandwidth-change-threshold 0.20 `
+  --bandwidth-min-reschedule-interval 30 `
+  --bandwidth-stale-after 300 `
+  --iperf-calibration-duration 3
 ```
 首个 round 会返回 `default:force_retrain` 并触发后台 cold training。等待 Health 中
 `training_status=idle` 后，使用新的 ROUND_ID 再跑正式推理。
@@ -651,7 +730,13 @@ python -m Src.Phase2_Scheduler.Service.api_server `
 python -m Src.Phase2_Scheduler.Service.api_server `
   --expected-users N `
   --target-accuracy 0.90 `
-  --force-retrain
+  --force-retrain `
+  --dynamic-bandwidth `
+  --bandwidth-ewma-alpha 0.3 `
+  --bandwidth-change-threshold 0.20 `
+  --bandwidth-min-reschedule-interval 30 `
+  --bandwidth-stale-after 300 `
+  --iperf-calibration-duration 3
 ```
 首个 round 返回 `constraint=pending`，后台最多训练 5 个 alpha 候选。检查：
 ```powershell
@@ -664,7 +749,13 @@ Invoke-RestMethod http://127.0.0.1:8000/api/v1/health |
 ```powershell
 python -m Src.Phase2_Scheduler.Service.api_server `
   --expected-users N `
-  --target-accuracy 0.90
+  --target-accuracy 0.90 `
+  --dynamic-bandwidth `
+  --bandwidth-ewma-alpha 0.3 `
+  --bandwidth-change-threshold 0.20 `
+  --bandwidth-min-reschedule-interval 30 `
+  --bandwidth-stale-after 300 `
+  --iperf-calibration-duration 3
 ```
 
 #### 4. 检查连接
