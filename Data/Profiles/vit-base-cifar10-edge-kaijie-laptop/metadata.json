@@ -1,0 +1,16 @@
+{
+  "profile_id": "vit-base-cifar10-edge-kaijie-laptop",
+  "manifest_id": "vit-base-cifar10-partition-v1",
+  "bundle_id": "vit-base-cifar10",
+  "model_hash": "fee60ffa57bba9b355670d5e57f75726ac8d321f10a97206fff3a2bc1a85bbc0",
+  "backend": "pytorch",
+  "worker_count": 1,
+  "threads_per_worker": 1,
+  "total_model_latency_s": 0.010831210000181576,
+  "num_segments": 15,
+  "exit_head_latencies_s": {
+    "after_block3": 0.00016604666667869122,
+    "after_block6": 0.00016236666671526717,
+    "after_block9": 0.0001549300000230384
+  }
+}

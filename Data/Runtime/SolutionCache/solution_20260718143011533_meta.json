@@ -1,0 +1,111 @@
+{
+  "state_signature": {
+    "model": {
+      "bundle_id": "resnet50-cifar10",
+      "m": 20,
+      "exit_ids": [
+        "after_layer1",
+        "after_layer2",
+        "after_layer3"
+      ]
+    },
+    "num_users": 3,
+    "resource_mode": "fixed_worker_pool",
+    "objective": {
+      "mode": "weighted",
+      "alpha": 1.0,
+      "beta": 5.0
+    },
+    "tensor_transport_dtype": "float32",
+    "transport_byte_scale": 1.0,
+    "manifest_id": "resnet50-cifar10-partition-v1",
+    "model_hash": "42222e588316eba09b272dd13e261ab47f674256446150916379c4945be9aad2",
+    "users": [
+      {
+        "user_id": 0,
+        "f_u": 1.0,
+        "BW_d2e": 110.222,
+        "execution_profile_id": "resnet50-cifar10-device-nano"
+      },
+      {
+        "user_id": 1,
+        "f_u": 1.0,
+        "BW_d2e": 100.7876,
+        "execution_profile_id": "resnet50-cifar10-device-jialin-desktop"
+      },
+      {
+        "user_id": 2,
+        "f_u": 1.0,
+        "BW_d2e": 146.9114,
+        "execution_profile_id": "resnet50-cifar10-device-jialin-laptop"
+      }
+    ],
+    "edge": {
+      "f_e_max": 1.0,
+      "execution_profile_id": "resnet50-cifar10-edge-kaijie-laptop",
+      "worker_count": 1
+    },
+    "cloud": {
+      "f_c_max": 1.0,
+      "BW_e2c": 11.9212,
+      "execution_profile_id": "resnet50-cifar10-cloud-v100",
+      "worker_count": 1
+    }
+  },
+  "compat_key": {
+    "model": {
+      "bundle_id": "resnet50-cifar10",
+      "m": 20,
+      "exit_ids": [
+        "after_layer1",
+        "after_layer2",
+        "after_layer3"
+      ]
+    },
+    "num_users": 3,
+    "resource_mode": "fixed_worker_pool",
+    "objective": {
+      "mode": "weighted",
+      "alpha": 1.0,
+      "beta": 5.0
+    },
+    "tensor_transport_dtype": "float32",
+    "transport_byte_scale": 1.0,
+    "manifest_id": "resnet50-cifar10-partition-v1",
+    "model_hash": "42222e588316eba09b272dd13e261ab47f674256446150916379c4945be9aad2",
+    "user_profiles": [
+      "resnet50-cifar10-device-nano",
+      "resnet50-cifar10-device-jialin-desktop",
+      "resnet50-cifar10-device-jialin-laptop"
+    ],
+    "edge_profile": "resnet50-cifar10-edge-kaijie-laptop",
+    "cloud_profile": "resnet50-cifar10-cloud-v100"
+  },
+  "state_vector": [
+    110.222,
+    1.0,
+    100.7876,
+    1.0,
+    146.9114,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    11.9212,
+    1.0
+  ],
+  "objective": 1.7912049683846154,
+  "created_at": 1784356211.531033,
+  "policy_path": "C:\\Users\\t1960\\DSCI_TESTBED\\Data\\Runtime\\SolutionCache\\solution_20260718143011533_policy.pt",
+  "training_mode": "near",
+  "training_started_at": 1784356133.2292502,
+  "training_finished_at": 1784356211.5330815,
+  "training_duration_s": 78.30383133888245,
+  "objective_alpha": 1.0,
+  "objective_beta": 5.0,
+  "expected_accuracy": 0.9467423354035946,
+  "expected_latency": 0.06993480252174455,
+  "constraint_satisfied": null,
+  "saved_at": 1784356211.5585945
+}

@@ -553,6 +553,15 @@ def main(argv=None):
             )
             label = int(labels.item())
             is_correct = result["prediction"] == label
+            print(
+                f"[sample {sample_index + 1}/{sample_limit or '?'}] "
+                f"prediction={result['prediction']} "
+                f"label={label} "
+                f"correct={bool(is_correct)} "
+                f"exit={result.get('exit_location')} "
+                f"latency_ms={float(result['T_total']) * 1000:.3f}",
+                flush=True,
+            )
             correct += int(is_correct)
             measurements.append(
                 _measurement_record(
