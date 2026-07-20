@@ -1,0 +1,16 @@
+{
+  "profile_id": "resnet50-cifar10-cloud-5880",
+  "manifest_id": "resnet50-cifar10-partition-v1",
+  "bundle_id": "resnet50-cifar10",
+  "model_hash": "42222e588316eba09b272dd13e261ab47f674256446150916379c4945be9aad2",
+  "backend": "pytorch",
+  "worker_count": 1,
+  "threads_per_worker": 1,
+  "total_model_latency_s": 0.005113468596634144,
+  "num_segments": 19,
+  "exit_head_latencies_s": {
+    "after_layer1": 0.00011701289525566002,
+    "after_layer2": 9.798216439473132e-05,
+    "after_layer3": 9.975323143104712e-05
+  }
+}
