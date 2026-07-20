@@ -304,6 +304,7 @@ def build_service_from_env(
     buffer_size: int | None = None,
     fixed_split: tuple[int, int] | None = None,
     fixed_threshold: float | None = None,
+    ablation_mode: str | None = None,
 ) -> AlgoService:
     cfg = AlgoServiceConfig(
         checkpoint_path=checkpoint,
@@ -315,6 +316,7 @@ def build_service_from_env(
         deterministic=deterministic,
         fixed_split=fixed_split,
         fixed_threshold=fixed_threshold,
+        ablation_mode=ablation_mode,
     )
     if buffer_size is not None:
         cfg.buffer_size = int(buffer_size)
@@ -361,6 +363,15 @@ if __name__ == "__main__":
             "start a fresh cold background training run"
         ),
     )
+    parser.add_argument(
+        "--ablation-mode",
+        choices=("split-only", "ee-only"),
+        help=(
+            "Run a fresh uncached Ours PPO solve synchronously, then transform only "
+            "the returned solution: split-only keeps X and disables all exits; "
+            "ee-only forces pure-Device X and keeps the optimized Y."
+        ),
+    )
     parser.add_argument("--dynamic-bandwidth", action="store_true")
     parser.add_argument("--bandwidth-ewma-alpha", type=float, default=0.3)
     parser.add_argument("--bandwidth-change-threshold", type=float, default=0.20)
@@ -393,6 +404,15 @@ if __name__ == "__main__":
             parser.error("--target-accuracy must be in (0, 1]")
         if args.no_auto_train:
             parser.error("--target-accuracy cannot be used with --no-auto-train")
+    if args.ablation_mode is not None:
+        if args.no_auto_train:
+            parser.error("--ablation-mode performs a fresh PPO solve; do not use --no-auto-train")
+        if args.force_retrain:
+            parser.error("--ablation-mode is already fresh and uncached; do not use --force-retrain")
+        if args.fixed_split is not None or args.fixed_threshold is not None:
+            parser.error("--ablation-mode cannot be combined with fixed split/threshold")
+        if args.target_accuracy is not None:
+            parser.error("--ablation-mode does not support --target-accuracy")
     if not (0.0 <= args.accuracy_tolerance < 1.0):
         parser.error("--accuracy-tolerance must be in [0, 1)")
     if not 0.0 < args.bandwidth_ewma_alpha <= 1.0:
@@ -413,6 +433,7 @@ if __name__ == "__main__":
         accuracy_tolerance=args.accuracy_tolerance,
         fixed_split=tuple(args.fixed_split) if args.fixed_split else None,
         fixed_threshold=args.fixed_threshold,
+        ablation_mode=args.ablation_mode,
     )
     coordinator = RoundCoordinator(
         service,

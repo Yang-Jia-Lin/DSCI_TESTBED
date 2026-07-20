@@ -41,6 +41,7 @@ TRAINING_EVENTS_PATH = INTERFACE_SOLUTION_DIR / "training_events.jsonl"
 DIRECT_REUSE_DISTANCE = 0.005
 NEAR_WARM_START_DISTANCE = 0.05
 MEDIUM_WARM_START_DISTANCE = 0.15
+ABLATION_MODES = {"split-only", "ee-only"}
 
 _PRESET_MODE_ALIASES = {
     "dsci": None,
@@ -85,6 +86,7 @@ class AlgoServiceConfig:
     max_cached_solutions: int = 10
     fixed_split: Any = None
     fixed_threshold: Any = None
+    ablation_mode: str | None = None
 
 
 @dataclass
@@ -128,6 +130,9 @@ class AlgoService:
 
     config: AlgoServiceConfig = field(default_factory=AlgoServiceConfig)
     _lock: threading.RLock = field(default_factory=threading.RLock, repr=False)
+    _fresh_solve_lock: threading.Lock = field(
+        default_factory=threading.Lock, repr=False
+    )
     _cached_solution: CachedSolution | None = field(
         default=None, init=False, repr=False
     )
@@ -162,6 +167,26 @@ class AlgoService:
     _constraint_satisfied: bool | None = field(default=None, init=False, repr=False)
 
     def __post_init__(self) -> None:
+        if self.config.ablation_mode is not None:
+            self.config.ablation_mode = str(self.config.ablation_mode).strip().lower()
+            if self.config.ablation_mode not in ABLATION_MODES:
+                raise ValueError(
+                    "ablation_mode must be split-only or ee-only"
+                )
+            if not self.config.auto_train:
+                raise ValueError("ablation_mode requires fresh PPO solving")
+            if self.config.force_retrain:
+                raise ValueError(
+                    "ablation_mode already performs a fresh uncached PPO solve"
+                )
+            if self.config.target_accuracy is not None:
+                raise ValueError(
+                    "ablation_mode does not support target_accuracy constraint search"
+                )
+            if self.config.fixed_split is not None or self.config.fixed_threshold is not None:
+                raise ValueError(
+                    "ablation_mode cannot be combined with fixed_split or fixed_threshold"
+                )
         if self.config.force_retrain and not self.config.auto_train:
             raise ValueError("force_retrain requires auto_train to be enabled")
         if self.config.target_accuracy is not None:
@@ -189,8 +214,9 @@ class AlgoService:
             self.config.fixed_threshold
         )
         self._force_retrain_pending = bool(self.config.force_retrain)
-        self._load_latest_solution()
-        self._load_archived_solutions()
+        if self.config.ablation_mode is None:
+            self._load_latest_solution()
+            self._load_archived_solutions()
 
     def _ppo_params(self) -> dict:
         return _build_ppo_params(self.config.custom_ppo_hyperparams)
@@ -214,6 +240,137 @@ class AlgoService:
             key: value.detach().cpu().clone()
             for key, value in agent.policy.state_dict().items()
         }
+
+    @staticmethod
+    def _ablation_arrays(
+        mode: str,
+        X: np.ndarray,
+        Y: np.ndarray,
+        paras: Paras,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Transform a freshly trained Ours solution without changing PPO."""
+        X_out = np.asarray(X, dtype=np.float32).copy()
+        Y_out = np.asarray(Y, dtype=np.float32).copy()
+        if mode == "split-only":
+            Y_out[:, :] = 1.0
+        elif mode == "ee-only":
+            final = int(paras.partition_manifest.final_boundary_id)
+            local_row = encode_split_row(final, final, int(paras.m), dtype=np.float32)
+            X_out = np.tile(local_row, (int(paras.n), 1)).astype(np.float32)
+        else:  # pragma: no cover - guarded by configuration validation
+            raise ValueError(f"Unsupported ablation mode: {mode}")
+        return X_out, Y_out
+
+    def _solve_fresh_ablation(
+        self,
+        state: dict,
+        signature: dict[str, Any],
+        paras: Paras,
+    ) -> tuple[CachedSolution, float, float]:
+        """Run a cold synchronous Ours PPO solve and ablate only its returned X/Y."""
+        mode = str(self.config.ablation_mode)
+        round_id = str(state.get("round_id") or "")
+        with self._fresh_solve_lock:
+            started_at = time.time()
+            with self._lock:
+                self._training_status = "running"
+                self._training_signature = copy.deepcopy(signature)
+                self._training_started_at = started_at
+                self._last_training_started_at = started_at
+                self._last_training_round_id = round_id
+                self._last_training_mode = f"fresh_ablation:{mode}"
+                self._last_warm_start_source = None
+                self._last_error = None
+            try:
+                # This is intentionally the same cold PPO path used by Ours: no
+                # cached solution, policy checkpoint, warm start, or constrained
+                # PPO action space is supplied.
+                params = self._training_params(None)
+                agent = PPOAgent(paras, params)
+                best_val, best_sol, _history = agent.train(initial_solution=None)
+                if best_sol is None:
+                    raise RuntimeError("DSCI training returned no solution")
+
+                X_best, Y_best, F_e_best, F_c_best = best_sol
+                ours_solution = CachedSolution(
+                    X=np.asarray(X_best, dtype=np.float32),
+                    Y=np.asarray(Y_best, dtype=np.float32),
+                    F_e=np.asarray(F_e_best, dtype=np.float32).reshape(paras.n, 1),
+                    F_c=np.asarray(F_c_best, dtype=np.float32).reshape(paras.n, 1),
+                    objective=float(best_val),
+                    state_signature=copy.deepcopy(signature),
+                    training_mode="cold",
+                )
+                self._annotate_solution(ours_solution, paras)
+                source_objective = float(ours_solution.objective)
+
+                X_final, Y_final = self._ablation_arrays(
+                    mode, ours_solution.X, ours_solution.Y, paras
+                )
+                F_e_final, F_c_final = self._allocate_resources_for_xy(
+                    X_final, Y_final, paras
+                )
+                ablated_signature = copy.deepcopy(signature)
+                ablated_signature["ablation_mode"] = mode
+                solution = CachedSolution(
+                    X=X_final,
+                    Y=Y_final,
+                    F_e=np.asarray(F_e_final, dtype=np.float32).reshape(paras.n, 1),
+                    F_c=np.asarray(F_c_final, dtype=np.float32).reshape(paras.n, 1),
+                    objective=0.0,
+                    state_signature=ablated_signature,
+                    training_mode=f"fresh_ablation:{mode}",
+                )
+                self._annotate_solution(solution, paras)
+
+                finished_at = time.time()
+                duration_s = finished_at - started_at
+                with self._lock:
+                    self._training_status = "idle"
+                    self._training_signature = None
+                    self._training_started_at = None
+                    self._last_training_finished_at = finished_at
+                    self._last_training_duration_s = duration_s
+                    self._update_epoch += 1
+                self._append_training_event(
+                    {
+                        "event": "fresh_ablation_solve_complete",
+                        "round_id": round_id,
+                        "ablation_mode": mode,
+                        "cache_used": False,
+                        "policy_source": None,
+                        "source_ours_objective": source_objective,
+                        "returned_objective": float(solution.objective),
+                        "expected_accuracy": solution.expected_accuracy,
+                        "expected_latency": solution.expected_latency,
+                        "started_at": started_at,
+                        "finished_at": finished_at,
+                        "duration_s": duration_s,
+                        "update_epoch": self._update_epoch,
+                    }
+                )
+                return solution, source_objective, duration_s
+            except Exception as exc:
+                finished_at = time.time()
+                with self._lock:
+                    self._training_status = "error"
+                    self._training_signature = None
+                    self._training_started_at = None
+                    self._last_training_finished_at = finished_at
+                    self._last_training_duration_s = finished_at - started_at
+                    self._last_error = str(exc)
+                self._append_training_event(
+                    {
+                        "event": "fresh_ablation_solve_error",
+                        "round_id": round_id,
+                        "ablation_mode": mode,
+                        "cache_used": False,
+                        "error": str(exc),
+                        "started_at": started_at,
+                        "finished_at": finished_at,
+                    }
+                )
+                raise
 
     def _annotate_solution(
         self,
@@ -872,8 +1029,21 @@ class AlgoService:
         fixed_split = self._fixed_split_for_state(state)
         fixed_threshold = self._fixed_threshold_for_state(state)
         preset_mode = self._normalise_decision_mode(state)
+        ablation_source_objective = None
+        ablation_solve_s = None
 
-        if fixed_split is not None:
+        if self.config.ablation_mode is not None:
+            if preset_mode is not None:
+                raise ValueError(
+                    "ablation_mode requires the Device decision mode to be dsci/auto"
+                )
+            solution, ablation_source_objective, ablation_solve_s = (
+                self._solve_fresh_ablation(state, signature, paras)
+            )
+            decision_source = (
+                f"synchronous:ppo:fresh:ablation:{self.config.ablation_mode}"
+            )
+        elif fixed_split is not None:
             s1, s2 = self._validate_fixed_split(fixed_split, paras)
             solution = self._fixed_split_solution(paras, signature, s1, s2)
             decision_source = f"fixed_split:{s1}:{s2}"
@@ -936,6 +1106,11 @@ class AlgoService:
         )
         decision["expected_accuracy"] = solution.expected_accuracy
         decision["expected_latency"] = solution.expected_latency
+        if self.config.ablation_mode is not None:
+            decision["ablation_mode"] = self.config.ablation_mode
+            decision["cache_used"] = False
+            decision["source_ours_objective"] = ablation_source_objective
+            decision["fresh_ppo_solve_s"] = ablation_solve_s
         if self.config.target_accuracy is None:
             decision["constraint_status"] = "disabled"
             decision["constraint_satisfied"] = None
@@ -1548,7 +1723,9 @@ class AlgoService:
                 "last_reuse_distance": self._last_reuse_distance,
                 "last_training_mode": self._last_training_mode,
                 "last_warm_start_source": self._last_warm_start_source,
-                "policy_cache_enabled": True,
+                "policy_cache_enabled": self.config.ablation_mode is None,
+                "ablation_mode": self.config.ablation_mode,
+                "fresh_uncached_solve": self.config.ablation_mode is not None,
                 "fixed_split": self.config.fixed_split,
                 "fixed_threshold": self.config.fixed_threshold,
                 "last_error": self._last_error,
