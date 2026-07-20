@@ -45,6 +45,7 @@ def measure_bandwidth_iperf(
     port: int = 5001,
     duration: float | None = None,
     timeout_s: float | None = None,
+    retries: int | None = None,
 ) -> float | None:
     """Measure upload bandwidth to an iperf3 server and return Mbps.
 
@@ -68,7 +69,7 @@ def measure_bandwidth_iperf(
         str(duration),
         "-J",
     ]
-    retries = max(1, int(DEFAULT_IPERF_RETRIES))
+    retries = max(1, int(DEFAULT_IPERF_RETRIES if retries is None else retries))
     for attempt in range(1, retries + 1):
         try:
             print(

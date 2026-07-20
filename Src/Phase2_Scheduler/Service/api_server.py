@@ -42,6 +42,16 @@ def _node_state_provider() -> tuple[dict, dict]:
     return edge, {**cloud, "BW_e2c": edge["BW_e2c"]}
 
 
+def _edge_bandwidth_calibrator(duration_s: float) -> dict:
+    response = requests.post(
+        f"http://{TESTBED_CFG.edge_host}:{TESTBED_CFG.edge_status_port}/bandwidth/calibrate",
+        json={"duration_s": float(duration_s)},
+        timeout=max(float(duration_s) + 10.0, 15.0),
+    )
+    response.raise_for_status()
+    return response.json()
+
+
 def create_app(
     service: AlgoService | None = None,
     coordinator: RoundCoordinator | None = None,
@@ -53,6 +63,8 @@ def create_app(
         svc,
         expected_users=int(os.environ.get("DSCI_EXPECTED_USERS", TESTBED_CFG.num_users)),
         node_state_provider=_node_state_provider,
+        edge_bandwidth_calibrator=_edge_bandwidth_calibrator,
+        dynamic_bandwidth=os.environ.get("DSCI_DYNAMIC_BANDWIDTH", "0") == "1",
     )
 
     @app.route("/api/v1/health", methods=["GET"])
@@ -115,6 +127,44 @@ def create_app(
             return jsonify(rounds.heartbeat(round_id, user_id))
         except RoundCoordinatorError as exc:
             return _error(str(exc), 404)
+        except RoundConflictError as exc:
+            return _error(str(exc), 409)
+
+    @app.route(
+        "/api/v2/rounds/<round_id>/bandwidth/devices/<int:user_id>",
+        methods=["POST"],
+    )
+    def report_device_bandwidth(round_id: str, user_id: int):
+        payload = request.get_json(silent=True)
+        try:
+            return jsonify(rounds.report_device_bandwidth(round_id, user_id, payload))
+        except RoundCoordinatorError as exc:
+            return _error(str(exc), 400)
+        except RoundConflictError as exc:
+            return _error(str(exc), 409)
+
+    @app.route(
+        "/api/v2/rounds/<round_id>/bandwidth/edge", methods=["POST"]
+    )
+    def report_edge_bandwidth(round_id: str):
+        payload = request.get_json(silent=True)
+        try:
+            return jsonify(rounds.report_edge_bandwidth(round_id, payload))
+        except RoundCoordinatorError as exc:
+            return _error(str(exc), 400)
+        except RoundConflictError as exc:
+            return _error(str(exc), 409)
+
+    @app.route(
+        "/api/v2/rounds/<round_id>/bandwidth/leases/<int:user_id>/acquire",
+        methods=["POST"],
+    )
+    def acquire_bandwidth_lease(round_id: str, user_id: int):
+        try:
+            result = rounds.acquire_bandwidth_lease(round_id, user_id)
+            return jsonify(result), 200 if result.get("status") == "granted" else 202
+        except RoundCoordinatorError as exc:
+            return _error(str(exc), 400)
         except RoundConflictError as exc:
             return _error(str(exc), 409)
 
@@ -311,6 +361,14 @@ if __name__ == "__main__":
             "start a fresh cold background training run"
         ),
     )
+    parser.add_argument("--dynamic-bandwidth", action="store_true")
+    parser.add_argument("--bandwidth-ewma-alpha", type=float, default=0.3)
+    parser.add_argument("--bandwidth-change-threshold", type=float, default=0.20)
+    parser.add_argument(
+        "--bandwidth-min-reschedule-interval", type=float, default=30.0
+    )
+    parser.add_argument("--bandwidth-stale-after", type=float, default=300.0)
+    parser.add_argument("--iperf-calibration-duration", type=float, default=3.0)
     parser.add_argument(
         "--target-accuracy",
         type=float,
@@ -337,6 +395,16 @@ if __name__ == "__main__":
             parser.error("--target-accuracy cannot be used with --no-auto-train")
     if not (0.0 <= args.accuracy_tolerance < 1.0):
         parser.error("--accuracy-tolerance must be in [0, 1)")
+    if not 0.0 < args.bandwidth_ewma_alpha <= 1.0:
+        parser.error("--bandwidth-ewma-alpha must be in (0, 1]")
+    if args.bandwidth_change_threshold <= 0.0:
+        parser.error("--bandwidth-change-threshold must be positive")
+    if args.bandwidth_min_reschedule_interval < 0.0:
+        parser.error("--bandwidth-min-reschedule-interval must be non-negative")
+    if args.bandwidth_stale_after <= 0.0:
+        parser.error("--bandwidth-stale-after must be positive")
+    if args.iperf_calibration_duration <= 0.0:
+        parser.error("--iperf-calibration-duration must be positive")
 
     service = build_service_from_env(
         auto_train=not args.no_auto_train,
@@ -350,6 +418,12 @@ if __name__ == "__main__":
         service,
         expected_users=args.expected_users,
         node_state_provider=_node_state_provider,
+        edge_bandwidth_calibrator=_edge_bandwidth_calibrator,
+        dynamic_bandwidth=args.dynamic_bandwidth,
+        bandwidth_change_threshold=args.bandwidth_change_threshold,
+        bandwidth_min_reschedule_interval_s=args.bandwidth_min_reschedule_interval,
+        bandwidth_stale_after_s=args.bandwidth_stale_after,
+        iperf_calibration_duration_s=args.iperf_calibration_duration,
     )
     run_server(
         host=args.host,

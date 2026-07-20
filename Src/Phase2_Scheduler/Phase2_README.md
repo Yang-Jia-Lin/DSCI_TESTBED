@@ -67,6 +67,12 @@ python -m Src.Phase2_Scheduler.Service.api_server --no-auto-train
 5. Device 通过 decisions 接口领取结果并执行推理。
 6. Device 回传测量结果，Scheduler 记录 reward 和运行日志。
 
+启用 `--dynamic-bandwidth` 后，Scheduler 还会接收 D2E/E2C 带宽样本、串行
+管理 iperf lease，并维护 active/pending 决策。默认相对变化达到 20% 才重新
+求解，两次求解至少间隔 30 秒；pending 决策只在下一 request barrier 原子
+切换，`decision_id` 使用 `<round_id>:v<version>`。固定模式仍保持单次决策和
+原有 `decision_id`。
+
 ## 相关文档
 
 - [Src_README](../Src_README.md)：代码总入口和快速开始。

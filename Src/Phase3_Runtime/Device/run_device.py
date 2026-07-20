@@ -17,12 +17,49 @@ import requests
 from Src.Phase2_Scheduler.algo_config import DEFAULT as ALGO_CFG
 from Src.Phase3_Runtime.Device.runtime_v2 import run_partitioned_inference
 from Src.Phase3_Runtime.Shared.bandwidth_iperf import measure_bandwidth_iperf
+from Src.Phase3_Runtime.Shared.dynamic_bandwidth import BandwidthEstimator
 from Src.Phase3_Runtime.Shared.state_reporter import RoundClient
 from Src.Shared.Config.deploy_config import DEFAULT as TESTBED_CFG
 from Src.Shared.Config.model_config import get_bundle
 from Src.Shared.Config.paths import DEVICE_RESULTS_DIR, bundle_paths
 from Src.Shared.Data.registry import build_loader, build_test_package_loader
 from Src.Shared.Profiles.segment_profile import segment_profile_state
+
+_BANDWIDTH_CACHE_LOCK = threading.Lock()
+
+
+def _bandwidth_cache_path(device: dict) -> Path:
+    profile_id = str(device["execution_profile_id"]).replace("/", "_").replace("\\", "_")
+    return DEVICE_RESULTS_DIR / "bandwidth_cache" / f"{profile_id}__d2e.json"
+
+
+def _load_cached_bandwidth(device: dict) -> float | None:
+    path = _bandwidth_cache_path(device)
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        if payload.get("edge_host") != TESTBED_CFG.edge_host:
+            return None
+        value = float(payload["bw_d2e_mbps"])
+        return value if value > 0.0 else None
+    except (FileNotFoundError, KeyError, TypeError, ValueError, json.JSONDecodeError):
+        return None
+
+
+def _save_cached_bandwidth(device: dict, bw_mbps: float) -> None:
+    path = _bandwidth_cache_path(device)
+    payload = {
+        "execution_profile_id": device["execution_profile_id"],
+        "edge_host": TESTBED_CFG.edge_host,
+        "bw_d2e_mbps": float(bw_mbps),
+        "updated_at": float(time.time()),
+    }
+    with _BANDWIDTH_CACHE_LOCK:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        temporary = path.with_suffix(".tmp")
+        temporary.write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        temporary.replace(path)
 
 
 def collect_device_state(
@@ -34,10 +71,20 @@ def collect_device_state(
     iperf_timeout: float | None = None,
     d2e_link_id: str | None = None,
     d2e_capacity_mbps: float | None = None,
+    dynamic_bandwidth: bool = False,
 ):
     device = segment_profile_state("device", backend, bundle_id)
     if bw_d2e_override is not None:
         bw_d2e = float(bw_d2e_override)
+    elif dynamic_bandwidth:
+        cached_bw = _load_cached_bandwidth(device)
+        bw_d2e = float(
+            TESTBED_CFG.default_bw_d2e if cached_bw is None else cached_bw
+        )
+        print(
+            "Dynamic bandwidth mode: registering with cached/fallback "
+            f"BW_d2e={bw_d2e:.4f} Mbps before coordinated calibration"
+        )
     else:
         measured_bw = measure_bandwidth_iperf(
             TESTBED_CFG.edge_host,
@@ -69,12 +116,14 @@ def registration_payload(
     device: dict,
     *,
     decision_mode: str | None = None,
+    dynamic_bandwidth: bool = False,
 ) -> dict:
     payload = {
         "user_id": int(user_id),
         "bundle_id": device["bundle_id"],
         "resource_mode": "fixed_worker_pool",
         "device": device,
+        "dynamic_bandwidth": bool(dynamic_bandwidth),
     }
     if decision_mode:
         payload["decision_mode"] = str(decision_mode)
@@ -97,6 +146,49 @@ def _heartbeat_loop(client: RoundClient, stop: threading.Event, interval_s: floa
             client.heartbeat()
         except Exception as exc:
             print(f"Heartbeat failed: {exc}")
+
+
+def _bandwidth_calibration_loop(
+    client: RoundClient,
+    estimator: BandwidthEstimator,
+    stop: threading.Event,
+    *,
+    duration_s: float,
+    device: dict,
+):
+    while not stop.wait(0.5):
+        try:
+            lease = client.acquire_bandwidth_lease()
+            if lease.get("status") != "granted":
+                continue
+            token = str(lease["lease_token"])
+            measured = measure_bandwidth_iperf(
+                TESTBED_CFG.edge_host,
+                TESTBED_CFG.edge_iperf_port,
+                duration=duration_s,
+                timeout_s=max(float(duration_s) + 5.0, 8.0),
+                retries=1,
+            )
+            if measured is None or float(measured) <= 0.0:
+                client.report_bandwidth(
+                    {
+                        "link": "d2e",
+                        "source": "iperf",
+                        "status": "failed",
+                        "lease_token": token,
+                    }
+                )
+                continue
+            sample = estimator.observe(
+                float(measured), source="iperf", decision_version=0
+            )
+            payload = sample.as_dict()
+            payload["lease_token"] = token
+            client.report_bandwidth(payload)
+            _save_cached_bandwidth(device, sample.filtered_bw_mbps)
+        except Exception as exc:
+            print(f"Dynamic bandwidth calibration failed: {exc}")
+            stop.wait(1.0)
 
 
 def _metadata_value(metadata: dict | None, key: str):
@@ -126,6 +218,8 @@ def _measurement_record(
 ) -> dict:
     record = {
         "request_id": str(result["request_id"]),
+        "decision_id": str(result["decision_id"]),
+        "decision_version": int(result["decision_version"]),
         "user_id": int(user_id),
         "sample_index": int(sample_index),
         "label": int(label),
@@ -421,6 +515,14 @@ def main(argv=None):
     parser.add_argument("--test-samples", type=int)
     parser.add_argument("--heartbeat-interval", type=float, default=5.0)
     parser.add_argument("--decision-timeout", type=float, default=90.0)
+    parser.add_argument("--dynamic-bandwidth", action="store_true")
+    parser.add_argument("--bandwidth-ewma-alpha", type=float, default=0.3)
+    parser.add_argument("--bandwidth-change-threshold", type=float, default=0.20)
+    parser.add_argument(
+        "--bandwidth-min-reschedule-interval", type=float, default=30.0
+    )
+    parser.add_argument("--bandwidth-stale-after", type=float, default=300.0)
+    parser.add_argument("--iperf-calibration-duration", type=float, default=3.0)
     parser.add_argument(
         "--no-request-barrier",
         action="store_true",
@@ -464,6 +566,18 @@ def main(argv=None):
         help="Request a preset placement instead of DSCI for this round.",
     )
     args = parser.parse_args(argv)
+    if args.dynamic_bandwidth and args.no_request_barrier:
+        parser.error("--dynamic-bandwidth cannot be used with --no-request-barrier")
+    if not 0.0 < args.bandwidth_ewma_alpha <= 1.0:
+        parser.error("--bandwidth-ewma-alpha must be in (0, 1]")
+    if args.bandwidth_change_threshold <= 0.0:
+        parser.error("--bandwidth-change-threshold must be positive")
+    if args.bandwidth_min_reschedule_interval < 0.0:
+        parser.error("--bandwidth-min-reschedule-interval must be non-negative")
+    if args.bandwidth_stale_after <= 0.0:
+        parser.error("--bandwidth-stale-after must be positive")
+    if args.iperf_calibration_duration <= 0.0:
+        parser.error("--iperf-calibration-duration must be positive")
     args.round_id = (
         str(args.round_id or "").strip()
         or str(os.environ.get("ROUND_ID") or "").strip()
@@ -484,6 +598,7 @@ def main(argv=None):
         iperf_timeout=args.iperf_timeout,
         d2e_link_id=args.d2e_link_id,
         d2e_capacity_mbps=args.d2e_capacity_mbps,
+        dynamic_bandwidth=args.dynamic_bandwidth,
     )
     print(f"Device state BW_d2e={float(device['BW_d2e']):.4f} Mbps")
     client = RoundClient(TESTBED_CFG.algo_base_url, args.round_id, args.user_id)
@@ -492,6 +607,7 @@ def main(argv=None):
             args.user_id,
             device,
             decision_mode=args.decision_mode,
+            dynamic_bandwidth=args.dynamic_bandwidth,
         )
     )
     heartbeat_stop = threading.Event()
@@ -501,10 +617,35 @@ def main(argv=None):
         daemon=True,
     )
     heartbeat.start()
+    bandwidth_estimator = None
+    bandwidth_stop = threading.Event()
+    bandwidth_thread = None
+    if args.dynamic_bandwidth:
+        bandwidth_estimator = BandwidthEstimator(
+            link="d2e",
+            initial_mbps=float(device["BW_d2e"]),
+            alpha=args.bandwidth_ewma_alpha,
+            stale_after_s=args.bandwidth_stale_after,
+        )
+        bandwidth_thread = threading.Thread(
+            target=_bandwidth_calibration_loop,
+            args=(client, bandwidth_estimator, bandwidth_stop),
+            kwargs={
+                "duration_s": args.iperf_calibration_duration,
+                "device": device,
+            },
+            daemon=True,
+        )
+        bandwidth_thread.start()
     correct = total = 0
     measurements = []
+    effective_decision_timeout = (
+        max(float(args.decision_timeout), 180.0)
+        if args.dynamic_bandwidth
+        else float(args.decision_timeout)
+    )
     try:
-        decision = client.wait_for_decision(timeout_s=args.decision_timeout)
+        decision = client.wait_for_decision(timeout_s=effective_decision_timeout)
         objective_alpha, objective_beta = _decision_objective_weights(decision)
         user_decision = decision.get("user", {})
         print(
@@ -532,8 +673,13 @@ def main(argv=None):
             synchronization = None
             if not args.no_request_barrier:
                 barrier = client.wait_for_request_release(
-                    sample_index, timeout_s=args.decision_timeout
+                    sample_index, timeout_s=effective_decision_timeout
                 )
+                if barrier.get("decision") is not None:
+                    decision = barrier["decision"]
+                    objective_alpha, objective_beta = _decision_objective_weights(
+                        decision
+                    )
                 actual_start_at = time.time()
                 release_at = float(barrier["release_at"])
                 synchronization = {
@@ -544,13 +690,34 @@ def main(argv=None):
                     "barrier_release_at_utc": release_at,
                     "actual_start_at_utc": actual_start_at,
                     "start_skew_s": actual_start_at - release_at,
+                    "T_bandwidth_calibration": float(
+                        barrier.get("T_bandwidth_calibration") or 0.0
+                    ),
                 }
             result = run_partitioned_inference(
                 images,
                 decision,
                 user_id=args.user_id,
                 request_id=request_id,
+                measure_bandwidth=args.dynamic_bandwidth,
             )
+            bandwidth_metrics = result.pop("_bandwidth_sample_d2e", None)
+            if bandwidth_metrics is not None and bandwidth_estimator is not None:
+                sample = bandwidth_estimator.observe(
+                    bandwidth_metrics["bw_mbps"],
+                    source="passive",
+                    payload_bytes=bandwidth_metrics["payload_bytes"],
+                    elapsed_s=bandwidth_metrics["elapsed_s"],
+                    decision_version=int(decision["decision_version"]),
+                    observed_at=bandwidth_metrics["observed_at"],
+                )
+                if sample is not None:
+                    device["BW_d2e"] = sample.filtered_bw_mbps
+                    _save_cached_bandwidth(device, sample.filtered_bw_mbps)
+                    try:
+                        client.report_bandwidth(sample.as_dict())
+                    except Exception as exc:
+                        print(f"Dynamic bandwidth report failed: {exc}")
             label = int(labels.item())
             is_correct = result["prediction"] == label
             print(
@@ -607,6 +774,9 @@ def main(argv=None):
             }
         )
     finally:
+        bandwidth_stop.set()
+        if bandwidth_thread is not None:
+            bandwidth_thread.join(timeout=args.iperf_calibration_duration + 2.0)
         heartbeat_stop.set()
         heartbeat.join(timeout=args.heartbeat_interval + 1.0)
     _print_measurement_summary(measurements, correct=correct, total=total)

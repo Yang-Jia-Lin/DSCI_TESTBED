@@ -37,6 +37,7 @@ def run_partitioned_inference(
     *,
     user_id: int,
     request_id: str,
+    measure_bandwidth: bool = False,
 ) -> dict:
     if decision.get("resource_mode") != "fixed_worker_pool":
         raise ValueError("runtime_v2 only accepts fixed_worker_pool decisions")
@@ -94,9 +95,17 @@ def run_partitioned_inference(
         },
     }
     tx_started = time.perf_counter()
-    response = send_tensor(
-        payload, TESTBED_CFG.edge_host, TESTBED_CFG.edge_feature_port
+    sent = send_tensor(
+        payload,
+        TESTBED_CFG.edge_host,
+        TESTBED_CFG.edge_feature_port,
+        measure_upload=measure_bandwidth,
     )
+    if measure_bandwidth:
+        response, bandwidth_sample = sent
+        response["_bandwidth_sample_d2e"] = bandwidth_sample
+    else:
+        response = sent
     response["T_device_edge_roundtrip"] = time.perf_counter() - tx_started
     response["T_compute_device"] = t_device
     response["T_total"] = time.perf_counter() - total_started

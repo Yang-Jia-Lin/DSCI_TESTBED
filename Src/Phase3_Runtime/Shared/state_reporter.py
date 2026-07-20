@@ -48,6 +48,23 @@ class RoundClient:
         response.raise_for_status()
         return response.json()
 
+    def acquire_bandwidth_lease(self) -> dict:
+        response = requests.post(
+            self._url(f"bandwidth/leases/{self.user_id}/acquire"), timeout=10
+        )
+        if response.status_code not in {200, 202}:
+            response.raise_for_status()
+        return response.json()
+
+    def report_bandwidth(self, payload: dict) -> dict:
+        response = requests.post(
+            self._url(f"bandwidth/devices/{self.user_id}"),
+            json=payload,
+            timeout=15,
+        )
+        response.raise_for_status()
+        return response.json()
+
     def wait_for_decision(
         self, *, poll_interval_s: float = 1.0, timeout_s: float = 90.0
     ) -> dict:

@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 import argparse
+import queue
 import threading
 import time
 
-from flask import Flask, jsonify
+import requests
+from flask import Flask, jsonify, request
 
 from Src.Phase3_Runtime.Device.comm import send_tensor
 from Src.Phase3_Runtime.Shared.bandwidth_iperf import measure_bandwidth_iperf
+from Src.Phase3_Runtime.Shared.dynamic_bandwidth import BandwidthEstimator
 from Src.Phase3_Runtime.Shared.fixed_worker_pool import FixedWorkerPool, WorkerPoolConfig
 from Src.Phase3_Runtime.Shared.mnn_segment_worker import execute_mnn_range, init_mnn_worker
 from Src.Phase3_Runtime.Shared.pytorch_segment_worker import (
@@ -93,6 +96,27 @@ def _resolve_edge_cloud_bandwidth(
     return bw_e2c
 
 
+def _edge_bandwidth_report_loop(
+    reports: queue.Queue, stop: threading.Event
+) -> None:
+    while not stop.is_set() or not reports.empty():
+        try:
+            round_id, payload = reports.get(timeout=0.5)
+        except queue.Empty:
+            continue
+        try:
+            response = requests.post(
+                f"{TESTBED_CFG.algo_base_url}/api/v2/rounds/{round_id}/bandwidth/edge",
+                json=payload,
+                timeout=10,
+            )
+            response.raise_for_status()
+        except Exception as exc:
+            print(f"Edge dynamic bandwidth report failed: {exc}")
+        finally:
+            reports.task_done()
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--bundle-id")
@@ -112,21 +136,95 @@ def main(argv=None):
         type=float,
         help="iperf3 subprocess timeout in seconds; default is duration + 15.",
     )
+    parser.add_argument("--dynamic-bandwidth", action="store_true")
+    parser.add_argument("--bandwidth-ewma-alpha", type=float, default=0.3)
+    parser.add_argument("--bandwidth-change-threshold", type=float, default=0.20)
+    parser.add_argument(
+        "--bandwidth-min-reschedule-interval", type=float, default=30.0
+    )
+    parser.add_argument("--bandwidth-stale-after", type=float, default=300.0)
+    parser.add_argument("--iperf-calibration-duration", type=float, default=3.0)
     args = parser.parse_args(argv)
+    if not 0.0 < args.bandwidth_ewma_alpha <= 1.0:
+        parser.error("--bandwidth-ewma-alpha must be in (0, 1]")
+    if args.bandwidth_change_threshold <= 0.0:
+        parser.error("--bandwidth-change-threshold must be positive")
+    if args.bandwidth_min_reschedule_interval < 0.0:
+        parser.error("--bandwidth-min-reschedule-interval must be non-negative")
+    if args.bandwidth_stale_after <= 0.0:
+        parser.error("--bandwidth-stale-after must be positive")
+    if args.iperf_calibration_duration <= 0.0:
+        parser.error("--iperf-calibration-duration must be positive")
     bundle = get_bundle(args.bundle_id)
     state, pool, manifest = create_runtime(bundle.bundle_id, args.backend)
     bw_e2c = _resolve_edge_cloud_bandwidth(
         args.override_bw_e2c,
-        iperf_duration=args.iperf_duration,
-        iperf_timeout=args.iperf_timeout,
+        iperf_duration=(
+            args.iperf_calibration_duration
+            if args.dynamic_bandwidth and args.iperf_duration is None
+            else args.iperf_duration
+        ),
+        iperf_timeout=(
+            max(args.iperf_calibration_duration + 5.0, 8.0)
+            if args.dynamic_bandwidth and args.iperf_timeout is None
+            else args.iperf_timeout
+        ),
     )
+    bandwidth_estimator = BandwidthEstimator(
+        link="e2c",
+        initial_mbps=bw_e2c,
+        alpha=args.bandwidth_ewma_alpha,
+        stale_after_s=args.bandwidth_stale_after,
+    )
+    if args.dynamic_bandwidth:
+        bandwidth_estimator.observe(bw_e2c, source="iperf", decision_version=0)
+    bandwidth_reports: queue.Queue = queue.Queue()
+    bandwidth_stop = threading.Event()
+    bandwidth_reporter = None
+    if args.dynamic_bandwidth:
+        bandwidth_reporter = threading.Thread(
+            target=_edge_bandwidth_report_loop,
+            args=(bandwidth_reports, bandwidth_stop),
+            daemon=True,
+        )
+        bandwidth_reporter.start()
     status_app = Flask(__name__)
+    calibration_lock = threading.Lock()
 
     @status_app.route("/status")
     def status():
         current = {**state, **pool.state()}
-        current["BW_e2c"] = bw_e2c
+        current["BW_e2c"] = bandwidth_estimator.effective_mbps()
+        if args.dynamic_bandwidth:
+            current["bandwidth_e2c"] = bandwidth_estimator.snapshot()
         return jsonify(current)
+
+    @status_app.route("/bandwidth/calibrate", methods=["POST"])
+    def calibrate_bandwidth():
+        if not args.dynamic_bandwidth:
+            return jsonify({"status": "error", "message": "dynamic mode disabled"}), 409
+        if not calibration_lock.acquire(blocking=False):
+            return jsonify({"status": "busy"}), 409
+        try:
+            payload = request.get_json(silent=True) or {}
+            duration_s = float(
+                payload.get("duration_s", args.iperf_calibration_duration)
+            )
+            measured = measure_bandwidth_iperf(
+                TESTBED_CFG.cloud_host,
+                TESTBED_CFG.cloud_iperf_port,
+                duration=duration_s,
+                timeout_s=max(duration_s + 5.0, 8.0),
+                retries=1,
+            )
+            if measured is None or float(measured) <= 0.0:
+                return jsonify({"status": "failed", "link": "e2c", "source": "iperf"})
+            sample = bandwidth_estimator.observe(
+                measured, source="iperf", decision_version=0
+            )
+            return jsonify(sample.as_dict())
+        finally:
+            calibration_lock.release()
 
     def handle(payload):
         identity = request_identity(payload)
@@ -177,9 +275,26 @@ def main(argv=None):
             f"{TESTBED_CFG.cloud_host}:{TESTBED_CFG.cloud_feature_port}, "
             f"boundary={b2}"
         )
-        cloud = send_tensor(
-            cloud_payload, TESTBED_CFG.cloud_host, TESTBED_CFG.cloud_feature_port
+        sent = send_tensor(
+            cloud_payload,
+            TESTBED_CFG.cloud_host,
+            TESTBED_CFG.cloud_feature_port,
+            measure_upload=args.dynamic_bandwidth,
         )
+        if args.dynamic_bandwidth:
+            cloud, metrics = sent
+            sample = bandwidth_estimator.observe(
+                metrics["bw_mbps"],
+                source="passive",
+                payload_bytes=metrics["payload_bytes"],
+                elapsed_s=metrics["elapsed_s"],
+                decision_version=int(identity["decision_version"]),
+                observed_at=metrics["observed_at"],
+            )
+            if sample is not None:
+                bandwidth_reports.put((str(identity["round_id"]), sample.as_dict()))
+        else:
+            cloud = sent
         print("[edge] cloud response received")
         cloud = _strip_tensors_if_terminal(cloud)
         cloud["T_edge_cloud_roundtrip"] = time.perf_counter() - tx_started
@@ -204,6 +319,9 @@ def main(argv=None):
     except KeyboardInterrupt:
         print("[edge] shutdown requested")
     finally:
+        bandwidth_stop.set()
+        if bandwidth_reporter is not None:
+            bandwidth_reporter.join(timeout=2.0)
         pool.shutdown(wait=False, terminate=True)
         print("[edge] worker pool shutdown requested")
 

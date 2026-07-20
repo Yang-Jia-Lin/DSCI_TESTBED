@@ -74,6 +74,40 @@ python -m Src.Phase3_Runtime.Device.run_device \
 
 多 Device 运行时，每台 Device 使用唯一 `--user-id`，同一批次使用相同 `--round-id`，Scheduler 的 `--expected-users` 要与 Device 数量一致。
 
+## 动态带宽与在线重调度
+
+动态模式使用真实张量传输的应用层 goodput 做 EWMA，并在长期没有有效传输
+样本时由 Scheduler 串行发放短时 iperf 校准 lease。带宽变化达到阈值后生成
+pending 决策，所有 Device 到达下一请求屏障时才统一切换版本。
+
+Cloud 无需额外参数；Edge、Scheduler 和所有 Device 必须同时开启动态模式，
+并使用包含传输 ACK 协议的同一版本代码：
+
+```bash
+# Edge
+python -m Src.Phase3_Runtime.Edge.run_edge --bundle-id <BUNDLE_ID> --backend pytorch --dynamic-bandwidth
+
+# Scheduler
+python -m Src.Phase2_Scheduler.Service.api_server --expected-users <N> --dynamic-bandwidth --bandwidth-change-threshold 0.20 --bandwidth-min-reschedule-interval 30 --bandwidth-stale-after 300 --iperf-calibration-duration 3
+
+# 每台 Device
+python -m Src.Phase3_Runtime.Device.run_device --bundle-id <BUNDLE_ID> --backend pytorch --user-id <USER_ID> --round-id <ROUND_ID> --dynamic-bandwidth --bandwidth-ewma-alpha 0.3 --bandwidth-stale-after 300 --iperf-calibration-duration 3
+```
+
+动态模式不能与 `--no-request-barrier` 同时使用。初始化阶段 Device 先注册，
+Scheduler 再按 `user_id` 串行校准 D2E；默认最多等待 120 秒。运行期间每个请求
+间隙最多校准一条 D2E 或 E2C 链路，校准等待记录为
+`T_bandwidth_calibration`，不计入推理 `T_total`。被动样本至少需要 256 KiB，
+连续 3 个有效样本后才替代最近的 iperf 校准值。
+
+动态接口为：
+
+```text
+POST /api/v2/rounds/{round_id}/bandwidth/devices/{user_id}
+POST /api/v2/rounds/{round_id}/bandwidth/edge
+POST /api/v2/rounds/{round_id}/bandwidth/leases/{user_id}/acquire
+```
+
 ## 子目录
 
 | 目录 | 说明 |

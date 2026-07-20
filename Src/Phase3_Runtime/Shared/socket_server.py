@@ -12,6 +12,8 @@ from Src.Phase3_Runtime.Shared.tensor_codec import (
     restore_from_transport,
 )
 
+_ACK_REQUEST_MASK = 1 << 31
+
 
 def _recv_exact(conn: socket.socket, size: int) -> bytes:
     chunks = bytearray()
@@ -49,9 +51,15 @@ def serve_requests(
 def _handle_connection(conn: socket.socket, handler, addr) -> None:
     with conn:
         try:
-            length = int.from_bytes(_recv_exact(conn, 4), "big")
+            framed_length = int.from_bytes(_recv_exact(conn, 4), "big")
+            ack_requested = bool(framed_length & _ACK_REQUEST_MASK)
+            length = framed_length & (_ACK_REQUEST_MASK - 1)
             print(f"[socket_server] accepted {addr}, payload={length} bytes")
-            payload = restore_from_transport(pickle.loads(_recv_exact(conn, length)))
+            payload_bytes = _recv_exact(conn, length)
+            if ack_requested:
+                conn.sendall((0).to_bytes(4, byteorder="big"))
+                conn.sendall(length.to_bytes(8, byteorder="big"))
+            payload = restore_from_transport(pickle.loads(payload_bytes))
             print(f"[socket_server] handling {addr}")
             response = handler(payload)
             print(f"[socket_server] handled {addr}")
