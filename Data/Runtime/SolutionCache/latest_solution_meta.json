@@ -1,7 +1,7 @@
 {
   "state_signature": {
     "model": {
-      "bundle_id": "resnet50-imagenet100",
+      "bundle_id": "resnet50-cifar10",
       "m": 20,
       "exit_ids": [
         "after_layer1",
@@ -9,7 +9,7 @@
         "after_layer3"
       ]
     },
-    "num_users": 4,
+    "num_users": 1,
     "resource_mode": "fixed_worker_pool",
     "objective": {
       "mode": "weighted",
@@ -18,49 +18,31 @@
     },
     "tensor_transport_dtype": "float32",
     "transport_byte_scale": 1.0,
-    "manifest_id": "resnet50-imagenet100-partition-v1",
-    "model_hash": "8e5fa9e2d48cb24da816bcef7ccfa7cbe98eeceedd72a8c92449c339f7f517f1",
+    "manifest_id": "resnet50-cifar10-partition-v1",
+    "model_hash": "42222e588316eba09b272dd13e261ab47f674256446150916379c4945be9aad2",
     "users": [
       {
         "user_id": 0,
         "f_u": 1.0,
-        "BW_d2e": 64.9813,
-        "execution_profile_id": "resnet50-imagenet100-device-pi5"
-      },
-      {
-        "user_id": 1,
-        "f_u": 1.0,
-        "BW_d2e": 63.3083,
-        "execution_profile_id": "resnet50-imagenet100-device-pi4-1"
-      },
-      {
-        "user_id": 2,
-        "f_u": 1.0,
-        "BW_d2e": 58.3501,
-        "execution_profile_id": "resnet50-imagenet100-device-pi4-2"
-      },
-      {
-        "user_id": 3,
-        "f_u": 1.0,
-        "BW_d2e": 54.9868,
-        "execution_profile_id": "resnet50-imagenet100-device-nano"
+        "BW_d2e": 65.043,
+        "execution_profile_id": "resnet50-cifar10-device-pi5"
       }
     ],
     "edge": {
       "f_e_max": 1.0,
-      "execution_profile_id": "resnet50-imagenet100-edge-jialin-desktop",
+      "execution_profile_id": "resnet50-cifar10-edge-kaijie-laptop",
       "worker_count": 1
     },
     "cloud": {
       "f_c_max": 1.0,
-      "BW_e2c": 28.5097,
-      "execution_profile_id": "resnet50-imagenet100-cloud-v100",
+      "BW_e2c": 50.0,
+      "execution_profile_id": "resnet50-cifar10-cloud-5880",
       "worker_count": 1
     }
   },
   "compat_key": {
     "model": {
-      "bundle_id": "resnet50-imagenet100",
+      "bundle_id": "resnet50-cifar10",
       "m": 20,
       "exit_ids": [
         "after_layer1",
@@ -68,7 +50,7 @@
         "after_layer3"
       ]
     },
-    "num_users": 4,
+    "num_users": 1,
     "resource_mode": "fixed_worker_pool",
     "objective": {
       "mode": "weighted",
@@ -77,44 +59,35 @@
     },
     "tensor_transport_dtype": "float32",
     "transport_byte_scale": 1.0,
-    "manifest_id": "resnet50-imagenet100-partition-v1",
-    "model_hash": "8e5fa9e2d48cb24da816bcef7ccfa7cbe98eeceedd72a8c92449c339f7f517f1",
+    "manifest_id": "resnet50-cifar10-partition-v1",
+    "model_hash": "42222e588316eba09b272dd13e261ab47f674256446150916379c4945be9aad2",
     "user_profiles": [
-      "resnet50-imagenet100-device-pi5",
-      "resnet50-imagenet100-device-pi4-1",
-      "resnet50-imagenet100-device-pi4-2",
-      "resnet50-imagenet100-device-nano"
+      "resnet50-cifar10-device-pi5"
     ],
-    "edge_profile": "resnet50-imagenet100-edge-jialin-desktop",
-    "cloud_profile": "resnet50-imagenet100-cloud-v100"
+    "edge_profile": "resnet50-cifar10-edge-kaijie-laptop",
+    "cloud_profile": "resnet50-cifar10-cloud-5880"
   },
   "state_vector": [
-    64.9813,
-    1.0,
-    63.3083,
-    1.0,
-    58.3501,
-    1.0,
-    54.9868,
+    65.043,
     1.0,
     1.0,
     1.0,
     1.0,
     1.0,
-    28.5097,
+    50.0,
     1.0
   ],
-  "objective": 0.9090555627600151,
-  "created_at": 1784542253.5744126,
-  "policy_path": "D:\\Coding\\Python\\DSCI_SEAS\\Data\\Runtime\\SolutionCache\\latest_solution_policy.pt",
-  "training_mode": "cold",
-  "training_started_at": 1784541468.1351686,
-  "training_finished_at": 1784542253.5759323,
-  "training_duration_s": 785.4407637119293,
+  "objective": 0.5640577061491087,
+  "created_at": 1784555685.0401769,
+  "policy_path": "C:\\Users\\t1960\\DSCI_TESTBED\\Data\\Runtime\\SolutionCache\\latest_solution_policy.pt",
+  "training_mode": "medium",
+  "training_started_at": 1784555237.9505887,
+  "training_finished_at": 1784555685.0503983,
+  "training_duration_s": 447.09980964660645,
   "objective_alpha": 1.0,
   "objective_beta": 5.0,
-  "expected_accuracy": 0.8923065500896709,
-  "expected_latency": 0.1330085318799334,
+  "expected_accuracy": 0.978474903858784,
+  "expected_latency": 0.08288343954193507,
   "constraint_satisfied": null,
-  "saved_at": 1784542253.6036518
+  "saved_at": 1784555685.055056
 }
