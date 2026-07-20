@@ -1,0 +1,6 @@
+{
+  "execution_profile_id": "resnet50-imagenet100-device-nano",
+  "edge_host": "192.168.137.80",
+  "bw_d2e_mbps": 16.80903244144469,
+  "updated_at": 1784541494.719385
+}
