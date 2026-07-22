@@ -1,12 +1,12 @@
 {
   "state_signature": {
     "model": {
-      "bundle_id": "resnet50-cifar10",
-      "m": 20,
+      "bundle_id": "vit-base-neucls64",
+      "m": 16,
       "exit_ids": [
-        "after_layer1",
-        "after_layer2",
-        "after_layer3"
+        "after_block3",
+        "after_block6",
+        "after_block9"
       ]
     },
     "num_users": 1,
@@ -18,36 +18,36 @@
     },
     "tensor_transport_dtype": "float32",
     "transport_byte_scale": 1.0,
-    "manifest_id": "resnet50-cifar10-partition-v1",
-    "model_hash": "42222e588316eba09b272dd13e261ab47f674256446150916379c4945be9aad2",
+    "manifest_id": "vit-base-neucls64-partition-v1",
+    "model_hash": "9cb682d2176c43a21b127c7bd0680c5d2b8c172a22d40eb9c957df255d421c31",
     "users": [
       {
         "user_id": 0,
         "f_u": 1.0,
-        "BW_d2e": 92.4638,
-        "execution_profile_id": "resnet50-cifar10-device-pi5"
+        "BW_d2e": 68.2641,
+        "execution_profile_id": "vit-base-neucls64-device-pi5"
       }
     ],
     "edge": {
       "f_e_max": 1.0,
-      "execution_profile_id": "resnet50-cifar10-edge-kaijie-laptop",
+      "execution_profile_id": "vit-base-neucls64-edge-kaijie-laptop",
       "worker_count": 1
     },
     "cloud": {
       "f_c_max": 1.0,
-      "BW_e2c": 50.0,
-      "execution_profile_id": "resnet50-cifar10-cloud-5880",
+      "BW_e2c": 81.3783,
+      "execution_profile_id": "vit-base-neucls64-cloud-5880",
       "worker_count": 1
     }
   },
   "compat_key": {
     "model": {
-      "bundle_id": "resnet50-cifar10",
-      "m": 20,
+      "bundle_id": "vit-base-neucls64",
+      "m": 16,
       "exit_ids": [
-        "after_layer1",
-        "after_layer2",
-        "after_layer3"
+        "after_block3",
+        "after_block6",
+        "after_block9"
       ]
     },
     "num_users": 1,
@@ -59,35 +59,35 @@
     },
     "tensor_transport_dtype": "float32",
     "transport_byte_scale": 1.0,
-    "manifest_id": "resnet50-cifar10-partition-v1",
-    "model_hash": "42222e588316eba09b272dd13e261ab47f674256446150916379c4945be9aad2",
+    "manifest_id": "vit-base-neucls64-partition-v1",
+    "model_hash": "9cb682d2176c43a21b127c7bd0680c5d2b8c172a22d40eb9c957df255d421c31",
     "user_profiles": [
-      "resnet50-cifar10-device-pi5"
+      "vit-base-neucls64-device-pi5"
     ],
-    "edge_profile": "resnet50-cifar10-edge-kaijie-laptop",
-    "cloud_profile": "resnet50-cifar10-cloud-5880"
+    "edge_profile": "vit-base-neucls64-edge-kaijie-laptop",
+    "cloud_profile": "vit-base-neucls64-cloud-5880"
   },
   "state_vector": [
-    92.4638,
+    68.2641,
     1.0,
     1.0,
     1.0,
     1.0,
     1.0,
-    50.0,
+    81.3783,
     1.0
   ],
-  "objective": 0.6739619876611764,
-  "created_at": 1784556304.9135406,
+  "objective": 0.6267223841031075,
+  "created_at": 1784693839.8214586,
   "policy_path": "C:\\Users\\t1960\\DSCI_TESTBED\\Data\\Runtime\\SolutionCache\\latest_solution_policy.pt",
   "training_mode": "medium",
-  "training_started_at": 1784555760.5379045,
-  "training_finished_at": 1784556304.920598,
-  "training_duration_s": 544.382693529129,
+  "training_started_at": 1784693745.727566,
+  "training_finished_at": 1784693839.8223734,
+  "training_duration_s": 94.09480738639832,
   "objective_alpha": 1.0,
   "objective_beta": 5.0,
-  "expected_accuracy": 0.978474903858784,
-  "expected_latency": 0.06090258323952152,
+  "expected_accuracy": 0.9998083625463599,
+  "expected_latency": 0.07461719568865047,
   "constraint_satisfied": null,
-  "saved_at": 1784556304.9236836
+  "saved_at": 1784693839.8260841
 }

@@ -1,0 +1,93 @@
+{
+  "state_signature": {
+    "model": {
+      "bundle_id": "vit-base-imagenet100",
+      "m": 16,
+      "exit_ids": [
+        "after_block3",
+        "after_block6",
+        "after_block9"
+      ]
+    },
+    "num_users": 1,
+    "resource_mode": "fixed_worker_pool",
+    "objective": {
+      "mode": "weighted",
+      "alpha": 1.0,
+      "beta": 5.0
+    },
+    "tensor_transport_dtype": "float32",
+    "transport_byte_scale": 1.0,
+    "manifest_id": "vit-base-imagenet100-partition-v1",
+    "model_hash": "8ba86dc0d02e651af3fdc0a51f4e3eaa8b56b3d482d3d49b31ad425e3591a7f4",
+    "users": [
+      {
+        "user_id": 0,
+        "f_u": 1.0,
+        "BW_d2e": 68.6605,
+        "execution_profile_id": "vit-base-imagenet100-device-pi5"
+      }
+    ],
+    "edge": {
+      "f_e_max": 1.0,
+      "execution_profile_id": "vit-base-imagenet100-edge-kaijie-laptop",
+      "worker_count": 1
+    },
+    "cloud": {
+      "f_c_max": 1.0,
+      "BW_e2c": 89.4157,
+      "execution_profile_id": "vit-base-imagenet100-cloud-5880",
+      "worker_count": 1
+    }
+  },
+  "compat_key": {
+    "model": {
+      "bundle_id": "vit-base-imagenet100",
+      "m": 16,
+      "exit_ids": [
+        "after_block3",
+        "after_block6",
+        "after_block9"
+      ]
+    },
+    "num_users": 1,
+    "resource_mode": "fixed_worker_pool",
+    "objective": {
+      "mode": "weighted",
+      "alpha": 1.0,
+      "beta": 5.0
+    },
+    "tensor_transport_dtype": "float32",
+    "transport_byte_scale": 1.0,
+    "manifest_id": "vit-base-imagenet100-partition-v1",
+    "model_hash": "8ba86dc0d02e651af3fdc0a51f4e3eaa8b56b3d482d3d49b31ad425e3591a7f4",
+    "user_profiles": [
+      "vit-base-imagenet100-device-pi5"
+    ],
+    "edge_profile": "vit-base-imagenet100-edge-kaijie-laptop",
+    "cloud_profile": "vit-base-imagenet100-cloud-5880"
+  },
+  "state_vector": [
+    68.6605,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    89.4157,
+    1.0
+  ],
+  "objective": 0.5985865899395291,
+  "created_at": 1784692842.5807385,
+  "policy_path": "C:\\Users\\t1960\\DSCI_TESTBED\\Data\\Runtime\\SolutionCache\\solution_20260722120042581_policy.pt",
+  "training_mode": "medium",
+  "training_started_at": 1784692774.657921,
+  "training_finished_at": 1784692842.5807385,
+  "training_duration_s": 67.92281746864319,
+  "objective_alpha": 1.0,
+  "objective_beta": 5.0,
+  "expected_accuracy": 0.9860222673798489,
+  "expected_latency": 0.07748713548806396,
+  "constraint_satisfied": null,
+  "saved_at": 1784692842.5838041
+}
