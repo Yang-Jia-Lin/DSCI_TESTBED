@@ -24,7 +24,7 @@
       {
         "user_id": 0,
         "f_u": 1.0,
-        "BW_d2e": 65.043,
+        "BW_d2e": 92.4638,
         "execution_profile_id": "resnet50-cifar10-device-pi5"
       }
     ],
@@ -68,7 +68,7 @@
     "cloud_profile": "resnet50-cifar10-cloud-5880"
   },
   "state_vector": [
-    65.043,
+    92.4638,
     1.0,
     1.0,
     1.0,
@@ -77,17 +77,17 @@
     50.0,
     1.0
   ],
-  "objective": 0.5640577061491087,
-  "created_at": 1784555685.0401769,
+  "objective": 0.6739619876611764,
+  "created_at": 1784556304.9135406,
   "policy_path": "C:\\Users\\t1960\\DSCI_TESTBED\\Data\\Runtime\\SolutionCache\\latest_solution_policy.pt",
   "training_mode": "medium",
-  "training_started_at": 1784555237.9505887,
-  "training_finished_at": 1784555685.0503983,
-  "training_duration_s": 447.09980964660645,
+  "training_started_at": 1784555760.5379045,
+  "training_finished_at": 1784556304.920598,
+  "training_duration_s": 544.382693529129,
   "objective_alpha": 1.0,
   "objective_beta": 5.0,
   "expected_accuracy": 0.978474903858784,
-  "expected_latency": 0.08288343954193507,
+  "expected_latency": 0.06090258323952152,
   "constraint_satisfied": null,
-  "saved_at": 1784555685.055056
+  "saved_at": 1784556304.9236836
 }
