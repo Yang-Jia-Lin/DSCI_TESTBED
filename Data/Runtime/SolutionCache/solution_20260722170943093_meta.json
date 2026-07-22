@@ -9,7 +9,7 @@
         "after_layer3"
       ]
     },
-    "num_users": 2,
+    "num_users": 3,
     "resource_mode": "fixed_worker_pool",
     "objective": {
       "mode": "weighted",
@@ -24,14 +24,20 @@
       {
         "user_id": 0,
         "f_u": 1.0,
-        "BW_d2e": 79.3277,
+        "BW_d2e": 99.578,
         "execution_profile_id": "resnet50-cifar10-device-pi5"
       },
       {
         "user_id": 1,
         "f_u": 1.0,
-        "BW_d2e": 60.5428,
+        "BW_d2e": 58.4459,
         "execution_profile_id": "resnet50-cifar10-device-pi4-1"
+      },
+      {
+        "user_id": 2,
+        "f_u": 1.0,
+        "BW_d2e": 71.6139,
+        "execution_profile_id": "resnet50-cifar10-device-pi4-2"
       }
     ],
     "edge": {
@@ -41,7 +47,7 @@
     },
     "cloud": {
       "f_c_max": 1.0,
-      "BW_e2c": 83.13,
+      "BW_e2c": 16.9474,
       "execution_profile_id": "resnet50-cifar10-cloud-5880",
       "worker_count": 1
     }
@@ -56,7 +62,7 @@
         "after_layer3"
       ]
     },
-    "num_users": 2,
+    "num_users": 3,
     "resource_mode": "fixed_worker_pool",
     "objective": {
       "mode": "weighted",
@@ -69,34 +75,37 @@
     "model_hash": "42222e588316eba09b272dd13e261ab47f674256446150916379c4945be9aad2",
     "user_profiles": [
       "resnet50-cifar10-device-pi5",
-      "resnet50-cifar10-device-pi4-1"
+      "resnet50-cifar10-device-pi4-1",
+      "resnet50-cifar10-device-pi4-2"
     ],
     "edge_profile": "resnet50-cifar10-edge-kaijie-laptop",
     "cloud_profile": "resnet50-cifar10-cloud-5880"
   },
   "state_vector": [
-    79.3277,
+    99.578,
     1.0,
-    60.5428,
+    58.4459,
+    1.0,
+    71.6139,
     1.0,
     1.0,
     1.0,
     1.0,
     1.0,
-    83.13,
+    16.9474,
     1.0
   ],
-  "objective": 1.167302938897089,
-  "created_at": 1784706309.556056,
-  "policy_path": "C:\\Users\\t1960\\DSCI_TESTBED\\Data\\Runtime\\SolutionCache\\solution_20260722154509558_policy.pt",
-  "training_mode": "near",
-  "training_started_at": 1784706255.6835856,
-  "training_finished_at": 1784706309.5571632,
-  "training_duration_s": 53.87357759475708,
+  "objective": 1.8128751555585996,
+  "created_at": 1784711383.091392,
+  "policy_path": "C:\\Users\\t1960\\DSCI_TESTBED\\Data\\Runtime\\SolutionCache\\solution_20260722170943093_policy.pt",
+  "training_mode": "cold",
+  "training_started_at": 1784710696.0024896,
+  "training_finished_at": 1784711383.0923955,
+  "training_duration_s": 687.0899059772491,
   "objective_alpha": 1.0,
   "objective_beta": 5.0,
   "expected_accuracy": 0.978474903858784,
-  "expected_latency": 0.07896468688204791,
+  "expected_latency": 0.07483663706785017,
   "constraint_satisfied": null,
-  "saved_at": 1784706309.5616937
+  "saved_at": 1784711383.125796
 }
