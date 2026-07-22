@@ -1,0 +1,102 @@
+{
+  "state_signature": {
+    "model": {
+      "bundle_id": "resnet50-cifar10",
+      "m": 20,
+      "exit_ids": [
+        "after_layer1",
+        "after_layer2",
+        "after_layer3"
+      ]
+    },
+    "num_users": 2,
+    "resource_mode": "fixed_worker_pool",
+    "objective": {
+      "mode": "weighted",
+      "alpha": 1.0,
+      "beta": 5.0
+    },
+    "tensor_transport_dtype": "float32",
+    "transport_byte_scale": 1.0,
+    "manifest_id": "resnet50-cifar10-partition-v1",
+    "model_hash": "42222e588316eba09b272dd13e261ab47f674256446150916379c4945be9aad2",
+    "users": [
+      {
+        "user_id": 0,
+        "f_u": 1.0,
+        "BW_d2e": 73.0169,
+        "execution_profile_id": "resnet50-cifar10-device-pi5"
+      },
+      {
+        "user_id": 1,
+        "f_u": 1.0,
+        "BW_d2e": 54.4753,
+        "execution_profile_id": "resnet50-cifar10-device-pi4-1"
+      }
+    ],
+    "edge": {
+      "f_e_max": 1.0,
+      "execution_profile_id": "resnet50-cifar10-edge-kaijie-laptop",
+      "worker_count": 1
+    },
+    "cloud": {
+      "f_c_max": 1.0,
+      "BW_e2c": 83.13,
+      "execution_profile_id": "resnet50-cifar10-cloud-5880",
+      "worker_count": 1
+    }
+  },
+  "compat_key": {
+    "model": {
+      "bundle_id": "resnet50-cifar10",
+      "m": 20,
+      "exit_ids": [
+        "after_layer1",
+        "after_layer2",
+        "after_layer3"
+      ]
+    },
+    "num_users": 2,
+    "resource_mode": "fixed_worker_pool",
+    "objective": {
+      "mode": "weighted",
+      "alpha": 1.0,
+      "beta": 5.0
+    },
+    "tensor_transport_dtype": "float32",
+    "transport_byte_scale": 1.0,
+    "manifest_id": "resnet50-cifar10-partition-v1",
+    "model_hash": "42222e588316eba09b272dd13e261ab47f674256446150916379c4945be9aad2",
+    "user_profiles": [
+      "resnet50-cifar10-device-pi5",
+      "resnet50-cifar10-device-pi4-1"
+    ],
+    "edge_profile": "resnet50-cifar10-edge-kaijie-laptop",
+    "cloud_profile": "resnet50-cifar10-cloud-5880"
+  },
+  "state_vector": [
+    73.0169,
+    1.0,
+    54.4753,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    83.13,
+    1.0
+  ],
+  "objective": 1.0966943928742354,
+  "created_at": 1784705569.9836972,
+  "policy_path": "C:\\Users\\t1960\\DSCI_TESTBED\\Data\\Runtime\\SolutionCache\\solution_20260722153249990_policy.pt",
+  "training_mode": "near",
+  "training_started_at": 1784705486.7984033,
+  "training_finished_at": 1784705569.9886954,
+  "training_duration_s": 83.19029211997986,
+  "objective_alpha": 1.0,
+  "objective_beta": 5.0,
+  "expected_accuracy": 0.978474903858784,
+  "expected_latency": 0.08602554148433326,
+  "constraint_satisfied": null,
+  "saved_at": 1784705570.000733
+}
