@@ -1,14 +1,6 @@
 # 新设备准备
 > [!info]
 > 本部分只在接入新机器时执行。已经部署完成的机器可直接进入“Pipeline 运行”。
->
-> 当前六个正式 bundle：
-> - `resnet50-cifar10`
-> - `resnet50-imagenet100`
-> - `resnet50-neucls64`
-> - `vit-base-cifar10`
-> - `vit-base-imagenet100`
-> - `vit-base-neucls64`
 
 #### 0. Git 准备
 ###### 1. 安装 Git，并确认终端能执行
@@ -219,15 +211,15 @@ algo_server_port    8000
 
 需要放通的端口：
 
-| 机器 | 端口 | 用途 |
-|---|---:|---|
-| V100 | TCP 32264 | iperf3 |
-| V100 | TCP 32265 | Cloud 状态 HTTP |
-| V100 | TCP 32266 | Cloud 推理数据 |
-| Edge/Scheduler | TCP 5001 | iperf3 |
-| Edge/Scheduler | TCP 8000 | Scheduler HTTP 控制接口 |
-| Edge/Scheduler | TCP 9001 | Edge 推理数据 |
-| Edge/Scheduler | TCP 9002 | Edge 状态 HTTP |
+| 机器           |      端口 | 用途                    |
+| -------------- | --------: | ----------------------- |
+| V100           | TCP 32264 | iperf3                  |
+| V100           | TCP 32265 | Cloud 状态 HTTP         |
+| V100           | TCP 32266 | Cloud 推理数据          |
+| Edge/Scheduler |  TCP 5001 | iperf3                  |
+| Edge/Scheduler |  TCP 8000 | Scheduler HTTP 控制接口 |
+| Edge/Scheduler |  TCP 9001 | Edge 推理数据           |
+| Edge/Scheduler |  TCP 9002 | Edge 状态 HTTP          |
 
 V100 Linux 使用防火墙时：
 ```bash
@@ -267,10 +259,10 @@ $env:DSCI_IPERF_EXE="C:\Tools\iperf3\iperf3.exe"
 
 端口用途：
 
-| 测量链路 | iperf 客户端 | iperf 服务端 | 端口 |
-|---|---|---|---:|
-| Device → Edge | Device | Edge | TCP 5001 |
-| Edge → Cloud | Edge | Cloud/V100 | TCP 32264 |
+| 测量链路      | iperf 客户端 | iperf 服务端 |      端口 |
+| ------------- | ------------ | ------------ | --------: |
+| Device → Edge | Device       | Edge         |  TCP 5001 |
+| Edge → Cloud  | Edge         | Cloud/V100   | TCP 32264 |
 
 验收命令如下。
 
@@ -298,7 +290,7 @@ iperf3 -c <CLOUD_HOST> -p 32264 -t 10
 #### 8. 生成该机器的六个模型 Profile
 Profile 统一使用：`<bundle-id>-<role>-<machine>` 形式
 
-| 角色     | 机器                     | ROLE_MACHINE            |
+| 角色   | 机器                   | ROLE_MACHINE            |
 | ------ | ---------------------- | ----------------------- |
 | Cloud  | V100 Linux             | `cloud-v100`            |
 | Edge   | jialin-desktop Windows | `edge-jialin-desktop`   |
@@ -409,29 +401,38 @@ Get-ChildItem .\Data\Profiles\<PROFILE_ID>
 > 在编辑器复制本节到新文档，然后全局查找 `__BUNDLE_ID__`，一次性替换为六个正式 bundle 之一，例如
 > `resnet50-cifar10`。不要替换 profile 的角色/机器后缀。
 >
-> 启动顺序固定为：
-> ```text
-> Cloud -> Edge -> Scheduler -> Device
-> ```
+> 当前六个正式 bundle：
+> - `resnet50-cifar10`
+> - `resnet50-imagenet100`
+> - `resnet50-neucls64`
+> - `vit-base-cifar10`
+> - `vit-base-imagenet100`
+> - `vit-base-neucls64`
 
 #### 0. 进入仓库激活环境
 Linux：
 ```bash
 # conda
 conda activate DSCI
+```
+
+```bash
 # venv
-source ./venvs/DSCI/bin/activate
+source ./.venv/bin/activate
 ```
 
 Windows：
 ```powershell
 # conda
 conda activate DSCI
+```
+
+```powershell
 # venv
 .\.venv\Scripts\Activate.ps1
 ```
 
-#### 1. 启动 Cloud：V100 Linux
+#### 1. 启动 Cloud
 终端 1：
 ```bash
 iperf3 -s -p 32264
@@ -564,12 +565,12 @@ python -m Src.Phase3_Runtime.Device.run_device `
 
 
 #### 5. 多台 Device 联跑
-> 示例七台 Device 全部参加，只使用其中一部分时，将 `--expected-users` 改为实际数量，并重新分配互不重复的 `user-id`。
+> 示例4台 Device 参加，只使用其中一部分时，将 `--expected-users` 改为实际数量，并重新分配互不重复的 `user-id`。
 
-停止旧 Scheduler，启动七用户训练策略：
+停止旧 Scheduler，启动4用户训练策略：
 ```powershell
 python -m Src.Phase2_Scheduler.Service.api_server `
-  --expected-users 7 `
+  --expected-users 4 `
   --dynamic-bandwidth `
   --bandwidth-ewma-alpha 0.3 `
   --bandwidth-change-threshold 0.20 `
@@ -579,7 +580,7 @@ python -m Src.Phase2_Scheduler.Service.api_server `
 ```
 
 > [!WARNING]
-> 不要在七台机器分别运行 `date` 或 `Get-Date`，否则会生成七个不同 round。
+> 不要在4台机器分别运行 `date` 或 `Get-Date`，否则会生成七个不同 round。
 
 在一台机器上只生成一次共同 ROUND_ID：
 ```bash
@@ -635,36 +636,6 @@ python -m Src.Phase3_Runtime.Device.run_device --bundle-id __BUNDLE_ID__ --backe
   --user-id 3 --round-id "$ROUND_ID" --test-package-mode balanced \
   --test-package-samples-per-class 10 --test-samples 3 --decision-timeout 900 \
   --dynamic-bandwidth --bandwidth-ewma-alpha 0.3 --bandwidth-change-threshold 0.20 \
-  --bandwidth-min-reschedule-interval 30 --bandwidth-stale-after 300 --iperf-calibration-duration 3
-```
-
-NX，`user-id=4`：
-```bash
-export DSCI_DEVICE_PYTORCH_SEGMENT_PROFILE_ID="__BUNDLE_ID__-device-nx"
-python -m Src.Phase3_Runtime.Device.run_device --bundle-id __BUNDLE_ID__ --backend pytorch \
-  --user-id 4 --round-id "$ROUND_ID" --test-package-mode balanced \
-  --test-package-samples-per-class 10 --test-samples 3 --decision-timeout 900 \
-  --dynamic-bandwidth --bandwidth-ewma-alpha 0.3 --bandwidth-change-threshold 0.20 \
-  --bandwidth-min-reschedule-interval 30 --bandwidth-stale-after 300 --iperf-calibration-duration 3
-```
-
-jialin-desktop Device，`user-id=5`：
-```powershell
-$env:DSCI_DEVICE_PYTORCH_SEGMENT_PROFILE_ID="__BUNDLE_ID__-device-jialin-desktop"
-python -m Src.Phase3_Runtime.Device.run_device --bundle-id __BUNDLE_ID__ --backend pytorch `
-  --user-id 5 --round-id "$env:ROUND_ID" --test-package-mode balanced `
-  --test-package-samples-per-class 10 --test-samples 3 --decision-timeout 900 `
-  --dynamic-bandwidth --bandwidth-ewma-alpha 0.3 --bandwidth-change-threshold 0.20 `
-  --bandwidth-min-reschedule-interval 30 --bandwidth-stale-after 300 --iperf-calibration-duration 3
-```
-
-jialin-laptop Device，`user-id=6`：
-```powershell
-$env:DSCI_DEVICE_PYTORCH_SEGMENT_PROFILE_ID="__BUNDLE_ID__-device-jialin-laptop"
-python -m Src.Phase3_Runtime.Device.run_device --bundle-id __BUNDLE_ID__ --backend pytorch `
-  --user-id 6 --round-id "$env:ROUND_ID" --test-package-mode balanced `
-  --test-package-samples-per-class 10 --test-samples 3 --decision-timeout 900 `
-  --dynamic-bandwidth --bandwidth-ewma-alpha 0.3 --bandwidth-change-threshold 0.20 `
   --bandwidth-min-reschedule-interval 30 --bandwidth-stale-after 300 --iperf-calibration-duration 3
 ```
 
@@ -798,10 +769,7 @@ nc -vz -w 5 <EDGE_HOST> 9001
 整个 `Data/Bundles/__BUNDLE_ID__/`，再使用 `--overwrite` 重新生成 profile。
 
 ###### Scheduler 报找不到某个 Profile
-
-该 profile 只存在于远端执行机器。将完整
-`Data/Profiles/<PROFILE_ID>/` 复制到 Scheduler，目录中必须同时存在
-`metadata.json` 和 `segments.csv`。
+该 profile 只存在于远端执行机器。将完整`Data/Profiles/<PROFILE_ID>/` 复制到 Scheduler，目录中必须同时存在 `metadata.json` 和 `segments.csv`。
 
 ###### Device 卡在等待决策
 1. Scheduler 的 `--expected-users` 是否等于本轮实际 Device 数；
@@ -833,7 +801,6 @@ ping、`curl /api/v1/health` 和 `nc 8000`。ping 延迟和波动很大时属于
 Edge:   --override-bw-e2c 50
 Device: --override-bw-d2e 10
 ```
-
 这只绕过测速，不代表真实链路已经被设置为 10/50 Mbps。正式带宽实验应移除 override
 或使用实验规定的覆盖值，并在论文中记录。
 
