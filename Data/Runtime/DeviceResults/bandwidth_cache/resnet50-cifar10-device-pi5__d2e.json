@@ -1,6 +1,6 @@
 {
   "execution_profile_id": "resnet50-cifar10-device-pi5",
   "edge_host": "172.16.105.217",
-  "bw_d2e_mbps": 36.78932540601115,
-  "updated_at": 1784707104.1448371
+  "bw_d2e_mbps": 23.610397585214848,
+  "updated_at": 1784714128.900831
 }
