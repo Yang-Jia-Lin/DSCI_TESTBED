@@ -40,6 +40,11 @@ Data/Datasets/**
 !Data/Datasets/NEU-CLS-64/TestSets/
 !Data/Datasets/NEU-CLS-64/TestSets/**
 
+# Full runtime test pools are distributed to devices manually.
+Data/Datasets/CIFAR10/TestSets/cifar10__test__balanced__full/
+Data/Datasets/ImageNet100/TestSets/imagenet100__test__balanced__full/
+Data/Datasets/NEU-CLS-64/TestSets/neucls64__test__balanced__full/
+
 # Locally generated validation packages; fixed __test__ packages remain tracked.
 Data/Datasets/*/TestSets/*__val__*
 
