@@ -2,7 +2,7 @@
 > [!info]
 > 本部分只在接入新机器时执行。已经部署完成的机器可直接进入“Pipeline 运行”。
 
-#### 0. Git 准备
+#### 零、Git 准备
 ###### 1. 安装 Git，并确认终端能执行
 ```bash
 git --version
@@ -51,7 +51,7 @@ Host github.com
 ssh -T git@github.com
 ```
 
-#### 1. 拉取代码
+#### 一、拉取代码
 Linux：
 ```bash
 cd ~/Desktop
@@ -71,13 +71,14 @@ Set-Location "$HOME\Desktop\DSCI_SEAS"
 git pull --ff-only
 ```
 
-#### 2. 拷贝六个模型 Bundle
-将 `six_bundles_weights.tar.gz` 放到仓库根目录后执行。
+#### 二、拷贝六个模型 Bundle(weights)、测试数据集(full)
+将 `six_bundles_weights.tar.gz`、`full-test-pools.tar` 放到仓库根目录后执行。
 
 Linux：
 ```bash
 cd ~/Desktop/DSCI_SEAS
 tar -xzf six_bundles_weights.tar.gz
+tar -xf ./full-test-pools.tar -C /home/DSCI_SEAS
 ```
 
 Windows PowerShell：
@@ -86,7 +87,7 @@ Set-Location "$HOME\Desktop\DSCI_SEAS"
 tar -xzf .\six_bundles_weights.tar.gz
 ```
 
-确认六个目录均存在：
+确认所有设备上六个 `pth` 目录均存在：
 ```text
 Data/Bundles/resnet50-cifar10/
 Data/Bundles/resnet50-imagenet100/
@@ -96,15 +97,14 @@ Data/Bundles/vit-base-imagenet100/
 Data/Bundles/vit-base-neucls64/
 ```
 
-每个 bundle 至少检查：
-```text
-weights.pth
-manifest.json
-exit_curves.csv
+确认每个端设备上完整测试集目录存在：
+```bash
+find Data/Datasets/CIFAR10/TestSets/cifar10__test__balanced__full -type f | wc -l
+find Data/Datasets/ImageNet100/TestSets/imagenet100__test__balanced__full -type f | wc -l
+find Data/Datasets/NEU-CLS-64/TestSets/neucls64__test__balanced__full -type f | wc -l
 ```
 
-
-#### 3. 安装环境
+#### 三、安装环境
 ###### Windows Conda
 ```powershell
 conda create -n DSCI python=3.10 -y
@@ -159,7 +159,7 @@ python -c "import torch, torchvision; print(torch.__version__, torchvision.__ver
 python -m Src.Phase3_Runtime.Device.run_device --help
 ```
 
-#### 4. 激活环境
+#### 四、激活环境
 Linux：
 ```bash
 # conda
@@ -176,7 +176,7 @@ conda activate DSCI
 .\.venv\Scripts\Activate.ps1
 ```
 
-#### 5. 连接端设备到边缘服务器
+#### 五、连接端设备到边缘服务器
 - 方法1：tailscale [Tailscale覆盖网络](04-Cards/Tailscale覆盖网络.md)
 - 方法2：公网IP直接连接
 - 方法3：边缘设备打开热点
@@ -193,7 +193,7 @@ ipconfig
 tailscale ip -4
 ```
 
-#### 6. 配置IP `Src/Shared/Config/deploy_config.py`
+#### 六、配置IP `Src/Shared/Config/deploy_config.py`
 核对：
 1. 端能否访问 `edge_host` 和 `algo_host` 的IP
 2. 边能否访问 `cloud_host` 的IP
@@ -236,7 +236,7 @@ New-NetFirewallRule -DisplayName "DSCI Edge Status 9002" -Direction Inbound -Pro
 New-NetFirewallRule -DisplayName "DSCI Edge iperf 5001" -Direction Inbound -Protocol TCP -LocalPort 5001 -Action Allow
 ```
 
-#### 7. 安装并检查 Iperf3
+#### 七、安装并检查 Iperf3
 所有 Device、Edge 和 Cloud 都需要能够执行 `iperf3`。
 
 Linux：
@@ -287,7 +287,7 @@ iperf3 -c <CLOUD_HOST> -p 32264 -t 10
 ```
 
 
-#### 8. 生成该机器的六个模型 Profile
+#### 八、生成该机器的六个模型 Profile
 Profile 统一使用：`<bundle-id>-<role>-<machine>` 形式
 
 | 角色   | 机器                   | ROLE_MACHINE            |
@@ -370,7 +370,7 @@ python -m Src.Phase1_Offline.Profiling.profile_segments `
   --device auto --worker-count 1 --threads-per-worker 1 --warmup 5 --runs 30 --overwrite
 ```
 
-#### 9. 汇总 Profile 到 Scheduler
+#### 九、汇总 Profile 到 Scheduler
 > Scheduler 所在机器必须拥有本轮 Device、Edge、Cloud 的完整 profile 目录。
 ###### 方案 1：Git 同步
 ```bash
@@ -432,7 +432,7 @@ conda activate DSCI
 .\.venv\Scripts\Activate.ps1
 ```
 
-#### 1. 启动 Cloud
+#### 1. Cloud
 终端 1：
 ```bash
 iperf3 -s -p 32264
@@ -446,7 +446,7 @@ python -m Src.Phase3_Runtime.Cloud.run_cloud \
   --backend pytorch
 ```
 
-#### 2. 启动 Edge
+#### 2. Edge
 ###### 终端1
 ```powershell
 iperf3 -s -p 5001
@@ -476,7 +476,7 @@ python -m Src.Phase3_Runtime.Edge.run_edge `
 curl http://<EDGE_HOST>:9002/status
 ```
 
-#### 3. 启动 Scheduler
+#### 3. Scheduler
 烟雾测试：
 ```powershell
 python -m Src.Phase2_Scheduler.Service.api_server `
@@ -484,30 +484,18 @@ python -m Src.Phase2_Scheduler.Service.api_server `
   --fixed-split 3 10 `
   --fixed-threshold 1.0 `
   --no-auto-train `
-  --dynamic-bandwidth `
-  --bandwidth-ewma-alpha 0.3 `
-  --bandwidth-change-threshold 0.20 `
-  --bandwidth-min-reschedule-interval 30 `
-  --bandwidth-stale-after 300 `
-  --iperf-calibration-duration 3
+  --dynamic-bandwidth
 ```
 
 正常测试：
 ```powershell
 python -m Src.Phase2_Scheduler.Service.api_server `
   --expected-users 1 `
-  --dynamic-bandwidth `
-  --bandwidth-ewma-alpha 0.3 `
-  --bandwidth-change-threshold 0.20 `
-  --bandwidth-min-reschedule-interval 30 `
-  --bandwidth-stale-after 300 `
-  --iperf-calibration-duration 3
+  --dynamic-bandwidth
 ```
 
 #### 4. 测试 1 个 Device
-Device 上须已有对应数据集的 `*__test__balanced__full` 测试池。默认分层抽样 seed
-由 `ROUND_ID` 和 `user-id` 派生，因此更换 `ROUND_ID` 会自动更换测试样本；需要让
-不同方法使用同一批样本时，额外传入相同的 `--test-sample-seed <整数>`。
+Device 上须已有对应数据集的 `*__test__balanced__full` 测试池。默认分层抽样 seed 由 `ROUND_ID` 和 `user-id` 派生，因此更换 `ROUND_ID` 会自动更换测试样本；需要让不同方法使用同一批样本时，额外传入相同的 `--test-sample-seed <整数>`。
 
 每次只选择下面一台 Device。Scheduler 必须使用 `--expected-users 1`。
 ###### Linux 做端
@@ -532,16 +520,11 @@ export ROUND_ID=smoke-__BUNDLE_ID__-nx-$(date +%Y%m%d-%H%M%S)
 
 ```bash
 python -m Src.Phase3_Runtime.Device.run_device \
-  --bundle-id __BUNDLE_ID__ --backend pytorch \
-  --user-id 0 --round-id "$ROUND_ID" \
-  --test-package-mode balanced --test-package-full \
-  --test-samples 3 --decision-timeout 900 \
-  --dynamic-bandwidth \
-  --bandwidth-ewma-alpha 0.3 \
-  --bandwidth-change-threshold 0.20 \
-  --bandwidth-min-reschedule-interval 30 \
-  --bandwidth-stale-after 300 \
-  --iperf-calibration-duration 3
+  --dynamic-bandwidth --test-package-mode balanced --test-package-full \
+  --bundle-id __BUNDLE_ID__ \
+  --round-id "$ROUND_ID" \
+  --test-samples 100 \
+  --user-id 0
 ```
 
 ###### Windows 做端
@@ -555,16 +538,11 @@ $env:ROUND_ID="smoke-__BUNDLE_ID__-jialin-laptop-$(Get-Date -Format yyyyMMdd-HHm
 
 ```powershell
 python -m Src.Phase3_Runtime.Device.run_device `
-  --bundle-id __BUNDLE_ID__ --backend pytorch `
-  --user-id 0 --round-id "$env:ROUND_ID" `
-  --test-package-mode balanced --test-package-full `
-  --test-samples 3 --decision-timeout 900 `
-  --dynamic-bandwidth `
-  --bandwidth-ewma-alpha 0.3 `
-  --bandwidth-change-threshold 0.20 `
-  --bandwidth-min-reschedule-interval 30 `
-  --bandwidth-stale-after 300 `
-  --iperf-calibration-duration 3
+  --dynamic-bandwidth --test-package-mode balanced --test-package-full `
+  --bundle-id __BUNDLE_ID__ `
+  --round-id "$env:ROUND_ID" `
+  --test-samples 100 `
+  --user-id 0
 ```
 
 
@@ -575,12 +553,7 @@ python -m Src.Phase3_Runtime.Device.run_device `
 ```powershell
 python -m Src.Phase2_Scheduler.Service.api_server `
   --expected-users 4 `
-  --dynamic-bandwidth `
-  --bandwidth-ewma-alpha 0.3 `
-  --bandwidth-change-threshold 0.20 `
-  --bandwidth-min-reschedule-interval 30 `
-  --bandwidth-stale-after 300 `
-  --iperf-calibration-duration 3
+  --dynamic-bandwidth
 ```
 
 > [!WARNING]
@@ -606,41 +579,45 @@ $env:ROUND_ID=""
 Pi 5，`user-id=0`：
 ```bash
 export DSCI_DEVICE_PYTORCH_SEGMENT_PROFILE_ID="__BUNDLE_ID__-device-pi5"
-python -m Src.Phase3_Runtime.Device.run_device --bundle-id __BUNDLE_ID__ --backend pytorch \
-  --user-id 0 --round-id "$ROUND_ID" --test-package-mode balanced \
-  --test-package-full --test-samples 3 --decision-timeout 900 \
-  --dynamic-bandwidth --bandwidth-ewma-alpha 0.3 --bandwidth-change-threshold 0.20 \
-  --bandwidth-min-reschedule-interval 30 --bandwidth-stale-after 300 --iperf-calibration-duration 3
+python -m Src.Phase3_Runtime.Device.run_device \
+  --dynamic-bandwidth --test-package-mode balanced --test-package-full \
+  --bundle-id __BUNDLE_ID__ \
+  --round-id "$ROUND_ID" \
+  --test-samples 100 \
+  --user-id 0
 ```
 
 Pi 4-1，`user-id=1`：
 ```bash
 export DSCI_DEVICE_PYTORCH_SEGMENT_PROFILE_ID="__BUNDLE_ID__-device-pi4-1"
-python -m Src.Phase3_Runtime.Device.run_device --bundle-id __BUNDLE_ID__ --backend pytorch \
-  --user-id 1 --round-id "$ROUND_ID" --test-package-mode balanced \
-  --test-package-full --test-samples 3 --decision-timeout 900 \
-  --dynamic-bandwidth --bandwidth-ewma-alpha 0.3 --bandwidth-change-threshold 0.20 \
-  --bandwidth-min-reschedule-interval 30 --bandwidth-stale-after 300 --iperf-calibration-duration 3
+python -m Src.Phase3_Runtime.Device.run_device \
+  --dynamic-bandwidth --test-package-mode balanced --test-package-full \
+  --bundle-id __BUNDLE_ID__ \
+  --round-id "$ROUND_ID" \
+  --test-samples 100 \
+  --user-id 1
 ```
 
 Pi 4-2，`user-id=2`：
 ```bash
 export DSCI_DEVICE_PYTORCH_SEGMENT_PROFILE_ID="__BUNDLE_ID__-device-pi4-2"
-python -m Src.Phase3_Runtime.Device.run_device --bundle-id __BUNDLE_ID__ --backend pytorch \
-  --user-id 2 --round-id "$ROUND_ID" --test-package-mode balanced \
-  --test-package-full --test-samples 3 --decision-timeout 900 \
-  --dynamic-bandwidth --bandwidth-ewma-alpha 0.3 --bandwidth-change-threshold 0.20 \
-  --bandwidth-min-reschedule-interval 30 --bandwidth-stale-after 300 --iperf-calibration-duration 3
+python -m Src.Phase3_Runtime.Device.run_device \
+  --dynamic-bandwidth --test-package-mode balanced --test-package-full \
+  --bundle-id __BUNDLE_ID__ \
+  --round-id "$ROUND_ID" \
+  --test-samples 100 \
+  --user-id 2
 ```
 
 Nano，`user-id=3`：
 ```bash
 export DSCI_DEVICE_PYTORCH_SEGMENT_PROFILE_ID="__BUNDLE_ID__-device-nano"
-python -m Src.Phase3_Runtime.Device.run_device --bundle-id __BUNDLE_ID__ --backend pytorch \
-  --user-id 3 --round-id "$ROUND_ID" --test-package-mode balanced \
-  --test-package-full --test-samples 3 --decision-timeout 900 \
-  --dynamic-bandwidth --bandwidth-ewma-alpha 0.3 --bandwidth-change-threshold 0.20 \
-  --bandwidth-min-reschedule-interval 30 --bandwidth-stale-after 300 --iperf-calibration-duration 3
+python -m Src.Phase3_Runtime.Device.run_device \
+  --dynamic-bandwidth --test-package-mode balanced --test-package-full \
+  --bundle-id __BUNDLE_ID__ \
+  --round-id "$ROUND_ID" \
+  --test-samples 100 \
+  --user-id 3
 ```
 
 至此，基础流程就已跑通，可以开始正式运行实验了。
@@ -658,12 +635,7 @@ $env:DSCI_OBJECTIVE_ALPHA="1"
 $env:DSCI_OBJECTIVE_BETA="1"
 python -m Src.Phase2_Scheduler.Service.api_server `
   --expected-users N `
-  --dynamic-bandwidth `
-  --bandwidth-ewma-alpha 0.3 `
-  --bandwidth-change-threshold 0.20 `
-  --bandwidth-min-reschedule-interval 30 `
-  --bandwidth-stale-after 300 `
-  --iperf-calibration-duration 3
+  --dynamic-bandwidth
 ```
 
 #### 1. 固定切分（不训练）
@@ -674,12 +646,7 @@ python -m Src.Phase2_Scheduler.Service.api_server `
   --fixed-split 3 10 `
   --fixed-threshold 1.0 `
   --no-auto-train `
-  --dynamic-bandwidth `
-  --bandwidth-ewma-alpha 0.3 `
-  --bandwidth-change-threshold 0.20 `
-  --bandwidth-min-reschedule-interval 30 `
-  --bandwidth-stale-after 300 `
-  --iperf-calibration-duration 3
+  --dynamic-bandwidth
 ```
 
 #### 2. 强制训练冷启动（从头训练）
@@ -689,12 +656,7 @@ $env:DSCI_OBJECTIVE_BETA="1"
 python -m Src.Phase2_Scheduler.Service.api_server `
   --expected-users N `
   --force-retrain `
-  --dynamic-bandwidth `
-  --bandwidth-ewma-alpha 0.3 `
-  --bandwidth-change-threshold 0.20 `
-  --bandwidth-min-reschedule-interval 30 `
-  --bandwidth-stale-after 300 `
-  --iperf-calibration-duration 3
+  --dynamic-bandwidth
 ```
 首个 round 会返回 `default:force_retrain` 并触发后台 cold training。等待 Health 中
 `training_status=idle` 后，使用新的 ROUND_ID 再跑正式推理。
@@ -706,12 +668,7 @@ python -m Src.Phase2_Scheduler.Service.api_server `
   --expected-users N `
   --target-accuracy 0.90 `
   --force-retrain `
-  --dynamic-bandwidth `
-  --bandwidth-ewma-alpha 0.3 `
-  --bandwidth-change-threshold 0.20 `
-  --bandwidth-min-reschedule-interval 30 `
-  --bandwidth-stale-after 300 `
-  --iperf-calibration-duration 3
+  --dynamic-bandwidth
 ```
 首个 round 返回 `constraint=pending`，后台最多训练 5 个 alpha 候选。检查：
 ```powershell
@@ -725,12 +682,7 @@ Invoke-RestMethod http://127.0.0.1:8000/api/v1/health |
 python -m Src.Phase2_Scheduler.Service.api_server `
   --expected-users N `
   --target-accuracy 0.90 `
-  --dynamic-bandwidth `
-  --bandwidth-ewma-alpha 0.3 `
-  --bandwidth-change-threshold 0.20 `
-  --bandwidth-min-reschedule-interval 30 `
-  --bandwidth-stale-after 300 `
-  --iperf-calibration-duration 3
+  --dynamic-bandwidth
 ```
 
 #### 4. 检查连接
