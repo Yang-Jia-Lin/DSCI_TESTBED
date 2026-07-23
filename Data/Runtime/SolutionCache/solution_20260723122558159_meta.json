@@ -9,7 +9,7 @@
         "after_layer3"
       ]
     },
-    "num_users": 2,
+    "num_users": 1,
     "resource_mode": "fixed_worker_pool",
     "objective": {
       "mode": "weighted",
@@ -24,24 +24,18 @@
       {
         "user_id": 0,
         "f_u": 1.0,
-        "BW_d2e": 55.009,
+        "BW_d2e": 41.2245,
         "execution_profile_id": "resnet50-cifar10-device-pi5"
-      },
-      {
-        "user_id": 1,
-        "f_u": 1.0,
-        "BW_d2e": 35.4926,
-        "execution_profile_id": "resnet50-cifar10-device-pi4-1"
       }
     ],
     "edge": {
       "f_e_max": 1.0,
-      "execution_profile_id": "resnet50-cifar10-edge-kaijie-laptop",
+      "execution_profile_id": "resnet50-cifar10-edge-jialin-desktop",
       "worker_count": 1
     },
     "cloud": {
       "f_c_max": 1.0,
-      "BW_e2c": 24.0456,
+      "BW_e2c": 47.173,
       "execution_profile_id": "resnet50-cifar10-cloud-5880",
       "worker_count": 1
     }
@@ -56,7 +50,7 @@
         "after_layer3"
       ]
     },
-    "num_users": 2,
+    "num_users": 1,
     "resource_mode": "fixed_worker_pool",
     "objective": {
       "mode": "weighted",
@@ -68,35 +62,32 @@
     "manifest_id": "resnet50-cifar10-partition-v1",
     "model_hash": "42222e588316eba09b272dd13e261ab47f674256446150916379c4945be9aad2",
     "user_profiles": [
-      "resnet50-cifar10-device-pi5",
-      "resnet50-cifar10-device-pi4-1"
+      "resnet50-cifar10-device-pi5"
     ],
-    "edge_profile": "resnet50-cifar10-edge-kaijie-laptop",
+    "edge_profile": "resnet50-cifar10-edge-jialin-desktop",
     "cloud_profile": "resnet50-cifar10-cloud-5880"
   },
   "state_vector": [
-    55.009,
-    1.0,
-    35.4926,
+    41.2245,
     1.0,
     1.0,
     1.0,
     1.0,
     1.0,
-    24.0456,
+    47.173,
     1.0
   ],
-  "objective": 0.7519607762239673,
-  "created_at": 1784706723.8958397,
-  "policy_path": "C:\\Users\\t1960\\DSCI_TESTBED\\Data\\Runtime\\SolutionCache\\solution_20260722155203896_policy.pt",
-  "training_mode": "cold_warm",
-  "training_started_at": 1784706317.7356358,
-  "training_finished_at": 1784706723.8968463,
-  "training_duration_s": 406.1612105369568,
+  "objective": -0.007416052862717182,
+  "created_at": 1784780758.1589956,
+  "policy_path": "D:\\Coding\\Python\\DSCI_SEAS\\Data\\Runtime\\SolutionCache\\solution_20260723122558159_policy.pt",
+  "training_mode": "cold",
+  "training_started_at": 1784780326.5644016,
+  "training_finished_at": 1784780758.1595218,
+  "training_duration_s": 431.5951201915741,
   "objective_alpha": 1.0,
   "objective_beta": 5.0,
-  "expected_accuracy": 0.978474903858784,
-  "expected_latency": 0.12049890314936007,
+  "expected_accuracy": 0.9497701210923775,
+  "expected_latency": 0.19143723479101893,
   "constraint_satisfied": null,
-  "saved_at": 1784706723.8999057
+  "saved_at": 1784780758.1881497
 }
