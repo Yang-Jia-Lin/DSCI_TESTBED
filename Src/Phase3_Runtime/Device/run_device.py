@@ -413,24 +413,195 @@ def _write_device_results(
     return jsonl_path, summary_path, csv_path
 
 
-def _print_measurement_summary(measurements: list[dict], *, correct: int, total: int) -> None:
+def _percentile(values: list[float], quantile: float) -> float:
+    ordered = sorted(float(value) for value in values)
+    if not ordered:
+        raise ValueError("percentile requires at least one value")
+    if len(ordered) == 1:
+        return ordered[0]
+    position = (len(ordered) - 1) * float(quantile)
+    lower = int(position)
+    upper = min(lower + 1, len(ordered) - 1)
+    weight = position - lower
+    return ordered[lower] * (1.0 - weight) + ordered[upper] * weight
+
+
+def _measurement_is_correct(record: dict) -> bool:
+    value = record.get("is_correct", False)
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes"}
+    return bool(value)
+
+
+def _print_measurement_summary(
+    measurements: list[dict],
+    *,
+    correct: int,
+    total: int,
+    decision: dict | None = None,
+) -> None:
+    width = 78
+    print()
+    print("=" * width)
+    print("DEVICE INFERENCE SUMMARY / 端设备推理汇总")
+    print("=" * width)
     if not measurements:
-        print("samples=0 accuracy=0.0000")
+        print("样本数              : 0")
+        print("准确率              : 0.00% (0/0)")
+        print("=" * width)
         return
-    print(f"samples={total} accuracy={correct / max(total, 1):.4f}")
-    for key in (
-        "T_d_compute",
-        "T_e_compute",
-        "T_c_compute",
-        "T_d2e",
-        "T_e2c",
-        "T_total",
+
+    decision = decision or {}
+    decision_versions = sorted(
+        {
+            int(record["decision_version"])
+            for record in measurements
+            if record.get("decision_version") is not None
+        }
+    )
+    user_decision = decision.get("user") or {}
+    decision_id = decision.get("decision_id")
+
+    print(f"样本数              : {total}")
+    print(f"准确率              : {100.0 * correct / max(total, 1):.2f}% ({correct}/{total})")
+    if decision_id:
+        print(f"最终决策            : {decision_id}")
+    if decision_versions:
+        versions = ", ".join(f"v{version}" for version in decision_versions)
+        print(f"本轮使用决策版本    : {versions}")
+
+    b1 = user_decision.get("partition_boundary_1")
+    b2 = user_decision.get("partition_boundary_2")
+    if b1 is not None and b2 is not None:
+        print(f"最终切分点          : b1={int(b1)}, b2={int(b2)}")
+
+    thresholds = user_decision.get("exit_thresholds") or {}
+    if thresholds:
+        threshold_text = ", ".join(
+            f"{exit_id}={float(threshold):.3f}"
+            for exit_id, threshold in thresholds.items()
+        )
+        version_note = (
+            f" (最终 v{int(decision['decision_version'])})"
+            if decision.get("decision_version") is not None
+            else ""
+        )
+        print(f"早退阈值{version_note:<10}: {threshold_text}")
+
+    grouped: dict[tuple[str, int | None, str], list[dict]] = {}
+    for record in measurements:
+        exit_id = str(record.get("exit_id") or "unknown")
+        boundary_value = record.get("exit_boundary_id")
+        boundary = int(boundary_value) if boundary_value is not None else None
+        location = str(record.get("exit_location") or "unknown")
+        grouped.setdefault((exit_id, boundary, location), []).append(record)
+
+    def _exit_sort_key(
+        item: tuple[tuple[str, int | None, str], list[dict]],
+    ) -> tuple[int, str, str]:
+        (exit_id, boundary, location), _ = item
+        return (
+            boundary if boundary is not None else 10**9,
+            exit_id,
+            location,
+        )
+
+    print()
+    print("-" * width)
+    print("退出分布")
+    print("-" * width)
+    print(
+        f"{'Exit point':<24} {'Node':<9} {'Count':>7} "
+        f"{'Rate':>9} {'Acc.':>9} {'Avg ms':>10}"
+    )
+    print("-" * width)
+    for (exit_id, boundary, location), records in sorted(
+        grouped.items(), key=_exit_sort_key
     ):
+        point = f"{exit_id} (b{boundary})" if boundary is not None else exit_id
+        count = len(records)
+        accuracy = sum(_measurement_is_correct(record) for record in records) / count
+        latencies_ms = [
+            1000.0 * float(record["T_total"])
+            for record in records
+            if record.get("T_total") is not None
+        ]
+        avg_latency_ms = sum(latencies_ms) / len(latencies_ms) if latencies_ms else 0.0
+        print(
+            f"{point:<24} {location:<9} {count:>7d} "
+            f"{100.0 * count / max(total, 1):>8.2f}% "
+            f"{100.0 * accuracy:>8.2f}% {avg_latency_ms:>10.3f}"
+        )
+
+    early_count = sum(
+        1
+        for record in measurements
+        if str(record.get("exit_id") or "") not in {"", "final"}
+    )
+    final_count = sum(
+        1 for record in measurements if str(record.get("exit_id") or "") == "final"
+    )
+    print("-" * width)
+    print(
+        f"早退合计            : {early_count}/{total} "
+        f"({100.0 * early_count / max(total, 1):.2f}%)"
+    )
+    print(
+        f"最终出口            : {final_count}/{total} "
+        f"({100.0 * final_count / max(total, 1):.2f}%)"
+    )
+
+    total_latencies_ms = [
+        1000.0 * float(record["T_total"])
+        for record in measurements
+        if record.get("T_total") is not None
+    ]
+    if total_latencies_ms:
+        mean_ms = sum(total_latencies_ms) / len(total_latencies_ms)
+        variance = sum(
+            (latency_ms - mean_ms) ** 2 for latency_ms in total_latencies_ms
+        ) / len(total_latencies_ms)
+        print()
+        print("-" * width)
+        print("总时延统计 (ms)")
+        print("-" * width)
+        print(f"累计 / 平均         : {sum(total_latencies_ms) / 1000.0:.3f} s / {mean_ms:.3f} ms")
+        print(
+            f"P50 / P95 / P99     : {_percentile(total_latencies_ms, 0.50):.3f} / "
+            f"{_percentile(total_latencies_ms, 0.95):.3f} / "
+            f"{_percentile(total_latencies_ms, 0.99):.3f}"
+        )
+        print(
+            f"最小 / 最大         : {min(total_latencies_ms):.3f} / "
+            f"{max(total_latencies_ms):.3f}"
+        )
+        print(f"标准差              : {variance**0.5:.3f}")
+
+    component_keys = (
+        ("Device compute", "T_d_compute"),
+        ("Device -> Edge", "T_d2e"),
+        ("Edge queue", "edge_queue"),
+        ("Edge compute", "T_e_compute"),
+        ("Edge -> Cloud", "T_e2c"),
+        ("Cloud queue", "cloud_queue"),
+        ("Cloud compute", "T_c_compute"),
+    )
+    component_rows = []
+    for label, key in component_keys:
         values = [float(record[key]) for record in measurements if key in record]
-        if not values:
+        if not values or not any(value != 0.0 for value in values):
             continue
         mean_ms = 1000.0 * sum(values) / len(values)
-        print(f"{key}_avg_ms={mean_ms:.3f}")
+        component_rows.append((label, mean_ms))
+    if component_rows:
+        print()
+        print("-" * width)
+        print("平均阶段时延 (ms)")
+        print("-" * width)
+        for label, mean_ms in component_rows:
+            print(f"{label:<22}: {mean_ms:>10.3f}")
+
+    print("=" * width)
 
 
 def collect_state(
@@ -884,7 +1055,12 @@ def main(argv=None):
             bandwidth_thread.join(timeout=args.iperf_calibration_duration + 2.0)
         heartbeat_stop.set()
         heartbeat.join(timeout=args.heartbeat_interval + 1.0)
-    _print_measurement_summary(measurements, correct=correct, total=total)
+    _print_measurement_summary(
+        measurements,
+        correct=correct,
+        total=total,
+        decision=decision,
+    )
 
 
 if __name__ == "__main__":
