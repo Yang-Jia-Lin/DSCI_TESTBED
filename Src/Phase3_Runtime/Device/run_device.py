@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import copy
 import csv
+import hashlib
 import json
 import os
 import threading
@@ -324,6 +325,7 @@ def _summary_payload(
     device_state: dict,
     correct: int,
     total: int,
+    sample_selection: dict | None = None,
 ) -> dict:
     objective_alpha, objective_beta = _decision_objective_weights(decision)
     latency_summary = {}
@@ -376,6 +378,7 @@ def _summary_payload(
         "latency": latency_summary,
         "decision": decision,
         "device_state": device_state,
+        "sample_selection": copy.deepcopy(sample_selection),
     }
 
 
@@ -465,6 +468,25 @@ def _package_name(package_id: str, split: str, mode: str, samples_per_class: int
     return f"{package_id}__{split}__{mode}__{samples_per_class}pc__seed{seed}"
 
 
+def _full_package_name(package_id: str, split: str, mode: str) -> str:
+    return f"{package_id}__{split}__{mode}__full"
+
+
+def _stable_sample_seed(*parts) -> int:
+    payload = "\0".join(str(part) for part in parts).encode("utf-8")
+    return int.from_bytes(hashlib.sha256(payload).digest()[:8], "big") & ((1 << 63) - 1)
+
+
+def _sample_seeds(round_id: str, dataset_id: str, user_id: int, explicit_seed: int | None):
+    base_seed = (
+        int(explicit_seed)
+        if explicit_seed is not None
+        else _stable_sample_seed("round", round_id)
+    )
+    effective_seed = _stable_sample_seed("device", base_seed, dataset_id, int(user_id))
+    return base_seed, effective_seed
+
+
 def _test_package_id(bundle, mode: str) -> str:
     # Balanced packages are dataset-level and shared by every compatible model.
     # Easy/hard packages remain model-level because difficulty is model-derived.
@@ -478,6 +500,19 @@ def _resolve_test_package_root(bundle, args) -> Path | None:
         return None
     base = Path(args.test_package_base) if args.test_package_base else bundle_paths(bundle.bundle_id).test_package_root
     package_id = _test_package_id(bundle, args.test_package_mode)
+    if args.test_package_full:
+        if args.test_package_mode != "balanced":
+            raise ValueError("--test-package-full requires --test-package-mode balanced")
+        if args.test_package_samples_per_class is not None:
+            raise ValueError(
+                "--test-package-full cannot be combined with "
+                "--test-package-samples-per-class"
+            )
+        return base / _full_package_name(
+            package_id,
+            args.test_package_split,
+            args.test_package_mode,
+        )
     if args.test_package_samples_per_class is not None:
         return base / _package_name(
             package_id,
@@ -511,8 +546,27 @@ def main(argv=None):
     parser.add_argument("--test-package-split", choices=("train", "val", "test"), default="test")
     parser.add_argument("--test-package-samples-per-class", type=int)
     parser.add_argument("--test-package-seed", type=int, default=42)
+    parser.add_argument(
+        "--test-package-full",
+        action="store_true",
+        help="Use the dataset-level full test pool exported for per-round sampling.",
+    )
     parser.add_argument("--test-package-base")
     parser.add_argument("--test-samples", type=int)
+    parser.add_argument(
+        "--test-sample-seed",
+        type=int,
+        help=(
+            "Base seed for per-device stratified sampling. If omitted, a stable "
+            "seed is derived from --round-id, so a new round selects new samples."
+        ),
+    )
+    parser.add_argument(
+        "--test-sampling",
+        choices=("stratified", "sequential"),
+        default="stratified",
+        help="Sample selection policy; stratified is the experiment default.",
+    )
     parser.add_argument("--heartbeat-interval", type=float, default=5.0)
     parser.add_argument("--decision-timeout", type=float, default=90.0)
     parser.add_argument("--dynamic-bandwidth", action="store_true")
@@ -566,6 +620,17 @@ def main(argv=None):
         help="Request a preset placement instead of DSCI for this round.",
     )
     args = parser.parse_args(argv)
+    if args.test_samples is not None and args.test_samples <= 0:
+        parser.error("--test-samples must be positive")
+    if args.test_package_samples_per_class is not None and args.test_package_samples_per_class <= 0:
+        parser.error("--test-package-samples-per-class must be positive")
+    if args.test_package_full and args.test_package_mode != "balanced":
+        parser.error("--test-package-full requires --test-package-mode balanced")
+    if args.test_package_full and args.test_package_samples_per_class is not None:
+        parser.error(
+            "--test-package-full cannot be combined with "
+            "--test-package-samples-per-class"
+        )
     if args.dynamic_bandwidth and args.no_request_barrier:
         parser.error("--dynamic-bandwidth cannot be used with --no-request-barrier")
     if not 0.0 < args.bandwidth_ewma_alpha <= 1.0:
@@ -590,6 +655,20 @@ def main(argv=None):
         )
     bundle = get_bundle(args.bundle_id)
     test_package_root = _resolve_test_package_root(bundle, args)
+    if test_package_root is not None and not test_package_root.is_dir():
+        raise FileNotFoundError(f"Test package directory not found: {test_package_root}")
+    base_sample_seed, effective_sample_seed = _sample_seeds(
+        args.round_id,
+        bundle.dataset_id,
+        args.user_id,
+        args.test_sample_seed,
+    )
+    requested_samples = args.test_samples if args.test_samples is not None else 100
+    print(
+        "Test sampling: "
+        f"policy={args.test_sampling}, requested={requested_samples}, "
+        f"base_seed={base_sample_seed}, effective_seed={effective_sample_seed}"
+    )
     device = collect_device_state(
         bundle.bundle_id,
         args.backend,
@@ -657,12 +736,37 @@ def main(argv=None):
             f"b2={user_decision.get('partition_boundary_2')}"
         )
         if test_package_root:
-            loader = build_test_package_loader(bundle, test_package_root, batch_size=1)
-            sample_limit = args.test_samples
+            loader = build_test_package_loader(
+                bundle,
+                test_package_root,
+                batch_size=1,
+                sample_count=requested_samples,
+                sample_seed=effective_sample_seed,
+                stratified_sample=args.test_sampling == "stratified",
+            )
             print(f"Loaded test package: {test_package_root}")
         else:
-            loader = build_loader(bundle, "val", batch_size=1, data_root=args.data_root)
-            sample_limit = args.test_samples if args.test_samples is not None else 100
+            loader = build_loader(
+                bundle,
+                "val",
+                batch_size=1,
+                data_root=args.data_root,
+                sample_count=requested_samples,
+                sample_seed=effective_sample_seed,
+                stratified_sample=args.test_sampling == "stratified",
+            )
+        sample_limit = len(loader.dataset)
+        sample_selection = {
+            "policy": args.test_sampling,
+            "requested_samples": int(requested_samples),
+            "selected_samples": int(sample_limit),
+            "base_seed": int(base_sample_seed),
+            "effective_seed": int(effective_sample_seed),
+            "seed_source": "explicit" if args.test_sample_seed is not None else "round_id",
+            "dataset_id": bundle.dataset_id,
+            "user_id": int(args.user_id),
+            "test_package_root": str(test_package_root) if test_package_root else None,
+        }
         for sample_index, batch in enumerate(loader):
             if test_package_root:
                 images, labels, sample_metadata = batch
@@ -730,19 +834,19 @@ def main(argv=None):
                 flush=True,
             )
             correct += int(is_correct)
-            measurements.append(
-                _measurement_record(
-                    result,
-                    user_id=args.user_id,
-                    sample_index=sample_index,
-                    label=label,
-                    is_correct=is_correct,
-                    sample_metadata=sample_metadata,
-                    synchronization=synchronization,
-                    objective_alpha=objective_alpha,
-                    objective_beta=objective_beta,
-                )
+            measurement = _measurement_record(
+                result,
+                user_id=args.user_id,
+                sample_index=sample_index,
+                label=label,
+                is_correct=is_correct,
+                sample_metadata=sample_metadata,
+                synchronization=synchronization,
+                objective_alpha=objective_alpha,
+                objective_beta=objective_beta,
             )
+            measurement["test_sample_seed"] = int(effective_sample_seed)
+            measurements.append(measurement)
             total += 1
             if sample_limit is not None and total >= sample_limit:
                 break
@@ -756,6 +860,7 @@ def main(argv=None):
             device_state=device,
             correct=correct,
             total=total,
+            sample_selection=sample_selection,
         )
         jsonl_path, summary_path, csv_path = _write_device_results(
             measurements,

@@ -31,6 +31,10 @@ def package_name(dataset_id: str, samples_per_class: int, seed: int) -> str:
     return f"{dataset_id}__test__balanced__{samples_per_class}pc__seed{seed}"
 
 
+def full_package_name(dataset_id: str) -> str:
+    return f"{dataset_id}__test__balanced__full"
+
+
 def read_rows(path: Path) -> list[dict[str, str]]:
     with path.open("r", encoding="utf-8", newline="") as handle:
         rows = list(csv.DictReader(handle))
@@ -71,12 +75,25 @@ def source_image(dataset_id: str, data_root: Path, row: dict[str, str], cifar=No
     return None, path
 
 
-def export_one(dataset_id: str, *, samples_per_class: int, seed: int, overwrite: bool, copy_workers: int = 16) -> Path:
+def export_one(
+    dataset_id: str,
+    *,
+    samples_per_class: int,
+    seed: int,
+    overwrite: bool,
+    copy_workers: int = 16,
+    full_test_pool: bool = False,
+) -> Path:
     bundle_id, directory, num_classes = SPECS[dataset_id]
     data_root = DATASET_DIR / directory
     split_manifest = data_root / "metadata" / "test_manifest.csv"
-    selected = select_balanced(read_rows(split_manifest), num_classes, samples_per_class, seed)
-    output = data_root / "TestSets" / package_name(dataset_id, samples_per_class, seed)
+    rows = read_rows(split_manifest)
+    if full_test_pool:
+        selected = rows
+        output = data_root / "TestSets" / full_package_name(dataset_id)
+    else:
+        selected = select_balanced(rows, num_classes, samples_per_class, seed)
+        output = data_root / "TestSets" / package_name(dataset_id, samples_per_class, seed)
     if output.exists():
         if not overwrite:
             raise FileExistsError(f"Test package already exists: {output}")
@@ -130,9 +147,14 @@ def export_one(dataset_id: str, *, samples_per_class: int, seed: int, overwrite:
         "split": "test",
         "mode": "balanced",
         "num_classes": num_classes,
-        "samples_per_class": samples_per_class,
+        "samples_per_class": (
+            next(iter(class_counts.values()))
+            if full_test_pool and len(set(class_counts.values())) == 1
+            else samples_per_class
+        ),
         "total_samples": len(package_rows),
-        "seed": seed,
+        "seed": None if full_test_pool else seed,
+        "full_test_pool": bool(full_test_pool),
         "difficulty": "unknown; package selection is model-independent",
         "source_manifest": str(split_manifest.relative_to(DATASET_DIR.parent.parent)),
         "source_manifest_sha256": hashlib.sha256(split_manifest.read_bytes()).hexdigest(),
@@ -167,6 +189,11 @@ def main(argv=None):
     parser.add_argument("--datasets", nargs="+", choices=tuple(SPECS), default=tuple(SPECS))
     parser.add_argument("--samples-per-class", type=int, default=10)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument(
+        "--full-test-pool",
+        action="store_true",
+        help="Export every test row for runtime per-round stratified sampling.",
+    )
     parser.add_argument("--overwrite", action="store_true")
     parser.add_argument("--copy-workers", type=int, default=16)
     args = parser.parse_args(argv)
@@ -176,10 +203,18 @@ def main(argv=None):
         raise ValueError("--copy-workers must be positive")
     outputs = []
     for dataset_id in args.datasets:
-        output = export_one(dataset_id, samples_per_class=args.samples_per_class, seed=args.seed, overwrite=args.overwrite, copy_workers=args.copy_workers)
+        output = export_one(
+            dataset_id,
+            samples_per_class=args.samples_per_class,
+            seed=args.seed,
+            overwrite=args.overwrite,
+            copy_workers=args.copy_workers,
+            full_test_pool=args.full_test_pool,
+        )
         bundle_id, _, classes = SPECS[dataset_id]
-        validate_package(output, bundle_id, classes * args.samples_per_class)
-        outputs.append({"dataset_id": dataset_id, "samples": classes * args.samples_per_class, "path": str(output)})
+        expected = json.loads((output / "metadata.json").read_text(encoding="utf-8"))["total_samples"]
+        validate_package(output, bundle_id, int(expected))
+        outputs.append({"dataset_id": dataset_id, "samples": int(expected), "path": str(output)})
     print(json.dumps(outputs, indent=2))
 
 

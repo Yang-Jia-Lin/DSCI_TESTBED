@@ -198,30 +198,30 @@ training bundle. A future `resnet50-imagenet1000` experiment would require a
 weights cannot be evaluated against ImageNet-1K labels.
 
 
-## Export the four terminal test packages
+## Export the three runtime full test pools
 
-Export the same model-independent, class-balanced test samples for every terminal:
+Export every terminal-test sample once for CIFAR-10, ImageNet-100, and NEU-CLS-64:
 
 ```bash
-conda run --no-capture-output -n DSCI python -m Src.Phase1_Offline.Datasets.export_manifest_test_packages --samples-per-class 10 --seed 42 --overwrite
+conda run --no-capture-output -n DSCI python -m Src.Phase1_Offline.Datasets.export_manifest_test_packages --datasets cifar10 imagenet100 neucls64 --full-test-pool --overwrite
 ```
 
-This creates 100 CIFAR-10, 1,000 ImageNet-100, 60 NEU-CLS, and 10,000
-ImageNet-1K test images. Each package contains `manifest.csv`, `metadata.json`,
-and class-organized `images/`. Balanced package names are dataset-level and are
-shared by ResNet50, ViT, and any other model using the same class mapping:
+This creates 10,000 CIFAR-10, 5,000 ImageNet-100, and 270 NEU-CLS test images.
+Each package contains `manifest.csv`, `metadata.json`, and class-organized
+`images/`. The Device runtime selects a new class-stratified subset from these
+pools for each new `round_id`. Full package names are dataset-level and shared
+by ResNet50, ViT, and any other model using the same class mapping:
 
 ```text
-cifar10__test__balanced__10pc__seed42
-neucls64__test__balanced__10pc__seed42
-imagenet100__test__balanced__10pc__seed42
-imagenet1000__test__balanced__10pc__seed42
+cifar10__test__balanced__full
+neucls64__test__balanced__full
+imagenet100__test__balanced__full
 ```
 
 Model-derived `easy` and `hard` packages keep their bundle prefix because their
 difficulty labels depend on a specific checkpoint.
 
-ImageNet-1K is a dataset-only test package and does not add a training bundle. Its
+ImageNet-1K remains a dataset-only fixed test package and does not add a training bundle. Its
 source is linked to `/root/commonfiles/Datasets/ImageNet2012`; the labeled official
 validation split is treated as test, and 10 images per each of the 1,000 classes are
 selected with seed 42. To prepare or export only this package:

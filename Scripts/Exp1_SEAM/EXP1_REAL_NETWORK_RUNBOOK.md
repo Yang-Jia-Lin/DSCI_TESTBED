@@ -22,8 +22,10 @@
 - **其他**
 	- tensor transport dtype = float32
 	- expected users = 4
-	- test package = balanced
+	- test package = balanced full pool；运行时按新 `ROUND_ID` 分层抽样
 	- formal repeats = 3
+	- 三个完整测试池必须预先生成并同步到每台 Device；生成命令见
+	  `Src/Phase1_Offline/Training/README_train.md`
 - **激活环境**
 - pi4-1、pi4-2、pi5、v100：
 ```bash
@@ -111,7 +113,7 @@ export ROUND_ID=
 export DSCI_DEVICE_PYTORCH_SEGMENT_PROFILE_ID="vit-base-cifar10-device-pi4-1"
 python -m Src.Phase3_Runtime.Device.run_device --bundle-id vit-base-cifar10 --backend pytorch \
   --user-id 0 --round-id "$ROUND_ID" --test-package-mode balanced \
-  --test-package-samples-per-class 10 --test-samples 3 --decision-timeout 900 --no-request-barrier
+  --test-package-full --test-samples 3 --decision-timeout 900 --no-request-barrier
 ```
 
 ###### pi4-2
@@ -121,7 +123,7 @@ export ROUND_ID=
 export DSCI_DEVICE_PYTORCH_SEGMENT_PROFILE_ID="vit-base-cifar10-device-pi4-2"
 python -m Src.Phase3_Runtime.Device.run_device --bundle-id vit-base-cifar10 --backend pytorch \
   --user-id 1 --round-id "$ROUND_ID" --test-package-mode balanced \
-  --test-package-samples-per-class 10 --test-samples 3 --decision-timeout 900 --no-request-barrier
+  --test-package-full --test-samples 3 --decision-timeout 900 --no-request-barrier
 ```
 
 ###### nano
@@ -131,7 +133,7 @@ export ROUND_ID=
 export DSCI_DEVICE_PYTORCH_SEGMENT_PROFILE_ID="vit-base-cifar10-device-nano"
 python -m Src.Phase3_Runtime.Device.run_device --bundle-id vit-base-cifar10 --backend pytorch \
   --user-id 2 --round-id "$ROUND_ID" --test-package-mode balanced \
-  --test-package-samples-per-class 10 --test-samples 3 --decision-timeout 900 --no-request-barrier
+  --test-package-full --test-samples 3 --decision-timeout 900 --no-request-barrier
 ```
 
 ###### pi5
@@ -141,7 +143,7 @@ export ROUND_ID=
 export DSCI_DEVICE_PYTORCH_SEGMENT_PROFILE_ID="vit-base-cifar10-device-pi5"
 python -m Src.Phase3_Runtime.Device.run_device --bundle-id vit-base-cifar10 --backend pytorch \
   --user-id 3 --round-id "$ROUND_ID" --test-package-mode balanced \
-  --test-package-samples-per-class 10 --test-samples 3 --decision-timeout 900 --no-request-barrier
+  --test-package-full --test-samples 3 --decision-timeout 900 --no-request-barrier
 ```
 
 ---
@@ -164,7 +166,7 @@ export ROUND_ID=
 export DSCI_DEVICE_PYTORCH_SEGMENT_PROFILE_ID="vit-base-cifar10-device-pi4-1"
 python -m Src.Phase3_Runtime.Device.run_device --bundle-id vit-base-cifar10 --backend pytorch \
   --user-id 0 --round-id "$ROUND_ID" --test-package-mode balanced \
-  --test-package-samples-per-class 10 --test-samples 100 --decision-timeout 900 --no-request-barrier
+  --test-package-full --test-samples 100 --decision-timeout 900 --no-request-barrier
 ```
 
 ###### pi4-2
@@ -174,7 +176,7 @@ export ROUND_ID=
 export DSCI_DEVICE_PYTORCH_SEGMENT_PROFILE_ID="vit-base-cifar10-device-pi4-2"
 python -m Src.Phase3_Runtime.Device.run_device --bundle-id vit-base-cifar10 --backend pytorch \
   --user-id 1 --round-id "$ROUND_ID" --test-package-mode balanced \
-  --test-package-samples-per-class 10 --test-samples 100 --decision-timeout 900 --no-request-barrier
+  --test-package-full --test-samples 100 --decision-timeout 900 --no-request-barrier
 ```
 
 ###### nano
@@ -184,7 +186,7 @@ export ROUND_ID=
 export DSCI_DEVICE_PYTORCH_SEGMENT_PROFILE_ID="vit-base-cifar10-device-nano"
 python -m Src.Phase3_Runtime.Device.run_device --bundle-id vit-base-cifar10 --backend pytorch \
   --user-id 2 --round-id "$ROUND_ID" --test-package-mode balanced \
-  --test-package-samples-per-class 10 --test-samples 100 --decision-timeout 900 --no-request-barrier
+  --test-package-full --test-samples 100 --decision-timeout 900 --no-request-barrier
 ```
 
 ###### pi5
@@ -194,7 +196,7 @@ export ROUND_ID=
 export DSCI_DEVICE_PYTORCH_SEGMENT_PROFILE_ID="vit-base-cifar10-device-pi5"
 python -m Src.Phase3_Runtime.Device.run_device --bundle-id vit-base-cifar10 --backend pytorch \
   --user-id 3 --round-id "$ROUND_ID" --test-package-mode balanced \
-  --test-package-samples-per-class 10 --test-samples 100 --decision-timeout 900 --no-request-barrier
+  --test-package-full --test-samples 100 --decision-timeout 900 --no-request-barrier
 ```
 
 > 上面的步骤重复 3 次，取均值和方差。
@@ -348,7 +350,7 @@ export ROUND_ID=
 export DSCI_DEVICE_PYTORCH_SEGMENT_PROFILE_ID="${BUNDLE}-device-pi4-1"
 python -m Src.Phase3_Runtime.Device.run_device --bundle-id "$BUNDLE" --backend pytorch \
   --user-id 0 --round-id "$ROUND_ID" --test-package-mode balanced \
-  --test-package-samples-per-class 10 --test-samples 3 --decision-timeout 900 --no-request-barrier
+  --test-package-full --test-samples 3 --decision-timeout 900 --no-request-barrier
 ```
 
 ###### pi4-2
@@ -359,7 +361,7 @@ export ROUND_ID=
 export DSCI_DEVICE_PYTORCH_SEGMENT_PROFILE_ID="${BUNDLE}-device-pi4-2"
 python -m Src.Phase3_Runtime.Device.run_device --bundle-id "$BUNDLE" --backend pytorch \
   --user-id 1 --round-id "$ROUND_ID" --test-package-mode balanced \
-  --test-package-samples-per-class 10 --test-samples 3 --decision-timeout 900 --no-request-barrier
+  --test-package-full --test-samples 3 --decision-timeout 900 --no-request-barrier
 ```
 
 ###### nano
@@ -370,7 +372,7 @@ export ROUND_ID=
 export DSCI_DEVICE_PYTORCH_SEGMENT_PROFILE_ID="${BUNDLE}-device-nano"
 python -m Src.Phase3_Runtime.Device.run_device --bundle-id "$BUNDLE" --backend pytorch \
   --user-id 2 --round-id "$ROUND_ID" --test-package-mode balanced \
-  --test-package-samples-per-class 10 --test-samples 3 --decision-timeout 900 --no-request-barrier
+  --test-package-full --test-samples 3 --decision-timeout 900 --no-request-barrier
 ```
 
 ###### pi5
@@ -381,7 +383,7 @@ export ROUND_ID=
 export DSCI_DEVICE_PYTORCH_SEGMENT_PROFILE_ID="${BUNDLE}-device-pi5"
 python -m Src.Phase3_Runtime.Device.run_device --bundle-id "$BUNDLE" --backend pytorch \
   --user-id 3 --round-id "$ROUND_ID" --test-package-mode balanced \
-  --test-package-samples-per-class 10 --test-samples 3 --decision-timeout 900 --no-request-barrier
+  --test-package-full --test-samples 3 --decision-timeout 900 --no-request-barrier
 ```
 
 ---
@@ -406,7 +408,7 @@ export ROUND_ID=
 export DSCI_DEVICE_PYTORCH_SEGMENT_PROFILE_ID="${BUNDLE}-device-pi4-1"
 python -m Src.Phase3_Runtime.Device.run_device --bundle-id "$BUNDLE" --backend pytorch \
   --user-id 0 --round-id "$ROUND_ID" --test-package-mode balanced \
-  --test-package-samples-per-class 10 --test-samples 100 --decision-timeout 900 --no-request-barrier
+  --test-package-full --test-samples 100 --decision-timeout 900 --no-request-barrier
 ```
 
 ###### pi4-2
@@ -417,7 +419,7 @@ export ROUND_ID=
 export DSCI_DEVICE_PYTORCH_SEGMENT_PROFILE_ID="${BUNDLE}-device-pi4-2"
 python -m Src.Phase3_Runtime.Device.run_device --bundle-id "$BUNDLE" --backend pytorch \
   --user-id 1 --round-id "$ROUND_ID" --test-package-mode balanced \
-  --test-package-samples-per-class 10 --test-samples 100 --decision-timeout 900 --no-request-barrier
+  --test-package-full --test-samples 100 --decision-timeout 900 --no-request-barrier
 ```
 
 ###### nano
@@ -428,7 +430,7 @@ export ROUND_ID=
 export DSCI_DEVICE_PYTORCH_SEGMENT_PROFILE_ID="${BUNDLE}-device-nano"
 python -m Src.Phase3_Runtime.Device.run_device --bundle-id "$BUNDLE" --backend pytorch \
   --user-id 2 --round-id "$ROUND_ID" --test-package-mode balanced \
-  --test-package-samples-per-class 10 --test-samples 100 --decision-timeout 900 --no-request-barrier
+  --test-package-full --test-samples 100 --decision-timeout 900 --no-request-barrier
 ```
 
 ###### pi5
@@ -439,7 +441,7 @@ export ROUND_ID=
 export DSCI_DEVICE_PYTORCH_SEGMENT_PROFILE_ID="${BUNDLE}-device-pi5"
 python -m Src.Phase3_Runtime.Device.run_device --bundle-id "$BUNDLE" --backend pytorch \
   --user-id 3 --round-id "$ROUND_ID" --test-package-mode balanced \
-  --test-package-samples-per-class 10 --test-samples 100 --decision-timeout 900 --no-request-barrier
+  --test-package-full --test-samples 100 --decision-timeout 900 --no-request-barrier
 ```
 
 > 每个模型的步骤三重复 3 次，取均值和方差。完成后将所有终端中的 `BUNDLE` 改为下一个 Bundle ID，再重复步骤二和步骤三。

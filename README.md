@@ -505,6 +505,10 @@ python -m Src.Phase2_Scheduler.Service.api_server `
 ```
 
 #### 4. 测试 1 个 Device
+Device 上须已有对应数据集的 `*__test__balanced__full` 测试池。默认分层抽样 seed
+由 `ROUND_ID` 和 `user-id` 派生，因此更换 `ROUND_ID` 会自动更换测试样本；需要让
+不同方法使用同一批样本时，额外传入相同的 `--test-sample-seed <整数>`。
+
 每次只选择下面一台 Device。Scheduler 必须使用 `--expected-users 1`。
 ###### Linux 做端
 选择其中对应的设备：只选择一组！
@@ -530,7 +534,7 @@ export ROUND_ID=smoke-__BUNDLE_ID__-nx-$(date +%Y%m%d-%H%M%S)
 python -m Src.Phase3_Runtime.Device.run_device \
   --bundle-id __BUNDLE_ID__ --backend pytorch \
   --user-id 0 --round-id "$ROUND_ID" \
-  --test-package-mode balanced --test-package-samples-per-class 10 \
+  --test-package-mode balanced --test-package-full \
   --test-samples 3 --decision-timeout 900 \
   --dynamic-bandwidth \
   --bandwidth-ewma-alpha 0.3 \
@@ -553,7 +557,7 @@ $env:ROUND_ID="smoke-__BUNDLE_ID__-jialin-laptop-$(Get-Date -Format yyyyMMdd-HHm
 python -m Src.Phase3_Runtime.Device.run_device `
   --bundle-id __BUNDLE_ID__ --backend pytorch `
   --user-id 0 --round-id "$env:ROUND_ID" `
-  --test-package-mode balanced --test-package-samples-per-class 10 `
+  --test-package-mode balanced --test-package-full `
   --test-samples 3 --decision-timeout 900 `
   --dynamic-bandwidth `
   --bandwidth-ewma-alpha 0.3 `
@@ -604,7 +608,7 @@ Pi 5，`user-id=0`：
 export DSCI_DEVICE_PYTORCH_SEGMENT_PROFILE_ID="__BUNDLE_ID__-device-pi5"
 python -m Src.Phase3_Runtime.Device.run_device --bundle-id __BUNDLE_ID__ --backend pytorch \
   --user-id 0 --round-id "$ROUND_ID" --test-package-mode balanced \
-  --test-package-samples-per-class 10 --test-samples 3 --decision-timeout 900 \
+  --test-package-full --test-samples 3 --decision-timeout 900 \
   --dynamic-bandwidth --bandwidth-ewma-alpha 0.3 --bandwidth-change-threshold 0.20 \
   --bandwidth-min-reschedule-interval 30 --bandwidth-stale-after 300 --iperf-calibration-duration 3
 ```
@@ -614,7 +618,7 @@ Pi 4-1，`user-id=1`：
 export DSCI_DEVICE_PYTORCH_SEGMENT_PROFILE_ID="__BUNDLE_ID__-device-pi4-1"
 python -m Src.Phase3_Runtime.Device.run_device --bundle-id __BUNDLE_ID__ --backend pytorch \
   --user-id 1 --round-id "$ROUND_ID" --test-package-mode balanced \
-  --test-package-samples-per-class 10 --test-samples 3 --decision-timeout 900 \
+  --test-package-full --test-samples 3 --decision-timeout 900 \
   --dynamic-bandwidth --bandwidth-ewma-alpha 0.3 --bandwidth-change-threshold 0.20 \
   --bandwidth-min-reschedule-interval 30 --bandwidth-stale-after 300 --iperf-calibration-duration 3
 ```
@@ -624,7 +628,7 @@ Pi 4-2，`user-id=2`：
 export DSCI_DEVICE_PYTORCH_SEGMENT_PROFILE_ID="__BUNDLE_ID__-device-pi4-2"
 python -m Src.Phase3_Runtime.Device.run_device --bundle-id __BUNDLE_ID__ --backend pytorch \
   --user-id 2 --round-id "$ROUND_ID" --test-package-mode balanced \
-  --test-package-samples-per-class 10 --test-samples 3 --decision-timeout 900 \
+  --test-package-full --test-samples 3 --decision-timeout 900 \
   --dynamic-bandwidth --bandwidth-ewma-alpha 0.3 --bandwidth-change-threshold 0.20 \
   --bandwidth-min-reschedule-interval 30 --bandwidth-stale-after 300 --iperf-calibration-duration 3
 ```
@@ -634,7 +638,7 @@ Nano，`user-id=3`：
 export DSCI_DEVICE_PYTORCH_SEGMENT_PROFILE_ID="__BUNDLE_ID__-device-nano"
 python -m Src.Phase3_Runtime.Device.run_device --bundle-id __BUNDLE_ID__ --backend pytorch \
   --user-id 3 --round-id "$ROUND_ID" --test-package-mode balanced \
-  --test-package-samples-per-class 10 --test-samples 3 --decision-timeout 900 \
+  --test-package-full --test-samples 3 --decision-timeout 900 \
   --dynamic-bandwidth --bandwidth-ewma-alpha 0.3 --bandwidth-change-threshold 0.20 \
   --bandwidth-min-reschedule-interval 30 --bandwidth-stale-after 300 --iperf-calibration-duration 3
 ```

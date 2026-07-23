@@ -1,6 +1,7 @@
 """Dataset construction driven by a model bundle and deterministic manifests."""
 from __future__ import annotations
 import csv, random, re
+from collections import defaultdict
 from pathlib import Path
 import torch
 from torch.utils.data import DataLoader, Dataset, Subset
@@ -76,8 +77,56 @@ def _seed_worker(_):
   import numpy as np; np.random.seed(seed)
  except ImportError: pass
 
-def build_loader(bundle,split,*,batch_size=64,num_workers=0,data_root=None,download=False,pin_memory=None,persistent_workers=None):
- ds=build_dataset(bundle,split,data_root=data_root,download=download); pin=torch.cuda.is_available() if pin_memory is None else pin_memory; persistent=(num_workers>0) if persistent_workers is None else persistent_workers and num_workers>0
+def _dataset_targets(dataset: Dataset) -> list[int]:
+ if isinstance(dataset,Subset):
+  base_targets=_dataset_targets(dataset.dataset)
+  return [int(base_targets[index]) for index in dataset.indices]
+ targets=getattr(dataset,"targets",None)
+ if targets is not None: return [int(value) for value in targets]
+ rows=getattr(dataset,"rows",None)
+ if rows is not None and rows and "label" in rows[0]:
+  return [int(row["label"]) for row in rows]
+ raise ValueError(f"Dataset {type(dataset).__name__} does not expose class labels for stratified sampling")
+
+def stratified_sample_indices(dataset: Dataset, sample_count: int, seed: int) -> list[int]:
+ """Return a class-balanced, reproducible random subset of dataset indices."""
+ if sample_count <= 0: raise ValueError("sample_count must be positive")
+ total=len(dataset)
+ if total == 0: raise ValueError("Cannot sample an empty dataset")
+ target_count=min(int(sample_count),total)
+ grouped=defaultdict(list)
+ for index,label in enumerate(_dataset_targets(dataset)): grouped[int(label)].append(index)
+ if not grouped: raise ValueError("Cannot stratify a dataset without class labels")
+ rng=random.Random(int(seed))
+ labels=sorted(grouped)
+ rng.shuffle(labels)
+ allocations={label:0 for label in labels}
+ remaining=target_count
+ while remaining:
+  eligible=[label for label in labels if allocations[label] < len(grouped[label])]
+  if not eligible: raise ValueError(f"Unable to select {target_count} samples from {total} rows")
+  for label in eligible:
+   allocations[label]+=1
+   remaining-=1
+   if remaining == 0: break
+ selected=[]
+ for label in labels:
+  candidates=list(grouped[label]); rng.shuffle(candidates)
+  selected.extend(candidates[:allocations[label]])
+ rng.shuffle(selected)
+ return selected
+
+def _sample_dataset(dataset: Dataset, sample_count: int | None, sample_seed: int | None, stratified: bool):
+ if sample_count is None: return dataset
+ if stratified:
+  if sample_seed is None: raise ValueError("sample_seed is required for stratified sampling")
+  indices=stratified_sample_indices(dataset,sample_count,sample_seed)
+ else:
+  indices=list(range(min(int(sample_count),len(dataset))))
+ return Subset(dataset,indices)
+
+def build_loader(bundle,split,*,batch_size=64,num_workers=0,data_root=None,download=False,pin_memory=None,persistent_workers=None,sample_count=None,sample_seed=None,stratified_sample=False):
+ ds=build_dataset(bundle,split,data_root=data_root,download=download); ds=_sample_dataset(ds,sample_count,sample_seed,stratified_sample); pin=torch.cuda.is_available() if pin_memory is None else pin_memory; persistent=(num_workers>0) if persistent_workers is None else persistent_workers and num_workers>0
  return DataLoader(ds,batch_size=batch_size,shuffle=split=="train",num_workers=num_workers,pin_memory=pin,persistent_workers=persistent,worker_init_fn=_seed_worker,generator=torch.Generator().manual_seed(42))
 
 class TestPackageDataset(Dataset):
@@ -135,6 +184,10 @@ def build_test_package_loader(
     *,
     batch_size=1,
     num_workers=0,
+    sample_count: int | None = None,
+    sample_seed: int | None = None,
+    stratified_sample: bool = False,
 ):
     dataset = build_test_package_dataset(bundle, package_root)
+    dataset = _sample_dataset(dataset, sample_count, sample_seed, stratified_sample)
     return DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
