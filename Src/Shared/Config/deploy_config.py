@@ -17,9 +17,9 @@ class TestbedConfig:
     # algo_host: str = "100.72.193.11"
 
     # jialin hotspots
-    edge_host: str = "192.168.137.80"
-    cloud_host: str = "172.16.6.239"
-    algo_host: str = "192.168.137.80"
+    # edge_host: str = "192.168.137.80"
+    # cloud_host: str = "172.16.6.239"
+    # algo_host: str = "192.168.137.80"
 
     # kaijie tailscale
     # edge_host: str = "100.88.65.69"
@@ -27,9 +27,9 @@ class TestbedConfig:
     # algo_host: str = "100.88.65.69"
 
     # kaijie hotspots
-    # edge_host: str = "172.16.105.217"
-    # cloud_host: str = "172.16.6.239"
-    # algo_host: str = "172.16.105.217"
+    edge_host: str = "172.16.105.217"
+    cloud_host: str = "172.16.6.239"
+    algo_host: str = "172.16.105.217"
 
     edge_feature_port: int = 9001
     edge_status_port: int = 9002
