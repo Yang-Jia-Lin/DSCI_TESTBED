@@ -1,86 +1,555 @@
-# Scripts README
-
-`Scripts/` 保存论文实验、消融、收敛性分析和绘图脚本。`Src/` 负责系统实现与真机运行，`Scripts/` 负责在已有模型包、profile、调度解或运行结果基础上生成实验表格和图。
-
-## 目录导航
-
-| 目录 | 说明 | 主要输出 |
-| --- | --- | --- |
-| `EvaluationCommon/` | 实验复用的配置、artifact 检查、solution 读取、overhead 计算 | 被各实验脚本导入 |
-| `Exp0_Motivation/` | motivation 和 scalability 相关实验 | `Scripts/Results/Exp0_Motivation/` |
-| `Exp1_Baseline/` | overall performance 和 baseline 对比准备 | `Scripts/Results/Exp1_Baseline/` |
-| `Exp2_Ablation/` | 消融实验 | `Scripts/Results/Exp2_Ablation/` |
-| `Exp3_Convergency_and_Overhead/` | PPO 收敛性、优化器对比、Phase overhead | `Scripts/Results/Exp3_Convergency_and_Overhead/` |
-| `Results/` | 脚本生成或整理后的实验结果 | CSV、JSONL、PNG、PDF |
-
-## 运行前准备
-
-实验脚本通常依赖以下产物：
-
-- `Data/Bundles/<bundle_id>/manifest.json` 和 `exit_curves.csv`。
-- `Data/Profiles/<profile_id>/`。
-- `Data/Runtime/SolutionCache/latest_solution.npz` 和 `latest_solution_meta.json`，或指定的历史 solution。
-- Phase 3 真机运行生成的测量日志或 runtime summary。
-
-如果这些产物不存在，先按 [Src_README](../Src/Src_README.md) 和 [Phase1_README](../Src/Phase1_Offline/Phase1_README.md) 准备系统。
-
-## 常用命令
-
-Exp1 overall performance：
-
+- Linux
+```bash
+# conda
+conda activate DSCI
+# venv
+source ./.venv/bin/activate
+```
+- Windows：
 ```powershell
-python -m Scripts.Exp1_Baseline.run_SOTA_baseline
+# conda
+conda activate DSCI
+# venv
+.\.venv\Scripts\Activate.ps1
 ```
 
-Exp2 ablation：
+---
 
-```powershell
-python -m Scripts.Exp2_Ablation.run_ablation
-python -m Scripts.Exp2_Ablation.plot_ablation
+# 单Pi5（6组模型）
+> [!IMPORTANT] 重复6个bundle 每个重复3次
+> - `resnet50-cifar10`
+> - `resnet50-imagenet100`
+> - `resnet50-neucls64`
+> - `vit-base-cifar10`
+> - `vit-base-imagenet100`
+> - `vit-base-neucls64`
+
+Cloud 终端 1：
+```bash
+iperf3 -s -p 32264
 ```
 
-Exp3 convergence and overhead：
-
-```powershell
-python -m Scripts.Exp3_Convergency_and_Overhead.run_convergence
-python -m Scripts.Exp3_Convergency_and_Overhead.plot_convergency
+Cloud 终端 2：
+```bash
+export DSCI_CLOUD_PYTORCH_SEGMENT_PROFILE_ID="__BUNDLE_ID__-cloud-5880"
+python -m Src.Phase3_Runtime.Cloud.run_cloud \
+  --bundle-id __BUNDLE_ID__ \
+  --backend pytorch
 ```
 
-Exp0 scalability：
-
+Edge 终端1
 ```powershell
-python -m Scripts.Exp0_Motivation.exp2_scalability.run_exp2
-python -m Scripts.Exp0_Motivation.exp2_scalability.plot_exp2
+iperf3 -s -p 5001
 ```
 
-具体参数以各脚本的 `--help` 为准，例如：
-
+Edge 终端2
 ```powershell
-python -m Scripts.Exp1_Baseline.run_SOTA_baseline --help
+$env:DSCI_EDGE_PYTORCH_SEGMENT_PROFILE_ID="__BUNDLE_ID__-edge-kaijie-laptop"
 ```
 
-## 结果目录
+```powershell
+python -m Src.Phase3_Runtime.Edge.run_edge `
+  --bundle-id __BUNDLE_ID__ `
+  --backend pytorch `
+  --dynamic-bandwidth `
+  --bandwidth-ewma-alpha 0.3 `
+  --bandwidth-change-threshold 0.20 `
+  --bandwidth-min-reschedule-interval 30 `
+  --bandwidth-stale-after 300 `
+  --iperf-calibration-duration 3
+```
 
-脚本默认把结果写入 `Scripts/Results/` 下对应实验目录。常见文件包括：
+Edge 终端3 Scheduler
+```powershell
+python -m Src.Phase2_Scheduler.Service.api_server `
+  --expected-users 1 `
+  --dynamic-bandwidth
+```
 
-| 文件类型 | 说明 |
-| --- | --- |
-| `.csv` | 表格结果、消融结果、overhead 汇总 |
-| `.json` / `.jsonl` | 实验配置、逐轮指标、baseline 指标 |
-| `.png` / `.pdf` | 论文图或分析图 |
-| `latest.txt` | 指向最近一次实验结果目录 |
+###### 冷启动
+```bash
+export DSCI_DEVICE_PYTORCH_SEGMENT_PROFILE_ID="__BUNDLE_ID__-device-pi5"
+export ROUND_ID=cold-1dev-__BUNDLE_ID__-pi5-$(date +%Y%m%d-%H%M%S)
+```
 
-`Results/` 中的历史结果可用于对照，但复现时应优先确认输入 solution、bundle 和 profile 是否与目标实验一致。
+```bash
+python -m Src.Phase3_Runtime.Device.run_device \
+  --dynamic-bandwidth --test-package-mode balanced --test-package-full \
+  --bundle-id __BUNDLE_ID__ \
+  --round-id "$ROUND_ID" \
+  --test-samples 100 \
+  --user-id 0
+```
 
-## 与 Src 的关系
+###### 热启动 重复3次
+```bash
+export DSCI_DEVICE_PYTORCH_SEGMENT_PROFILE_ID="__BUNDLE_ID__-device-pi5"
+export ROUND_ID=warm-1dev-__BUNDLE_ID__-pi5-$(date +%Y%m%d-%H%M%S)
+```
 
-- Phase 1 生成模型包、manifest、exit curves 和 profile。
-- Phase 2 生成调度 solution 和在线缓存。
-- Phase 3 生成真机运行测量结果。
-- `Scripts/` 读取这些产物，生成论文实验表格、图和对照结果。
+```bash
+python -m Src.Phase3_Runtime.Device.run_device \
+  --dynamic-bandwidth --test-package-mode balanced --test-package-full \
+  --bundle-id __BUNDLE_ID__ \
+  --round-id "$ROUND_ID" \
+  --test-samples 100 \
+  --user-id 0
+```
 
-相关文档：
+# 多台递增（resnet50-cifar10）
 
-- [DATA_README](../Data/DATA_README.md)
-- [Src_README](../Src/Src_README.md)
-- [Phase2_README](../Src/Phase2_Scheduler/Phase2_README.md)
+|   N | 同时运行的端                               |
+| --: | ------------------------------------ |
+|   1 | Pi 5（已有）                             |
+|   2 | Pi 5 + Pi 4-A                        |
+|   3 | Pi 5 + Pi 4-A + Pi 4-B               |
+|   4 | Pi 5 + Pi 4-A + Pi 4-B + Jetson Nano |
+## N=2
+停止旧 Scheduler，启动2用户训练策略：
+```powershell
+python -m Src.Phase2_Scheduler.Service.api_server `
+  --expected-users 2 `
+  --dynamic-bandwidth
+```
+
+###### 冷启动
+生成 ROUND_ID：
+```bash
+export ROUND_ID=cold-2dev-__BUNDLE_ID__-$(date +%Y%m%d-%H%M%S)
+echo "$ROUND_ID"
+```
+
+```bash
+export ROUND_ID=
+```
+
+Pi 5，`user-id=0`：
+```bash
+export DSCI_DEVICE_PYTORCH_SEGMENT_PROFILE_ID="__BUNDLE_ID__-device-pi5"
+python -m Src.Phase3_Runtime.Device.run_device \
+  --dynamic-bandwidth --test-package-mode balanced --test-package-full \
+  --bundle-id __BUNDLE_ID__ \
+  --round-id "$ROUND_ID" \
+  --test-samples 100 \
+  --user-id 0
+```
+
+Pi 4-1，`user-id=1`：
+```bash
+export DSCI_DEVICE_PYTORCH_SEGMENT_PROFILE_ID="__BUNDLE_ID__-device-pi4-1"
+python -m Src.Phase3_Runtime.Device.run_device \
+  --dynamic-bandwidth --test-package-mode balanced --test-package-full \
+  --bundle-id __BUNDLE_ID__ \
+  --round-id "$ROUND_ID" \
+  --test-samples 100 \
+  --user-id 1
+```
+
+###### 热启动 重复3次
+生成 ROUND_ID：
+```bash
+export ROUND_ID=warm-2dev-__BUNDLE_ID__-$(date +%Y%m%d-%H%M%S)
+echo "$ROUND_ID"
+```
+
+```bash
+export ROUND_ID=
+```
+
+Pi 5，`user-id=0`：
+```bash
+export DSCI_DEVICE_PYTORCH_SEGMENT_PROFILE_ID="__BUNDLE_ID__-device-pi5"
+python -m Src.Phase3_Runtime.Device.run_device \
+  --dynamic-bandwidth --test-package-mode balanced --test-package-full \
+  --bundle-id __BUNDLE_ID__ \
+  --round-id "$ROUND_ID" \
+  --test-samples 100 \
+  --user-id 0
+```
+
+Pi 4-1，`user-id=1`：
+```bash
+export DSCI_DEVICE_PYTORCH_SEGMENT_PROFILE_ID="__BUNDLE_ID__-device-pi4-1"
+python -m Src.Phase3_Runtime.Device.run_device \
+  --dynamic-bandwidth --test-package-mode balanced --test-package-full \
+  --bundle-id __BUNDLE_ID__ \
+  --round-id "$ROUND_ID" \
+  --test-samples 100 \
+  --user-id 1
+```
+
+
+## N=3
+停止旧 Scheduler，启动3用户训练策略：
+```powershell
+python -m Src.Phase2_Scheduler.Service.api_server `
+  --expected-users 3 `
+  --dynamic-bandwidth
+```
+###### 冷启动
+生成 ROUND_ID：
+```bash
+export ROUND_ID=cold-3dev-__BUNDLE_ID__-$(date +%Y%m%d-%H%M%S)
+echo "$ROUND_ID"
+```
+
+```bash
+export ROUND_ID=
+```
+
+Pi 5，`user-id=0`：
+```bash
+export DSCI_DEVICE_PYTORCH_SEGMENT_PROFILE_ID="__BUNDLE_ID__-device-pi5"
+python -m Src.Phase3_Runtime.Device.run_device \
+  --dynamic-bandwidth --test-package-mode balanced --test-package-full \
+  --bundle-id __BUNDLE_ID__ \
+  --round-id "$ROUND_ID" \
+  --test-samples 100 \
+  --user-id 0
+```
+
+Pi 4-1，`user-id=1`：
+```bash
+export DSCI_DEVICE_PYTORCH_SEGMENT_PROFILE_ID="__BUNDLE_ID__-device-pi4-1"
+python -m Src.Phase3_Runtime.Device.run_device \
+  --dynamic-bandwidth --test-package-mode balanced --test-package-full \
+  --bundle-id __BUNDLE_ID__ \
+  --round-id "$ROUND_ID" \
+  --test-samples 100 \
+  --user-id 1
+```
+
+Pi 4-2，`user-id=2`：
+```bash
+export DSCI_DEVICE_PYTORCH_SEGMENT_PROFILE_ID="__BUNDLE_ID__-device-pi4-2"
+python -m Src.Phase3_Runtime.Device.run_device \
+  --dynamic-bandwidth --test-package-mode balanced --test-package-full \
+  --bundle-id __BUNDLE_ID__ \
+  --round-id "$ROUND_ID" \
+  --test-samples 100 \
+  --user-id 2
+```
+
+###### 热启动 重复3次
+生成 ROUND_ID：
+```bash
+export ROUND_ID=warm-3dev-__BUNDLE_ID__-$(date +%Y%m%d-%H%M%S)
+echo "$ROUND_ID"
+```
+
+```bash
+export ROUND_ID=
+```
+
+Pi 5，`user-id=0`：
+```bash
+export DSCI_DEVICE_PYTORCH_SEGMENT_PROFILE_ID="__BUNDLE_ID__-device-pi5"
+python -m Src.Phase3_Runtime.Device.run_device \
+  --dynamic-bandwidth --test-package-mode balanced --test-package-full \
+  --bundle-id __BUNDLE_ID__ \
+  --round-id "$ROUND_ID" \
+  --test-samples 100 \
+  --user-id 0
+```
+
+Pi 4-1，`user-id=1`：
+```bash
+export DSCI_DEVICE_PYTORCH_SEGMENT_PROFILE_ID="__BUNDLE_ID__-device-pi4-1"
+python -m Src.Phase3_Runtime.Device.run_device \
+  --dynamic-bandwidth --test-package-mode balanced --test-package-full \
+  --bundle-id __BUNDLE_ID__ \
+  --round-id "$ROUND_ID" \
+  --test-samples 100 \
+  --user-id 1
+```
+
+Pi 4-2，`user-id=2`：
+```bash
+export DSCI_DEVICE_PYTORCH_SEGMENT_PROFILE_ID="__BUNDLE_ID__-device-pi4-2"
+python -m Src.Phase3_Runtime.Device.run_device \
+  --dynamic-bandwidth --test-package-mode balanced --test-package-full \
+  --bundle-id __BUNDLE_ID__ \
+  --round-id "$ROUND_ID" \
+  --test-samples 100 \
+  --user-id 2
+```
+
+## N=4
+停止旧 Scheduler，启动3用户训练策略：
+```powershell
+python -m Src.Phase2_Scheduler.Service.api_server `
+  --expected-users 4 `
+  --dynamic-bandwidth
+```
+###### 冷启动
+生成 ROUND_ID：
+```bash
+export ROUND_ID=cold-4dev-__BUNDLE_ID__-$(date +%Y%m%d-%H%M%S)
+echo "$ROUND_ID"
+```
+
+```bash
+export ROUND_ID=
+```
+
+Pi 5，`user-id=0`：
+```bash
+export DSCI_DEVICE_PYTORCH_SEGMENT_PROFILE_ID="__BUNDLE_ID__-device-pi5"
+python -m Src.Phase3_Runtime.Device.run_device \
+  --dynamic-bandwidth --test-package-mode balanced --test-package-full \
+  --bundle-id __BUNDLE_ID__ \
+  --round-id "$ROUND_ID" \
+  --test-samples 100 \
+  --user-id 0
+```
+
+Pi 4-1，`user-id=1`：
+```bash
+export DSCI_DEVICE_PYTORCH_SEGMENT_PROFILE_ID="__BUNDLE_ID__-device-pi4-1"
+python -m Src.Phase3_Runtime.Device.run_device \
+  --dynamic-bandwidth --test-package-mode balanced --test-package-full \
+  --bundle-id __BUNDLE_ID__ \
+  --round-id "$ROUND_ID" \
+  --test-samples 100 \
+  --user-id 1
+```
+
+Pi 4-2，`user-id=2`：
+```bash
+export DSCI_DEVICE_PYTORCH_SEGMENT_PROFILE_ID="__BUNDLE_ID__-device-pi4-2"
+python -m Src.Phase3_Runtime.Device.run_device \
+  --dynamic-bandwidth --test-package-mode balanced --test-package-full \
+  --bundle-id __BUNDLE_ID__ \
+  --round-id "$ROUND_ID" \
+  --test-samples 100 \
+  --user-id 2
+```
+
+Nano，`user-id=3`：
+```bash
+export DSCI_DEVICE_PYTORCH_SEGMENT_PROFILE_ID="__BUNDLE_ID__-device-nano"
+python -m Src.Phase3_Runtime.Device.run_device \
+  --dynamic-bandwidth --test-package-mode balanced --test-package-full \
+  --bundle-id __BUNDLE_ID__ \
+  --round-id "$ROUND_ID" \
+  --test-samples 100 \
+  --user-id 3
+```
+
+###### 热启动 重复3次
+生成 ROUND_ID：
+```bash
+export ROUND_ID=warm-4dev-__BUNDLE_ID__-$(date +%Y%m%d-%H%M%S)
+echo "$ROUND_ID"
+```
+
+```bash
+export ROUND_ID=
+```
+
+Pi 5，`user-id=0`：
+```bash
+export DSCI_DEVICE_PYTORCH_SEGMENT_PROFILE_ID="__BUNDLE_ID__-device-pi5"
+python -m Src.Phase3_Runtime.Device.run_device \
+  --dynamic-bandwidth --test-package-mode balanced --test-package-full \
+  --bundle-id __BUNDLE_ID__ \
+  --round-id "$ROUND_ID" \
+  --test-samples 100 \
+  --user-id 0
+```
+
+Pi 4-1，`user-id=1`：
+```bash
+export DSCI_DEVICE_PYTORCH_SEGMENT_PROFILE_ID="__BUNDLE_ID__-device-pi4-1"
+python -m Src.Phase3_Runtime.Device.run_device \
+  --dynamic-bandwidth --test-package-mode balanced --test-package-full \
+  --bundle-id __BUNDLE_ID__ \
+  --round-id "$ROUND_ID" \
+  --test-samples 100 \
+  --user-id 1
+```
+
+Pi 4-2，`user-id=2`：
+```bash
+export DSCI_DEVICE_PYTORCH_SEGMENT_PROFILE_ID="__BUNDLE_ID__-device-pi4-2"
+python -m Src.Phase3_Runtime.Device.run_device \
+  --dynamic-bandwidth --test-package-mode balanced --test-package-full \
+  --bundle-id __BUNDLE_ID__ \
+  --round-id "$ROUND_ID" \
+  --test-samples 100 \
+  --user-id 2
+```
+
+Nano，`user-id=3`：
+```bash
+export DSCI_DEVICE_PYTORCH_SEGMENT_PROFILE_ID="__BUNDLE_ID__-device-nano"
+python -m Src.Phase3_Runtime.Device.run_device \
+  --dynamic-bandwidth --test-package-mode balanced --test-package-full \
+  --bundle-id __BUNDLE_ID__ \
+  --round-id "$ROUND_ID" \
+  --test-samples 100 \
+  --user-id 3
+```
+
+
+# 消融（resnet50-imagenet100）
+| 配置            |
+| ------------- |
+| A. End only   |
+| B. Edge only  |
+| C. Cloud only |
+| D. Split only |
+| E. EE only    |
+| F. ours（已有）   |
+> [!IMPORTANT] 重复6个策略 每个重复3次
+> - End only
+> - Edge only
+> - Cloud only
+> - Split only
+> - EE only
+> - ours（已有）
+
+## A. End only
+> 含义：完整模型全部在 Pi 5 执行，不切分，关闭早退。
+
+Scheduler
+```powershell
+python -m Src.Phase2_Scheduler.Service.api_server `
+  --expected-users 1 `
+  --fixed-split 19 19 `
+  --fixed-threshold 1.0 `
+  --no-auto-train `
+  --dynamic-bandwidth
+```
+
+Pi 5
+将 `REP=1` 分别修改为 `1、2、3`，运行三次。
+```bash
+export BUNDLE=resnet50-imagenet100
+export DSCI_DEVICE_PYTORCH_SEGMENT_PROFILE_ID="${BUNDLE}-device-pi5"
+
+for REP in 1 2 3; do
+  export ROUND_ID="ablate-end-only-${BUNDLE}-pi5-r${REP}-$(date +%Y%m%d-%H%M%S)"
+
+  python -m Src.Phase3_Runtime.Device.run_device \
+    --dynamic-bandwidth --test-package-mode balanced --test-package-full \
+    --bundle-id "$BUNDLE" \
+    --round-id "$ROUND_ID" \
+    --test-samples 100 \
+    --user-id 0
+done
+```
+
+## B. Edge only
+> 含义：Pi 5 不执行模型，完整模型在 Edge 执行，不进入 Cloud，不早退。
+
+Scheduler
+```powershell
+python -m Src.Phase2_Scheduler.Service.api_server `
+  --expected-users 1 `
+  --fixed-split 0 19 `
+  --fixed-threshold 1.0 `
+  --no-auto-train `
+  --dynamic-bandwidth
+```
+
+Pi 5
+```bash
+export BUNDLE=resnet50-imagenet100
+export DSCI_DEVICE_PYTORCH_SEGMENT_PROFILE_ID="${BUNDLE}-device-pi5"
+
+for REP in 1 2 3; do
+  export ROUND_ID="ablate-edge-only-${BUNDLE}-pi5-r${REP}-$(date +%Y%m%d-%H%M%S)"
+
+  python -m Src.Phase3_Runtime.Device.run_device \
+    --dynamic-bandwidth --test-package-mode balanced --test-package-full \
+    --bundle-id "$BUNDLE" \
+    --round-id "$ROUND_ID" \
+    --test-samples 100 \
+    --user-id 0
+done
+```
+
+## C. Cloud only
+> 含义：输入经过 Edge 转发到 Cloud，完整模型在 Cloud 执行，不早退。
+
+Scheduler
+```powershell
+python -m Src.Phase2_Scheduler.Service.api_server `
+  --expected-users 1 `
+  --fixed-split 0 0 `
+  --fixed-threshold 1.0 `
+  --no-auto-train `
+  --dynamic-bandwidth
+```
+
+Pi 5
+```bash
+export BUNDLE=resnet50-imagenet100
+export DSCI_DEVICE_PYTORCH_SEGMENT_PROFILE_ID="${BUNDLE}-device-pi5"
+
+for REP in 1 2 3; do
+  export ROUND_ID="ablate-cloud-only-${BUNDLE}-pi5-r${REP}-$(date +%Y%m%d-%H%M%S)"
+
+  python -m Src.Phase3_Runtime.Device.run_device \
+    --dynamic-bandwidth --test-package-mode balanced --test-package-full \
+    --bundle-id "$BUNDLE" \
+    --round-id "$ROUND_ID" \
+    --test-samples 100 \
+    --user-id 0
+done
+```
+
+## D. Split only
+Scheduler
+```powershell
+python -m Src.Phase2_Scheduler.Service.api_server `
+  --expected-users 1 `
+  --ablation-mode split-only `
+  --dynamic-bandwidth
+```
+
+Pi 5
+```bash
+export BUNDLE=resnet50-imagenet100
+export MODE=split-only
+export DSCI_DEVICE_PYTORCH_SEGMENT_PROFILE_ID="${BUNDLE}-device-pi5"
+
+for REP in 1 2 3; do
+  export ROUND_ID="ablate-${MODE}-${BUNDLE}-pi5-r${REP}-$(date +%Y%m%d-%H%M%S)"
+
+  python -m Src.Phase3_Runtime.Device.run_device \
+    --dynamic-bandwidth --test-package-mode balanced --test-package-full \
+    --bundle-id "$BUNDLE" \
+    --round-id "$ROUND_ID" \
+    --test-samples 100 \
+    --user-id 0
+done
+```
+
+## E. EE only
+Scheduler
+```powershell
+python -m Src.Phase2_Scheduler.Service.api_server `
+  --expected-users 1 `
+  --ablation-mode ee-only `
+  --dynamic-bandwidth
+```
+
+Pi 5
+```bash
+export BUNDLE=resnet50-imagenet100
+export MODE=ee-only
+export DSCI_DEVICE_PYTORCH_SEGMENT_PROFILE_ID="${BUNDLE}-device-pi5"
+
+for REP in 1 2 3; do
+  export ROUND_ID="ablate-${MODE}-${BUNDLE}-pi5-r${REP}-$(date +%Y%m%d-%H%M%S)"
+
+  python -m Src.Phase3_Runtime.Device.run_device \
+    --dynamic-bandwidth --test-package-mode balanced --test-package-full \
+    --bundle-id "$BUNDLE" \
+    --round-id "$ROUND_ID" \
+    --test-samples 100 \
+    --user-id 0
+done
+```
