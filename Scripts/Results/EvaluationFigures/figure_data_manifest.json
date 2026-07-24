@@ -1,0 +1,59 @@
+{
+  "generated_at_utc": "2026-07-24T14:34:45.940432+00:00",
+  "git_commit": "2aae682a497aaf9000cfdc8f4801d84ffd519a0e",
+  "data_policy": "Draft-only pass requested by user; repository experiment records were not used to overwrite the supplied tables.",
+  "figures": [
+    {
+      "name": "generalization",
+      "script": "Scripts\\Exp1_SEAM\\plot_generalization.py",
+      "output": "Scripts\\Results\\Exp1_SEAM\\generalization.pdf",
+      "status": "complete_from_draft",
+      "source": "User-provided Evaluation handoff draft table",
+      "selection": "Pi 5; ResNet-50/ViT-Base; CIFAR-10/ImageNet-100/NEU-CLS-64",
+      "aggregation": "Values copied verbatim; no repository re-aggregation requested",
+      "notes": [
+        "Uses the generalization-table I-SplitEE R-C10 values: 94.53%, 321.28 ms.",
+        "The conflicting baseline/scalability values remain unresolved."
+      ]
+    },
+    {
+      "name": "scalability",
+      "script": "Scripts\\Exp3_Scalable\\plot_scalability.py",
+      "output": "Scripts\\Results\\Exp3_Scalable\\scalability.pdf",
+      "status": "complete_from_draft_with_flagged_value",
+      "source": "User-provided Evaluation handoff draft table",
+      "selection": "ResNet-50/CIFAR-10; N=1..4",
+      "aggregation": "Draft means/P95/worst-device values; error bars are reported SD",
+      "notes": [
+        "I-SplitEE N=2 accuracy is plotted as the draft value 97.55%.",
+        "Its underlying invalid 101.08% run was not re-aggregated in this draft-only pass.",
+        "I-SplitEE N=4 is missing and is not interpolated or connected."
+      ]
+    },
+    {
+      "name": "algorithm_analysis_overhead",
+      "script": "Scripts\\Exp5_System_Overhead\\plot_algorithm_analysis_overhead_paper.py",
+      "output": "Scripts\\Results\\Exp5_System_Overhead\\algorithm_analysis_overhead.pdf",
+      "status": "incomplete",
+      "source": "No numeric experiment data in the paper draft",
+      "selection": "Planned PPO/Random Search/GA and N=1..4 cold/hot overhead",
+      "aggregation": "None",
+      "notes": [
+        "PDF contains explicit Data pending panels; no values were fabricated."
+      ]
+    },
+    {
+      "name": "ablation",
+      "script": "Scripts\\Exp4_Ablation\\plot_ablation.py",
+      "output": "Scripts\\Results\\Exp4_Ablation\\ablation.pdf",
+      "status": "incomplete",
+      "source": "User-provided Evaluation handoff draft table",
+      "selection": "ResNet-50/ImageNet-100; single Pi 5",
+      "aggregation": "Values copied verbatim; no repository re-aggregation requested",
+      "notes": [
+        "Only SEAM is available (240.82 ms, 93.22%).",
+        "End only, Split only, and EE only are explicitly marked pending."
+      ]
+    }
+  ]
+}
