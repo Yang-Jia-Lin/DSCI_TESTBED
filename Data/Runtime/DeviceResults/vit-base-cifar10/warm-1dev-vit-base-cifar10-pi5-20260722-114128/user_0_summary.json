@@ -1,5 +1,41 @@
 {
   "accuracy": 0.98,
+  "accuracy_full_test": {
+    "accuracy": 0.9857,
+    "backend": "pytorch",
+    "bundle_id": "vit-base-cifar10",
+    "correct": 9857,
+    "evaluated_at_utc": "2026-07-24T12:13:27.544032+00:00",
+    "evaluation_mode": "offline_batched_early_exit",
+    "exit_counts": {
+      "after_block3": 486,
+      "after_block6": 3763,
+      "after_block9": 4342,
+      "final": 1409
+    },
+    "exit_thresholds": {
+      "after_block3": 0.9580193161964417,
+      "after_block6": 0.9633917808532715,
+      "after_block9": 0.9290227890014648
+    },
+    "model_hash": "fee60ffa57bba9b355670d5e57f75726ac8d321f10a97206fff3a2bc1a85bbc0",
+    "samples": 10000,
+    "sampling": {
+      "policy": "full_test",
+      "seed_derivation": null,
+      "seed_source": null
+    },
+    "source_fallback_samples": 0,
+    "test_package": {
+      "dataset_id": "cifar10",
+      "full_test_pool": true,
+      "missing_or_empty_files": 0,
+      "package_created_at": "2026-07-23T01:42:52.633010+00:00",
+      "package_root": "Data/Datasets/CIFAR10/TestSets/cifar10__test__balanced__full",
+      "source_manifest_sha256": "76d91f656719814818b082f2b17689796c623ec8f71c37deac4776ec2ea26b45",
+      "total_samples": 10000
+    }
+  },
   "accuracy_refresh": {
     "accuracy": 0.97,
     "backend": "pytorch",

@@ -153,6 +153,7 @@ def _atomic_write_json(path: Path, payload: dict) -> None:
 def _discover_summaries(
     results_root: Path,
     *,
+    output_field: str,
     overwrite_refresh: bool,
     limit: int | None,
 ) -> tuple[list[tuple[Path, dict]], int]:
@@ -166,7 +167,7 @@ def _discover_summaries(
             continue
         for summary_path in sorted(round_dir.glob("user_*_summary.json")):
             summary = _read_json(summary_path)
-            if "accuracy_refresh" in summary and not overwrite_refresh:
+            if output_field in summary and not overwrite_refresh:
                 skipped_existing += 1
                 continue
             selected.append((summary_path, summary))
@@ -192,6 +193,7 @@ def _selection_for_summary(
     summary: dict,
     *,
     sample_count: int,
+    full_test: bool = False,
 ) -> dict:
     bundle = get_bundle(str(summary["bundle_id"]))
     round_id = str(summary["round_id"])
@@ -201,11 +203,16 @@ def _selection_for_summary(
         bundle.dataset_id,
         user_id,
     )
-    indices = stratified_sample_indices(dataset, sample_count, effective_seed)
+    indices = (
+        list(range(len(dataset)))
+        if full_test
+        else stratified_sample_indices(dataset, sample_count, effective_seed)
+    )
     return {
         "indices": indices,
         "base_seed": base_seed,
         "effective_seed": effective_seed,
+        "full_test": bool(full_test),
     }
 
 
@@ -392,13 +399,21 @@ def _refresh_payload(
         "model_hash": model_hash,
         "samples": int(samples),
         "source_fallback_samples": int(source_fallback_samples),
-        "sampling": {
-            "base_seed": int(selection["base_seed"]),
-            "effective_seed": int(selection["effective_seed"]),
-            "policy": "stratified",
-            "seed_derivation": "round_id+dataset_id+user_id",
-            "seed_source": "round_id",
-        },
+        "sampling": (
+            {
+                "policy": "full_test",
+                "seed_derivation": None,
+                "seed_source": None,
+            }
+            if selection.get("full_test")
+            else {
+                "base_seed": int(selection["base_seed"]),
+                "effective_seed": int(selection["effective_seed"]),
+                "policy": "stratified",
+                "seed_derivation": "round_id+dataset_id+user_id",
+                "seed_source": "round_id",
+            }
+        ),
         "test_package": copy.deepcopy(package_metadata),
     }
 
@@ -411,6 +426,16 @@ def main(argv: list[str] | None = None) -> int:
         default=DEVICE_RESULTS_DIR,
     )
     parser.add_argument("--samples", type=int, default=100)
+    parser.add_argument(
+        "--full-test",
+        action="store_true",
+        help="Evaluate every sample in the complete test package.",
+    )
+    parser.add_argument(
+        "--output-field",
+        default="accuracy_refresh",
+        help="Summary JSON field used to store the evaluation payload.",
+    )
     parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--limit", type=int)
     parser.add_argument("--write", action="store_true")
@@ -439,6 +464,7 @@ def main(argv: list[str] | None = None) -> int:
 
     summaries, skipped_existing = _discover_summaries(
         args.results_root,
+        output_field=args.output_field,
         overwrite_refresh=args.overwrite_refresh,
         limit=args.limit,
     )
@@ -473,7 +499,8 @@ def main(argv: list[str] | None = None) -> int:
             selection = _selection_for_summary(
                 dataset,
                 summary,
-                sample_count=args.samples,
+                sample_count=len(dataset) if args.full_test else args.samples,
+                full_test=args.full_test,
             )
             policy = _summary_policy(summary)
             selections[summary_path] = selection
@@ -520,12 +547,12 @@ def main(argv: list[str] | None = None) -> int:
             )
             print(
                 f"{summary_path}: "
-                f"accuracy_refresh={refreshed['accuracy']:.4f} "
+                f"{args.output_field}={refreshed['accuracy']:.4f} "
                 f"({refreshed['correct']}/{refreshed['samples']})",
                 flush=True,
             )
             if args.write:
-                summary["accuracy_refresh"] = refreshed
+                summary[args.output_field] = refreshed
                 _atomic_write_json(summary_path, summary)
                 updated += 1
         del model

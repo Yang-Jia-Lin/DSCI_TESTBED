@@ -1,0 +1,47 @@
+{
+  "bundle_id": "resnet50-cifar10",
+  "round_id": "warm-1dev-resnet50-cifar10-pi5-20260720-214951",
+  "user_id": 0,
+  "purpose": "investigate low accuracy_refresh without overwriting the original summary",
+  "model_hash": "42222e588316eba09b272dd13e261ab47f674256446150916379c4945be9aad2",
+  "exit_thresholds": {
+    "after_layer1": 0.8529092073440552,
+    "after_layer2": 0.9200000166893005,
+    "after_layer3": 0.8294779658317566
+  },
+  "test_package": {
+    "package_root": "Data/Datasets/CIFAR10/TestSets/cifar10__test__balanced__full",
+    "source_manifest_sha256": "76d91f656719814818b082f2b17689796c623ec8f71c37deac4776ec2ea26b45",
+    "total_samples": 10000
+  },
+  "checks": [
+    {
+      "name": "original_seed_recheck",
+      "samples": 100,
+      "sampling_policy": "stratified",
+      "base_seed": 3930744706281413987,
+      "effective_seed": 956501182273037514,
+      "correct": 89,
+      "accuracy": 0.89
+    },
+    {
+      "name": "independent_seed_resample",
+      "samples": 100,
+      "sampling_policy": "stratified",
+      "base_seed": 5698886132659816796,
+      "effective_seed": 2805216306492318136,
+      "correct": 97,
+      "accuracy": 0.97
+    },
+    {
+      "name": "larger_sample_recheck",
+      "samples": 1000,
+      "sampling_policy": "stratified",
+      "base_seed": 3930744706281413987,
+      "effective_seed": 956501182273037514,
+      "correct": 956,
+      "accuracy": 0.956
+    }
+  ],
+  "conclusion": "The low 89% result is caused by the small 100-sample subset being unusually difficult, not by a model hash, threshold-policy, dataset-balance, or execution mismatch. Use the 1000-sample result for reporting stability."
+}
