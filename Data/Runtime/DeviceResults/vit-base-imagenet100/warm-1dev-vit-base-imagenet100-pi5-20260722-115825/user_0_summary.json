@@ -1,0 +1,169 @@
+{
+  "accuracy": 0.92,
+  "accuracy_refresh": {
+    "accuracy": 0.92,
+    "backend": "pytorch",
+    "bundle_id": "vit-base-imagenet100",
+    "correct": 92,
+    "evaluated_at_utc": "2026-07-24T10:25:41.466423+00:00",
+    "evaluation_mode": "offline_batched_early_exit",
+    "exit_counts": {
+      "after_block3": 17,
+      "after_block6": 21,
+      "after_block9": 26,
+      "final": 36
+    },
+    "exit_thresholds": {
+      "after_block3": 0.8683868646621704,
+      "after_block6": 0.9491637349128723,
+      "after_block9": 0.9356079697608948
+    },
+    "model_hash": "8ba86dc0d02e651af3fdc0a51f4e3eaa8b56b3d482d3d49b31ad425e3591a7f4",
+    "samples": 100,
+    "sampling": {
+      "base_seed": 6317301890681069689,
+      "effective_seed": 7528587684326834602,
+      "policy": "stratified",
+      "seed_derivation": "round_id+dataset_id+user_id",
+      "seed_source": "round_id"
+    },
+    "source_fallback_samples": 0,
+    "test_package": {
+      "dataset_id": "imagenet100",
+      "full_test_pool": true,
+      "missing_or_empty_files": 0,
+      "package_created_at": "2026-07-23T01:43:00.906208+00:00",
+      "package_root": "Data/Datasets/ImageNet100/TestSets/imagenet100__test__balanced__full",
+      "source_manifest_sha256": "c571f7c6e8392b69e23d2f12fdd79c2b22e377f00f58461342c2b5415d021d7f",
+      "total_samples": 5000
+    }
+  },
+  "alpha": 1.0,
+  "backend": "pytorch",
+  "beta": 5.0,
+  "bundle_id": "vit-base-imagenet100",
+  "constraint_satisfied": null,
+  "constraint_status": "disabled",
+  "correct": 92,
+  "decision": {
+    "accuracy_tolerance": null,
+    "bundle_id": "vit-base-imagenet100",
+    "constraint_satisfied": null,
+    "constraint_status": "disabled",
+    "decision_id": "warm-1dev-vit-base-imagenet100-pi5-20260722-115825:v4",
+    "decision_source": "cached_dsci:warm:0.089847",
+    "decision_version": 4,
+    "expected_accuracy": 0.9860222673798489,
+    "expected_latency": 0.08797338095490541,
+    "manifest_id": "vit-base-imagenet100-partition-v1",
+    "model_hash": "8ba86dc0d02e651af3fdc0a51f4e3eaa8b56b3d482d3d49b31ad425e3591a7f4",
+    "objective": 0.5461553626053218,
+    "objective_alpha": 1.0,
+    "objective_beta": 5.0,
+    "objective_mode": "weighted",
+    "resource_mode": "fixed_worker_pool",
+    "round_id": "warm-1dev-vit-base-imagenet100-pi5-20260722-115825",
+    "target_accuracy": null,
+    "user": {
+      "X_row": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "Y_row": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        0.8683868646621704,
+        1.0,
+        1.0,
+        0.9491637349128723,
+        1.0,
+        1.0,
+        0.9356079697608948,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "cloud_boundaries": [
+        15,
+        15
+      ],
+      "device_boundaries": [
+        0,
+        0
+      ],
+      "edge_boundaries": [
+        0,
+        15
+      ],
+      "exit_thresholds": {
+        "after_block3": 0.8683868646621704,
+        "after_block6": 0.9491637349128723,
+        "after_block9": 0.9356079697608948
+      },
+      "partition_boundary_1": 0,
+      "partition_boundary_2": 15,
+      "partition_s1": 0,
+      "partition_s2": 15,
+      "user_id": 0
+    }
+  },
+  "device_state": {
+    "BW_d2e": 52.28457578369551,
+    "backend": "pytorch",
+    "bundle_id": "vit-base-imagenet100",
+    "execution_profile_id": "vit-base-imagenet100-device-pi5",
+    "manifest_id": "vit-base-imagenet100-partition-v1",
+    "model_hash": "8ba86dc0d02e651af3fdc0a51f4e3eaa8b56b3d482d3d49b31ad425e3591a7f4",
+    "protocol_overhead_s": 0.0,
+    "resource_mode": "fixed_worker_pool",
+    "tensor_transport_dtype": "float32",
+    "threads_per_worker": 1,
+    "worker_count": 1
+  },
+  "latency": {
+    "T_c_compute_avg_ms": null,
+    "T_d2e_avg_ms": 133.07329359994583,
+    "T_d_compute_avg_ms": 0.04360580999218655,
+    "T_e2c_avg_ms": null,
+    "T_e_compute_avg_ms": 70.71279300000242,
+    "T_total_avg_ms": 207.3613389699949,
+    "cloud_exit_check_avg_ms": 0.0,
+    "cloud_exit_head_compute_avg_ms": 0.0,
+    "cloud_queue_avg_ms": 0.0,
+    "cloud_segment_compute_avg_ms": 0.0,
+    "d2e_transport_avg_ms": 133.07329359994583,
+    "device_compute_avg_ms": 0.04360580999218655,
+    "e2c_transport_avg_ms": 0.0,
+    "edge_exit_check_avg_ms": 0.3441430003113055,
+    "edge_exit_head_compute_avg_ms": 1.9101970001793234,
+    "edge_queue_avg_ms": 1.824714999893331,
+    "edge_segment_compute_avg_ms": 64.89537200017367,
+    "total_latency_avg_ms": 207.3613389699949,
+    "unattributed_overhead_avg_ms": 5.270012559499264
+  },
+  "objective_mode": "weighted",
+  "round_id": "warm-1dev-vit-base-imagenet100-pi5-20260722-115825",
+  "samples": 100,
+  "target_accuracy": null,
+  "user_id": 0,
+  "utility_mean": -0.11680669484997452,
+  "utility_sum": -11.680669484997452
+}
