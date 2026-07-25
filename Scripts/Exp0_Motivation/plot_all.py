@@ -42,6 +42,23 @@ PALETTE = {
     "Slow-timeslot joint decision": COLORS["blue"],
 }
 
+AXIS_LABEL_FONTSIZE = 14
+AXIS_TICK_FONTSIZE = 13
+
+
+def _set_axis_font(ax) -> None:
+    """Make all x/y axis labels and tick labels prominent and consistent."""
+    ax.xaxis.label.set_fontsize(AXIS_LABEL_FONTSIZE)
+    ax.xaxis.label.set_fontweight("bold")
+    ax.yaxis.label.set_fontsize(AXIS_LABEL_FONTSIZE)
+    ax.yaxis.label.set_fontweight("bold")
+    plt.setp(ax.get_xticklabels(), fontsize=AXIS_TICK_FONTSIZE, fontweight="bold")
+    plt.setp(ax.get_yticklabels(), fontsize=AXIS_TICK_FONTSIZE, fontweight="bold")
+    ax.xaxis.get_offset_text().set_fontsize(AXIS_TICK_FONTSIZE)
+    ax.xaxis.get_offset_text().set_fontweight("bold")
+    ax.yaxis.get_offset_text().set_fontsize(AXIS_TICK_FONTSIZE)
+    ax.yaxis.get_offset_text().set_fontweight("bold")
+
 
 def _save(fig, run_dir: Path, name: str) -> dict:
     base = figure_dir(run_dir) / name
@@ -118,6 +135,7 @@ def _plot_figure1(run_dir: Path) -> dict:
     ax.set_ylim(60.0, 100.0)
     ax.legend(loc="lower right", frameon=True, ncol=1, fontsize=9)
     ax.set_title("Exit and Policy Accuracy")
+    _set_axis_font(ax)
     fig.tight_layout(pad=0.2)
     accuracy_paths = _save(fig, run_dir, "fig1a_accuracy_expectation")
 
@@ -150,6 +168,7 @@ def _plot_figure1(run_dir: Path) -> dict:
     ax.set_ylim(0.0, 105.0)
     ax.legend(loc="lower left", frameon=True)
     ax.set_title("Early Exit Probability")
+    _set_axis_font(ax)
 
     fig.tight_layout(pad=0.2)
     probability_paths = _save(fig, run_dir, "fig1b_early_exit_probability")
@@ -218,6 +237,7 @@ def _plot_figure2(run_dir: Path) -> dict:
         labelspacing=0.25,
     )
     ax.set_title("Coupled Decision Latency")
+    _set_axis_font(ax)
 
     fig.tight_layout(pad=0.2)
     return _save(fig, run_dir, "fig2_coupling_failure")
@@ -299,6 +319,7 @@ def _plot_figure3(run_dir: Path) -> dict:
         fontweight="bold",
     )
     ax.legend(loc="upper left", frameon=True, fontsize=8)
+    _set_axis_font(ax)
     fig.tight_layout(pad=0.2)
     return _save(fig, run_dir, "fig3_decision_overhead")
 

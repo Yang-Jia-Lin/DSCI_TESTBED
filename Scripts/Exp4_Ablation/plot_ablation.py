@@ -1,4 +1,4 @@
-"""Plot a combined ablation preview with explicitly marked placeholder data."""
+"""Plot the measured ResNet-50/CIFAR-10 single-device ablation results."""
 
 from __future__ import annotations
 
@@ -16,15 +16,16 @@ from Scripts.EvaluationCommon.paper_figure_style import (  # noqa: E402
     ISPLITEE_COLOR,
     RESULTS_ROOT,
     SEAM_COLOR,
-    apply_compact_ieee_style,
+    apply_large_single_panel_style,
+    bold_tick_labels,
     save_pdf,
 )
 
 
-VARIANTS = ["End\nonly", "Split\nonly", "EE\nonly", "SEAM"]
-# Preview-only placeholders. Replace both arrays with measured values before use.
-PLACEHOLDER_LATENCY = np.array([286.40, 264.70, 255.80, 240.82])
-PLACEHOLDER_ACCURACY = np.array([91.48, 92.06, 92.74, 93.22])
+VARIANTS = ["Cloud\nonly", "End\nonly", "Split\nonly", "EE\nonly", "Ours"]
+LATENCY = np.array([360.29, 248.79, 130.40, 219.56, 119.74])
+ACCURACY = np.array([95.86, 95.86, 95.86, 95.58, 95.59])
+ACCURACY_FLOOR = 90.0
 
 
 def _annotate_bars(
@@ -33,30 +34,34 @@ def _annotate_bars(
     values: np.ndarray,
     offset: float,
     suffix: str = "",
+    x_offset: float = 0.0,
+    ha: str = "center",
+    coordinate_ax: plt.Axes | None = None,
 ) -> None:
     for bar, value in zip(bars, values):
         ax.text(
-            bar.get_x() + bar.get_width() / 2,
+            bar.get_x() + bar.get_width() / 2 + x_offset,
             value + offset,
-            f"{value:.1f}{suffix}",
-            ha="center",
+            f"{value:.2f}{suffix}",
+            ha=ha,
             va="bottom",
-            fontsize=5.8,
+            fontsize=8.0,
             fontweight="bold",
+            transform=(ax if coordinate_ax is None else coordinate_ax).transData,
+            zorder=10,
         )
 
 
 def plot(output: Path) -> Path:
-    apply_compact_ieee_style()
-    # Match the physical axes ratio of each panel in plot_generalization.py.
-    fig, ax_lat = plt.subplots(figsize=(3.55, 3.10))
+    apply_large_single_panel_style()
+    fig, ax_lat = plt.subplots(figsize=(280 / 72, 2.6318))
     ax_acc = ax_lat.twinx()
 
     x = np.arange(len(VARIANTS))
     width = 0.34
     latency_bars = ax_lat.bar(
         x - width / 2,
-        PLACEHOLDER_LATENCY,
+        LATENCY,
         width=width,
         color=SEAM_COLOR,
         edgecolor="black",
@@ -65,29 +70,39 @@ def plot(output: Path) -> Path:
     )
     accuracy_bars = ax_acc.bar(
         x + width / 2,
-        PLACEHOLDER_ACCURACY,
+        ACCURACY - ACCURACY_FLOOR,
+        bottom=ACCURACY_FLOOR,
         width=width,
         color=ISPLITEE_COLOR,
         edgecolor="black",
         hatch="//",
-        label="Top-1 accuracy",
+        label="Full-test accuracy",
         zorder=3,
     )
 
-    _annotate_bars(ax_lat, latency_bars, PLACEHOLDER_LATENCY, offset=5.0)
-    _annotate_bars(ax_acc, accuracy_bars, PLACEHOLDER_ACCURACY, offset=1.2)
+    _annotate_bars(
+        ax_acc,
+        latency_bars,
+        LATENCY,
+        offset=10.0,
+        x_offset=width * 0.25,
+        ha="right",
+        coordinate_ax=ax_lat,
+    )
+    _annotate_bars(ax_acc, accuracy_bars, ACCURACY, offset=0.15)
 
     ax_lat.set_ylabel("E2E latency (ms)", color=SEAM_COLOR, labelpad=1.5)
-    ax_acc.set_ylabel("Top-1 accuracy (%)", color=ISPLITEE_COLOR, labelpad=2.0)
+    ax_acc.set_ylabel("Full-test acc. (%)", color=ISPLITEE_COLOR, labelpad=2.0)
     ax_lat.tick_params(axis="y", colors=SEAM_COLOR)
     ax_acc.tick_params(axis="y", colors=ISPLITEE_COLOR)
     ax_lat.spines["left"].set_color(SEAM_COLOR)
     ax_acc.spines["right"].set_color(ISPLITEE_COLOR)
-    ax_lat.set_ylim(0, 320)
-    ax_acc.set_ylim(0, 105)
-    ax_lat.set_yticks([0, 100, 200, 300])
-    ax_acc.set_yticks([0, 25, 50, 75, 100])
+    ax_lat.set_ylim(0, 450)
+    ax_acc.set_ylim(ACCURACY_FLOOR, 97)
+    ax_lat.set_yticks([0, 100, 200, 300, 400])
+    ax_acc.set_yticks([90, 92, 94, 96])
     ax_lat.set_xticks(x, VARIANTS)
+    bold_tick_labels(ax_lat, ax_acc)
     ax_lat.set_axisbelow(True)
     ax_lat.grid(axis="x", visible=False)
     ax_acc.grid(False)
@@ -98,13 +113,20 @@ def plot(output: Path) -> Path:
         handles_lat + handles_acc,
         labels_lat + labels_acc,
         loc="upper center",
-        bbox_to_anchor=(0.5, 1.18),
+        bbox_to_anchor=(0.5, 0.99),
         ncol=2,
-        columnspacing=1.2,
-        handlelength=1.6,
+        borderaxespad=0.0,
+        borderpad=0.15,
+        columnspacing=0.8,
+        handlelength=1.3,
+        handletextpad=0.4,
+        frameon=True,
+        framealpha=0.88,
+        facecolor="white",
+        edgecolor="none",
     )
-    fig.subplots_adjust(left=0.13, right=0.88, top=0.82, bottom=0.17)
-    return save_pdf(fig, output)
+    fig.subplots_adjust(left=0.16, right=0.84, top=0.95, bottom=0.18)
+    return save_pdf(fig, output, fixed_canvas=True)
 
 
 def main() -> None:
@@ -112,7 +134,7 @@ def main() -> None:
     parser.add_argument(
         "--output",
         type=Path,
-        default=RESULTS_ROOT / "Exp4_Ablation" / "ablation_combined_preview.pdf",
+        default=RESULTS_ROOT / "Exp4_Ablation" / "ablation.pdf",
     )
     args = parser.parse_args()
     print(plot(args.output))

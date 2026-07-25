@@ -17,16 +17,27 @@ MANIFEST_DIR = RESULTS_ROOT / "EvaluationFigures"
 
 FIGURES = [
     {
-        "name": "generalization",
+        "name": "generalization_latency",
         "script": REPO_ROOT / "Scripts" / "Exp1_SEAM" / "plot_generalization.py",
-        "output": RESULTS_ROOT / "Exp1_SEAM" / "generalization.pdf",
+        "output": RESULTS_ROOT / "Exp1_SEAM" / "generalization_latency.pdf",
         "status": "complete_from_draft",
         "source": "User-provided Evaluation handoff draft table",
         "selection": "Pi 5; ResNet-50/ViT-Base; CIFAR-10/ImageNet-100/NEU-CLS-64",
         "aggregation": "Values copied verbatim; no repository re-aggregation requested",
         "notes": [
-            "Uses the generalization-table I-SplitEE R-C10 values: 94.53%, 321.28 ms.",
-            "The conflicting baseline/scalability values remain unresolved.",
+            "Latency view; uses the latest six-bundle generalization table.",
+        ],
+    },
+    {
+        "name": "generalization_accuracy",
+        "script": REPO_ROOT / "Scripts" / "Exp1_SEAM" / "plot_generalization.py",
+        "output": RESULTS_ROOT / "Exp1_SEAM" / "generalization_accuracy.pdf",
+        "status": "complete_from_draft",
+        "source": "User-provided Evaluation handoff draft table",
+        "selection": "Pi 5; ResNet-50/ViT-Base; CIFAR-10/ImageNet-100/NEU-CLS-64",
+        "aggregation": "Values copied verbatim; no repository re-aggregation requested",
+        "notes": [
+            "Accuracy view; uses the latest six-bundle generalization table.",
         ],
     },
     {

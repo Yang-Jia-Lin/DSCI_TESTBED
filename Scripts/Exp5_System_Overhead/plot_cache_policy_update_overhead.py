@@ -12,8 +12,11 @@ import numpy as np
 import pandas as pd
 
 from Scripts.EvaluationCommon.config import DEFAULT_TRAINING_EVENTS
+from Scripts.EvaluationCommon.paper_figure_style import (
+    apply_large_single_panel_style,
+    bold_tick_labels,
+)
 from Src.Shared.Config.paths import RESULT_DIR
-from Src.Shared.Utils.plot_utils import save_fig_for_ieee, set_ieee_style
 
 
 DEFAULT_OUTPUT_DIR = RESULT_DIR / "Exp5_System_Overhead"
@@ -128,19 +131,7 @@ def plot_policy_update_overhead(
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    set_ieee_style(mode="single")
-    plt.rcParams.update(
-        {
-            "font.size": 10,
-            "font.weight": "bold",
-            "axes.titlesize": 11,
-            "axes.titleweight": "bold",
-            "axes.labelsize": 11,
-            "axes.labelweight": "bold",
-            "xtick.labelsize": 9,
-            "ytick.labelsize": 10,
-        }
-    )
+    apply_large_single_panel_style()
 
     frame = sequence.set_index("training_mode").loc[
         ["cold", "medium", "near", "reuse"]
@@ -149,8 +140,16 @@ def plot_policy_update_overhead(
     durations = frame["duration_s"].to_numpy(dtype=float)
     colors = [MODE_COLORS[mode] for mode in frame["training_mode"]]
 
-    fig, ax = plt.subplots(figsize=(5.2, 3.7))
-    bars = ax.bar(positions, durations, color=colors, width=0.62)
+    # Match the final physical canvas of the ablation figure.
+    fig, ax = plt.subplots(figsize=(3.3393, 2.6318))
+    bars = ax.bar(
+        positions,
+        durations,
+        color=colors,
+        edgecolor="black",
+        linewidth=0.9,
+        width=0.62,
+    )
     ax.scatter(
         [positions[-1]],
         [0.0],
@@ -164,22 +163,16 @@ def plot_policy_update_overhead(
         positions,
         [MODE_AXIS_LABELS[mode] for mode in frame["training_mode"]],
     )
-    for tick_label in (*ax.get_xticklabels(), *ax.get_yticklabels()):
-        tick_label.set_fontweight("bold")
-    ax.set_ylabel("Background PPO policy-update time (s)")
+    bold_tick_labels(ax)
+    ax.set_ylabel("Policy-update time (s)")
     ax.grid(axis="x", visible=False)
 
     cold_duration = float(durations[0])
-    ax.set_ylim(0.0, cold_duration * 1.15)
+    ax.set_ylim(0.0, cold_duration * 1.18)
     for bar, row in zip(bars, frame.itertuples(index=False)):
         duration = float(row.duration_s)
-        if row.training_mode == "cold":
-            label = f"{duration:.1f}"
-        elif row.training_mode == "reuse":
-            label = "0 retraining"
-        else:
-            label = f"{duration:.1f}  ({float(row.speedup_vs_cold):.1f}x)"
         y = duration + cold_duration * 0.025
+        label = "0 retraining" if row.training_mode == "reuse" else f"{duration:.1f}"
         ax.text(
             bar.get_x() + bar.get_width() / 2,
             y,
@@ -187,11 +180,35 @@ def plot_policy_update_overhead(
             ha="center",
             va="bottom",
             fontweight="bold",
-            fontsize=9,
+            fontsize=8.0,
         )
+        if row.training_mode in {"medium", "near"}:
+            ax.text(
+                bar.get_x() + bar.get_width() / 2,
+                y + cold_duration * 0.04,
+                f"{float(row.speedup_vs_cold):.1f}x",
+                ha="center",
+                va="bottom",
+                color="#D62728",
+                fontweight="bold",
+                fontsize=13.0,
+            )
 
-    target = output_dir / "cache_policy_update_overhead"
-    save_fig_for_ieee(target, fig=fig)
+    target = output_dir / "scheduling_overhead"
+    fig.subplots_adjust(left=0.20, right=0.98, top=0.94, bottom=0.24)
+    fig.savefig(
+        target.with_suffix(".pdf"),
+        format="pdf",
+        bbox_inches=fig.bbox_inches,
+        pad_inches=0,
+    )
+    fig.savefig(
+        target.with_suffix(".png"),
+        format="png",
+        bbox_inches=fig.bbox_inches,
+        pad_inches=0,
+        dpi=300,
+    )
     plt.close(fig)
     return target
 

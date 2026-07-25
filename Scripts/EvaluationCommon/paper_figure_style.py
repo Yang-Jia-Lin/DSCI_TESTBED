@@ -87,6 +87,24 @@ def apply_comparison_figure_style() -> None:
     )
 
 
+def apply_large_single_panel_style() -> None:
+    """Apply the larger bold typography shared by full single-panel figures."""
+    apply_compact_ieee_style()
+    mpl.rcParams.update(
+        {
+            "font.size": 9.0,
+            "font.weight": "bold",
+            "axes.labelsize": 10.2,
+            "axes.labelweight": "bold",
+            "axes.titlesize": 10.2,
+            "axes.titleweight": "bold",
+            "legend.fontsize": 8.5,
+            "xtick.labelsize": 9.0,
+            "ytick.labelsize": 9.0,
+        }
+    )
+
+
 def add_comparison_legend(
     fig: plt.Figure,
     handles: list,

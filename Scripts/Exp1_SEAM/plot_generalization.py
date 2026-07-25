@@ -1,4 +1,4 @@
-"""Plot cross-architecture and cross-dataset results from the paper draft."""
+"""Plot the split latency and accuracy views of the generalization results."""
 
 from __future__ import annotations
 
@@ -13,75 +13,105 @@ if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from Scripts.EvaluationCommon.paper_figure_style import (  # noqa: E402
-    COMPARISON_FIGSIZE,
-    COMPARISON_SUBPLOTS,
     ISPLITEE_COLOR,
     RESULTS_ROOT,
     SEAM_COLOR,
-    add_comparison_legend,
-    apply_comparison_figure_style,
+    apply_large_single_panel_style,
     bold_tick_labels,
     save_pdf,
 )
 
 
 LABELS = ["R-C10", "R-IN100", "R-NEU", "V-C10", "V-IN100", "V-NEU"]
-SEAM_ACCURACY = np.array([95.60, 93.22, 98.52, 98.57, 94.10, 98.15])
-ISPLITEE_ACCURACY = np.array([94.53, 77.93, 98.61, 95.53, 79.47, 99.72])
-SEAM_LATENCY = np.array([157.24, 240.82, 201.76, 209.73, 208.48, 184.98])
-ISPLITEE_LATENCY = np.array([321.28, 334.62, 307.07, 310.40, 318.28, 225.86])
+SEAS_ACCURACY = np.array([95.59, 93.22, 98.52, 98.57, 94.10, 98.15])
+ISPLITEE_ACCURACY = np.array([94.87, 77.93, 98.61, 95.53, 79.47, 99.72])
+SEAS_LATENCY = np.array([119.74, 240.82, 201.76, 209.73, 208.48, 184.98])
+ISPLITEE_LATENCY = np.array([294.31, 334.62, 307.07, 310.40, 318.28, 225.86])
+FIGSIZE = (255 / 72, 190 / 72)
 
 
-def plot(output: Path) -> Path:
-    apply_comparison_figure_style()
-    fig, (ax_acc, ax_lat) = plt.subplots(
-        1,
-        2,
-        figsize=COMPARISON_FIGSIZE,
-        sharex=True,
-        gridspec_kw={"wspace": 0.30},
-    )
+def _base_axes() -> tuple[plt.Figure, plt.Axes]:
+    apply_large_single_panel_style()
+    fig, ax = plt.subplots(figsize=FIGSIZE)
+    ax.set_xticks(np.arange(len(LABELS)), LABELS, rotation=38, ha="right")
+    ax.set_axisbelow(True)
+    ax.grid(axis="x", visible=False)
+    bold_tick_labels(ax)
+    return fig, ax
+
+
+def _add_bars(ax: plt.Axes, seas: np.ndarray, isplitee: np.ndarray) -> None:
     x = np.arange(len(LABELS))
     width = 0.36
+    ax.bar(
+        x - width / 2,
+        seas,
+        width,
+        color=SEAM_COLOR,
+        edgecolor="black",
+        label="SEAS",
+    )
+    ax.bar(
+        x + width / 2,
+        isplitee,
+        width,
+        color=ISPLITEE_COLOR,
+        edgecolor="black",
+        hatch="///",
+        label="I-SplitEE",
+    )
 
-    for ax, seam, baseline, ylabel in (
-        (ax_acc, SEAM_ACCURACY, ISPLITEE_ACCURACY, "Top-1 acc. (%)"),
-        (ax_lat, SEAM_LATENCY, ISPLITEE_LATENCY, "E2E latency (ms)"),
-    ):
-        ax.bar(
-            x - width / 2,
-            seam,
-            width,
-            color=SEAM_COLOR,
-            edgecolor="black",
-            label="SEAS",
-        )
-        ax.bar(
-            x + width / 2,
-            baseline,
-            width,
-            color=ISPLITEE_COLOR,
-            edgecolor="black",
-            hatch="///",
-            label="I-SplitEE",
-        )
-        ax.set_ylabel(ylabel, labelpad=1.5)
-        ax.set_axisbelow(True)
-        ax.grid(axis="x", visible=False)
 
-    # Start at zero so small accuracy differences are not visually exaggerated.
-    ax_acc.set_ylim(0, 105)
-    ax_acc.set_yticks([0, 50, 100])
-    handles, legend_labels = ax_acc.get_legend_handles_labels()
-    add_comparison_legend(fig, handles, legend_labels, anchor_y=0.88)
-    ax_lat.set_ylim(0, 360)
-    ax_lat.set_yticks([0, 150, 300])
-    ax_lat.set_xticks(x, LABELS, rotation=38, ha="right", rotation_mode="anchor")
-    for ax in (ax_acc, ax_lat):
-        ax.set_xticks(x, LABELS, rotation=38, ha="right", rotation_mode="anchor")
-    bold_tick_labels(ax_acc, ax_lat)
-    fig.subplots_adjust(**COMPARISON_SUBPLOTS)
-    return save_pdf(fig, output, fixed_canvas=True)
+def plot(output: Path) -> tuple[Path, Path]:
+    output = Path(output)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    latency_output = output.with_name(f"{output.stem}_latency.pdf")
+    accuracy_output = output.with_name(f"{output.stem}_accuracy.pdf")
+
+    fig, ax = _base_axes()
+    _add_bars(ax, SEAS_LATENCY, ISPLITEE_LATENCY)
+    ax.set_ylabel("E2E latency (ms)", labelpad=1.5)
+    ax.set_ylim(0, 380)
+    ax.set_yticks([0, 150, 300])
+    ax.legend(
+        loc="lower center",
+        bbox_to_anchor=(0.5, 1.02),
+        ncol=2,
+        borderaxespad=0.0,
+        borderpad=0.15,
+        columnspacing=0.8,
+        handlelength=1.3,
+        handletextpad=0.4,
+        frameon=True,
+        framealpha=0.88,
+        facecolor="white",
+        edgecolor="none",
+    )
+    fig.subplots_adjust(left=0.15, right=0.98, top=0.79, bottom=0.27)
+    latency_path = save_pdf(fig, latency_output, fixed_canvas=True)
+
+    fig, ax = _base_axes()
+    _add_bars(ax, SEAS_ACCURACY, ISPLITEE_ACCURACY)
+    ax.set_ylabel("Top-1 acc. (%)", labelpad=1.5)
+    ax.set_ylim(0, 115)
+    ax.set_yticks([0, 50, 100])
+    ax.legend(
+        loc="lower center",
+        bbox_to_anchor=(0.5, 1.02),
+        ncol=2,
+        borderaxespad=0.0,
+        borderpad=0.15,
+        columnspacing=0.8,
+        handlelength=1.3,
+        handletextpad=0.4,
+        frameon=True,
+        framealpha=0.88,
+        facecolor="white",
+        edgecolor="none",
+    )
+    fig.subplots_adjust(left=0.15, right=0.98, top=0.79, bottom=0.27)
+    accuracy_path = save_pdf(fig, accuracy_output, fixed_canvas=True)
+    return latency_path, accuracy_path
 
 
 def main() -> None:
@@ -92,7 +122,8 @@ def main() -> None:
         default=RESULTS_ROOT / "Exp1_SEAM" / "generalization.pdf",
     )
     args = parser.parse_args()
-    print(plot(args.output))
+    for path in plot(args.output):
+        print(path)
 
 
 if __name__ == "__main__":
