@@ -8,18 +8,23 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.lines import Line2D
 
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from Scripts.EvaluationCommon.paper_figure_style import (  # noqa: E402
+    COMPARISON_FIGSIZE,
+    COMPARISON_SUBPLOTS,
     ISPLITEE_COLOR,
     ISPLITEE_MARKER,
     NEUTRAL_COLOR,
     RESULTS_ROOT,
     SEAM_COLOR,
     SEAM_MARKER,
-    apply_compact_ieee_style,
+    add_comparison_legend,
+    apply_comparison_figure_style,
+    bold_tick_labels,
     save_pdf,
 )
 
@@ -38,11 +43,11 @@ ISPLITEE_ACCURACY = np.array([94.20, 97.55, 94.12])
 
 
 def plot(output: Path) -> Path:
-    apply_compact_ieee_style()
+    apply_comparison_figure_style()
     fig, (ax_lat, ax_acc) = plt.subplots(
         1,
         2,
-        figsize=(3.55, 1.82),
+        figsize=COMPARISON_FIGSIZE,
         sharex=True,
         gridspec_kw={"wspace": 0.32},
     )
@@ -55,7 +60,7 @@ def plot(output: Path) -> Path:
         marker=SEAM_MARKER,
         linestyle="-",
         capsize=1.5,
-        label="SEAM mean",
+        label="SEAS mean",
     )
     ax_lat.errorbar(
         N,
@@ -65,7 +70,7 @@ def plot(output: Path) -> Path:
         marker="^",
         linestyle="--",
         capsize=1.5,
-        label="SEAM P95",
+        label="SEAS P95",
     )
     ax_lat.errorbar(
         N,
@@ -75,15 +80,15 @@ def plot(output: Path) -> Path:
         marker="D",
         linestyle=":",
         capsize=1.5,
-        label="SEAM worst",
+        label="SEAS worst-dev.",
     )
     ax_lat.plot(
         ISPLITEE_N,
         ISPLITEE_WORST,
         color=ISPLITEE_COLOR,
-        marker=ISPLITEE_MARKER,
-        linestyle="-.",
-        label="I-SplitEE",
+        marker="D",
+        linestyle=":",
+        label="I-SplitEE worst-dev.",
     )
     ax_lat.set_ylabel("Latency (ms)", labelpad=1.5)
     ax_lat.set_ylim(0, 900)
@@ -92,9 +97,9 @@ def plot(output: Path) -> Path:
         N,
         SEAM_ACCURACY,
         color=SEAM_COLOR,
-        marker=SEAM_MARKER,
-        linestyle="-",
-        label="SEAM",
+        marker=ISPLITEE_MARKER,
+        linestyle="-.",
+        label="SEAS acc.",
     )
     ax_acc.plot(
         ISPLITEE_N,
@@ -102,7 +107,7 @@ def plot(output: Path) -> Path:
         color=ISPLITEE_COLOR,
         marker=ISPLITEE_MARKER,
         linestyle="-.",
-        label="I-SplitEE",
+        label="I-SplitEE acc.",
     )
     ax_acc.set_ylabel("Top-1 acc. (%)", labelpad=1.5)
     ax_acc.set_ylim(0, 105)
@@ -124,19 +129,32 @@ def plot(output: Path) -> Path:
         ax.set_xlim(0.8, 4.2)
         ax.set_axisbelow(True)
         ax.grid(axis="x", visible=False)
-    handles, legend_labels = ax_lat.get_legend_handles_labels()
-    fig.legend(
-        handles,
-        legend_labels,
-        loc="upper center",
-        bbox_to_anchor=(0.5, 0.995),
-        ncol=4,
-        columnspacing=0.72,
-        handlelength=1.65,
+    legend_specs = (
+        ("SEAS Mean", SEAM_COLOR, SEAM_MARKER, "-"),
+        ("I-SplitEE Mean", ISPLITEE_COLOR, SEAM_MARKER, "-"),
+        ("P95", SEAM_COLOR, "^", "--"),
+        ("P95", ISPLITEE_COLOR, "^", "--"),
+        ("Worst-dev.", SEAM_COLOR, "D", ":"),
+        ("Worst-dev.", ISPLITEE_COLOR, "D", ":"),
+        ("Acc.", SEAM_COLOR, ISPLITEE_MARKER, "-."),
+        ("Acc.", ISPLITEE_COLOR, ISPLITEE_MARKER, "-."),
     )
-    ax_acc.set_xlabel("Concurrent devices, $N$", loc="right", labelpad=1.5)
-    fig.subplots_adjust(left=0.105, right=0.99, top=0.78, bottom=0.19)
-    return save_pdf(fig, output)
+    legend_handles = [
+        Line2D(
+            [],
+            [],
+            color=color,
+            marker=marker,
+            linestyle=linestyle,
+        )
+        for _, color, marker, linestyle in legend_specs
+    ]
+    legend_labels = [label for label, _, _, _ in legend_specs]
+    add_comparison_legend(fig, legend_handles, legend_labels, ncol=4)
+    fig.supxlabel("Number of devices", x=0.5, y=0.015)
+    bold_tick_labels(ax_lat, ax_acc)
+    fig.subplots_adjust(**COMPARISON_SUBPLOTS)
+    return save_pdf(fig, output, fixed_canvas=True)
 
 
 def main() -> None:

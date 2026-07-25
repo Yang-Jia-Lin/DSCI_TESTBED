@@ -20,6 +20,14 @@ NEUTRAL_COLOR = "#6B6B6B"
 SEAM_MARKER = "o"
 ISPLITEE_MARKER = "s"
 
+COMPARISON_FIGSIZE = (3.55, 1.95)
+COMPARISON_SUBPLOTS = {
+    "left": 0.115,
+    "right": 0.99,
+    "top": 0.82,
+    "bottom": 0.25,
+}
+
 
 def apply_compact_ieee_style() -> None:
     """Configure Matplotlib for a final-width 0.24-textwidth vector panel."""
@@ -63,10 +71,69 @@ def apply_compact_ieee_style() -> None:
     )
 
 
-def save_pdf(fig: plt.Figure, output_path: Path) -> Path:
+def apply_comparison_figure_style() -> None:
+    """Apply the larger, bold typography shared by the comparison figures."""
+    apply_compact_ieee_style()
+    mpl.rcParams.update(
+        {
+            "font.size": 8.0,
+            "font.weight": "bold",
+            "axes.labelsize": 8.6,
+            "axes.labelweight": "bold",
+            "legend.fontsize": 6.8,
+            "xtick.labelsize": 7.5,
+            "ytick.labelsize": 7.5,
+        }
+    )
+
+
+def add_comparison_legend(
+    fig: plt.Figure,
+    handles: list,
+    labels: list[str],
+    *,
+    ncol: int | None = None,
+) -> plt.Legend:
+    """Place a compact, consistently styled legend above the plot area."""
+    return fig.legend(
+        handles,
+        labels,
+        loc="lower center",
+        bbox_to_anchor=(0.5, 0.83),
+        ncol=ncol or len(labels),
+        borderaxespad=0.0,
+        borderpad=0.12,
+        labelspacing=0.15,
+        handlelength=1.25,
+        handletextpad=0.35,
+        columnspacing=0.65,
+        frameon=True,
+        framealpha=0.88,
+        facecolor="white",
+        edgecolor="none",
+        prop={"size": 6.8, "weight": "bold"},
+    )
+
+
+def bold_tick_labels(*axes: plt.Axes) -> None:
+    """Keep tick-label weight consistent with the axes labels."""
+    for ax in axes:
+        for label in (*ax.get_xticklabels(), *ax.get_yticklabels()):
+            label.set_fontweight("bold")
+
+
+def save_pdf(
+    fig: plt.Figure,
+    output_path: Path,
+    *,
+    fixed_canvas: bool = False,
+) -> Path:
     """Save a vector PDF and close its Matplotlib figure."""
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(output_path, format="pdf")
+    save_kwargs = (
+        {"bbox_inches": fig.bbox_inches, "pad_inches": 0.0} if fixed_canvas else {}
+    )
+    fig.savefig(output_path, format="pdf", **save_kwargs)
     plt.close(fig)
     return output_path
 

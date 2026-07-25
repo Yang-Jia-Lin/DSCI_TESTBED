@@ -13,10 +13,14 @@ if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from Scripts.EvaluationCommon.paper_figure_style import (  # noqa: E402
+    COMPARISON_FIGSIZE,
+    COMPARISON_SUBPLOTS,
     ISPLITEE_COLOR,
     RESULTS_ROOT,
     SEAM_COLOR,
-    apply_compact_ieee_style,
+    add_comparison_legend,
+    apply_comparison_figure_style,
+    bold_tick_labels,
     save_pdf,
 )
 
@@ -29,11 +33,11 @@ ISPLITEE_LATENCY = np.array([321.28, 334.62, 307.07, 310.40, 318.28, 225.86])
 
 
 def plot(output: Path) -> Path:
-    apply_compact_ieee_style()
+    apply_comparison_figure_style()
     fig, (ax_acc, ax_lat) = plt.subplots(
         1,
         2,
-        figsize=(3.55, 1.82),
+        figsize=COMPARISON_FIGSIZE,
         sharex=True,
         gridspec_kw={"wspace": 0.30},
     )
@@ -50,7 +54,7 @@ def plot(output: Path) -> Path:
             width,
             color=SEAM_COLOR,
             edgecolor="black",
-            label="SEAM",
+            label="SEAS",
         )
         ax.bar(
             x + width / 2,
@@ -69,22 +73,15 @@ def plot(output: Path) -> Path:
     ax_acc.set_ylim(0, 105)
     ax_acc.set_yticks([0, 50, 100])
     handles, legend_labels = ax_acc.get_legend_handles_labels()
-    fig.legend(
-        handles,
-        legend_labels,
-        loc="upper center",
-        bbox_to_anchor=(0.5, 0.995),
-        ncol=2,
-        columnspacing=1.0,
-        handlelength=1.2,
-    )
+    add_comparison_legend(fig, handles, legend_labels)
     ax_lat.set_ylim(0, 360)
     ax_lat.set_yticks([0, 150, 300])
     ax_lat.set_xticks(x, LABELS, rotation=38, ha="right", rotation_mode="anchor")
     for ax in (ax_acc, ax_lat):
         ax.set_xticks(x, LABELS, rotation=38, ha="right", rotation_mode="anchor")
-    fig.subplots_adjust(left=0.105, right=0.99, top=0.82, bottom=0.25)
-    return save_pdf(fig, output)
+    bold_tick_labels(ax_acc, ax_lat)
+    fig.subplots_adjust(**COMPARISON_SUBPLOTS)
+    return save_pdf(fig, output, fixed_canvas=True)
 
 
 def main() -> None:
