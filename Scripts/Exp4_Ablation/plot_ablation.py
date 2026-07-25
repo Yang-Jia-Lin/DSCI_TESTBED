@@ -48,7 +48,8 @@ def _annotate_bars(
 
 def plot(output: Path) -> Path:
     apply_compact_ieee_style()
-    fig, ax_lat = plt.subplots(figsize=(3.55, 2.05))
+    # Match the physical axes ratio of each panel in plot_generalization.py.
+    fig, ax_lat = plt.subplots(figsize=(3.55, 3.10))
     ax_acc = ax_lat.twinx()
 
     x = np.arange(len(VARIANTS))
@@ -102,18 +103,7 @@ def plot(output: Path) -> Path:
         columnspacing=1.2,
         handlelength=1.6,
     )
-    ax_lat.text(
-        0.01,
-        0.98,
-        "Preview: placeholder data",
-        transform=ax_lat.transAxes,
-        ha="left",
-        va="top",
-        fontsize=5.6,
-        fontstyle="italic",
-    )
-
-    fig.subplots_adjust(left=0.13, right=0.88, top=0.81, bottom=0.22)
+    fig.subplots_adjust(left=0.13, right=0.88, top=0.82, bottom=0.17)
     return save_pdf(fig, output)
 
 

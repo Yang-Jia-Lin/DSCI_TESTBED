@@ -45,7 +45,13 @@ def plot_convergence(
         plt.close(fig)
 
 
-def plot_entropy(entropy_X, entropy_Y, save_dir=Path(RESULT_CONVERGENCE_PATH)):
+def plot_entropy(
+    entropy_X,
+    entropy_Y,
+    save_dir=Path(RESULT_CONVERGENCE_PATH),
+    *,
+    show: bool = True,
+):
     set_ieee_style(mode="single")
     fig, ax = plt.subplots()
     ax.plot(
@@ -76,10 +82,19 @@ def plot_entropy(entropy_X, entropy_Y, save_dir=Path(RESULT_CONVERGENCE_PATH)):
     save_fig_for_ieee(
         save_dir / f"entropy_convergence_{datetime.now().strftime('%m%d_%H%M')}"
     )
-    plt.show()
+    if show:
+        plt.show()
+    else:
+        plt.close(fig)
 
 
-def plot_lan_and_acc(latency, acc, save_dir=Path(RESULT_CONVERGENCE_PATH)):
+def plot_lan_and_acc(
+    latency,
+    acc,
+    save_dir=Path(RESULT_CONVERGENCE_PATH),
+    *,
+    show: bool = True,
+):
     set_ieee_style(mode="single")
     fig, ax1 = plt.subplots()
     ax2 = ax1.twinx()
@@ -120,7 +135,10 @@ def plot_lan_and_acc(latency, acc, save_dir=Path(RESULT_CONVERGENCE_PATH)):
     save_fig_for_ieee(
         save_dir / f"perf_tradeoff_{datetime.now().strftime('%m%d_%H%M')}"
     )
-    plt.show()
+    if show:
+        plt.show()
+    else:
+        plt.close(fig)
 
 
 if __name__ == "__main__":

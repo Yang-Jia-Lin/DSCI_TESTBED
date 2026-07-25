@@ -117,6 +117,27 @@ PPO 内部一个 episode 仍是 `n` 步。10 个用户时就是 10 步，每步�
 - `default`
 - `default:force_retrain`
 
+## PPO 收敛日志与绘图
+
+每次实际启动 PPO 训练时，服务会在
+`Data/Runtime/SolutionCache/TrainingConvergence` 下创建独立 JSONL 文件。
+文件实时追加 `training_start`、逐轮 `ppo_epoch`，以及最终的
+`training_complete` 或 `training_error`。直接复用缓存不会产生新的训练曲线。
+
+重新训练完成后，可以直接绘制最新一次有效训练：
+
+```powershell
+conda activate DSCI
+python -m Scripts.Exp5_System_Overhead.run_convergence `
+  --ppo-source Data/Runtime/SolutionCache/TrainingConvergence `
+  --output-dir Scripts/Results/Exp5_System_Overhead `
+  --convergence-only
+```
+
+输出目录以本次训练日志文件名命名，包含 `ppo_convergence.csv`，以及 utility、
+entropy、latency/accuracy 三组 PNG/PDF。`--ppo-source` 也兼容旧实验目录中的
+`metrics.jsonl`，或某个指定的收敛 JSONL 文件。
+
 ## 当前边界
 
 当前版本没有启用在线 PPO 微调。`report_measurements()` 仍只计算和记录实测 reward，并返回 `policy_updated=False`。也就是说，本次改造解决的是“状态变化时 PPO 收敛加速”，不是“利用线上实测反馈持续更新 policy”。
