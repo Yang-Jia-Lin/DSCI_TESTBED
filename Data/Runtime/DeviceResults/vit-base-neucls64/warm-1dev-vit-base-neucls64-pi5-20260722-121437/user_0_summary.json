@@ -1,5 +1,41 @@
 {
   "accuracy": 0.9833333333333333,
+  "accuracy_full_test": {
+    "accuracy": 0.9814814814814815,
+    "backend": "pytorch",
+    "bundle_id": "vit-base-neucls64",
+    "correct": 265,
+    "evaluated_at_utc": "2026-07-24T12:21:02.706204+00:00",
+    "evaluation_mode": "offline_batched_early_exit",
+    "exit_counts": {
+      "after_block3": 185,
+      "after_block6": 38,
+      "after_block9": 37,
+      "final": 10
+    },
+    "exit_thresholds": {
+      "after_block3": 0.6391654014587402,
+      "after_block6": 0.7278070449829102,
+      "after_block9": 0.4300000071525574
+    },
+    "model_hash": "9cb682d2176c43a21b127c7bd0680c5d2b8c172a22d40eb9c957df255d421c31",
+    "samples": 270,
+    "sampling": {
+      "policy": "full_test",
+      "seed_derivation": null,
+      "seed_source": null
+    },
+    "source_fallback_samples": 0,
+    "test_package": {
+      "dataset_id": "neucls64",
+      "full_test_pool": true,
+      "missing_or_empty_files": 0,
+      "package_created_at": "2026-07-23T01:43:01.380176+00:00",
+      "package_root": "Data/Datasets/NEU-CLS-64/TestSets/neucls64__test__balanced__full",
+      "source_manifest_sha256": "300c63ce766edf7a258d8651bae69ae50e39033738b897e01c17c073310b0642",
+      "total_samples": 270
+    }
+  },
   "accuracy_refresh": {
     "accuracy": 0.98,
     "backend": "pytorch",

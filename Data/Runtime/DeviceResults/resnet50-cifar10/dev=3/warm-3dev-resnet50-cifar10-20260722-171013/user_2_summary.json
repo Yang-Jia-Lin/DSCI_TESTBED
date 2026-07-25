@@ -1,5 +1,41 @@
 {
   "accuracy": 0.98,
+  "accuracy_full_test": {
+    "accuracy": 0.9556,
+    "backend": "pytorch",
+    "bundle_id": "resnet50-cifar10",
+    "correct": 9556,
+    "evaluated_at_utc": "2026-07-24T11:56:25.431636+00:00",
+    "evaluation_mode": "offline_batched_early_exit",
+    "exit_counts": {
+      "after_layer1": 14,
+      "after_layer2": 84,
+      "after_layer3": 5973,
+      "final": 3929
+    },
+    "exit_thresholds": {
+      "after_layer1": 0.8500000238418579,
+      "after_layer2": 0.9200000166893005,
+      "after_layer3": 0.8288915753364563
+    },
+    "model_hash": "42222e588316eba09b272dd13e261ab47f674256446150916379c4945be9aad2",
+    "samples": 10000,
+    "sampling": {
+      "policy": "full_test",
+      "seed_derivation": null,
+      "seed_source": null
+    },
+    "source_fallback_samples": 0,
+    "test_package": {
+      "dataset_id": "cifar10",
+      "full_test_pool": true,
+      "missing_or_empty_files": 0,
+      "package_created_at": "2026-07-23T01:42:52.633010+00:00",
+      "package_root": "Data/Datasets/CIFAR10/TestSets/cifar10__test__balanced__full",
+      "source_manifest_sha256": "76d91f656719814818b082f2b17689796c623ec8f71c37deac4776ec2ea26b45",
+      "total_samples": 10000
+    }
+  },
   "accuracy_refresh": {
     "accuracy": 0.96,
     "backend": "pytorch",

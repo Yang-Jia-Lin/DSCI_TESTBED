@@ -13,7 +13,7 @@ from Src.Phase2_Scheduler.paras import Paras
 from Src.Shared.Config.visualization import COLORS
 
 
-def plot_X(X_opt, EE_layers, save_dir: Path):
+def plot_X(X_opt, EE_layers, save_dir: Path, *, show: bool = True):
     """
     绘制决策变量 X (模型划分) 的热力图
     """
@@ -43,10 +43,13 @@ def plot_X(X_opt, EE_layers, save_dir: Path):
     # 保存
     save_dir.mkdir(parents=True, exist_ok=True)
     save_fig_for_ieee(save_dir / f"Decision_X_{datetime.now().strftime('%m%d_%H%M')}")
-    plt.show()
+    if show:
+        plt.show()
+    else:
+        plt.close(fig)
 
 
-def plot_Y(Y_opt, EE_layers, save_dir: Path):
+def plot_Y(Y_opt, EE_layers, save_dir: Path, *, show: bool = True):
     """
     绘制决策变量 Y (早退阈值) 的热力图
     """
@@ -72,7 +75,10 @@ def plot_Y(Y_opt, EE_layers, save_dir: Path):
 
     save_dir.mkdir(parents=True, exist_ok=True)
     save_fig_for_ieee(save_dir / f"Decision_Y_{datetime.now().strftime('%m%d_%H%M')}")
-    plt.show()
+    if show:
+        plt.show()
+    else:
+        plt.close(fig)
 
 
 if __name__ == "__main__":

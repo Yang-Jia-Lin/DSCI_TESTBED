@@ -1,5 +1,41 @@
 {
   "accuracy": 0.92,
+  "accuracy_full_test": {
+    "accuracy": 0.941,
+    "backend": "pytorch",
+    "bundle_id": "vit-base-imagenet100",
+    "correct": 4705,
+    "evaluated_at_utc": "2026-07-24T12:20:38.823546+00:00",
+    "evaluation_mode": "offline_batched_early_exit",
+    "exit_counts": {
+      "after_block3": 626,
+      "after_block6": 1198,
+      "after_block9": 1303,
+      "final": 1873
+    },
+    "exit_thresholds": {
+      "after_block3": 0.8683868646621704,
+      "after_block6": 0.9491637349128723,
+      "after_block9": 0.9356079697608948
+    },
+    "model_hash": "8ba86dc0d02e651af3fdc0a51f4e3eaa8b56b3d482d3d49b31ad425e3591a7f4",
+    "samples": 5000,
+    "sampling": {
+      "policy": "full_test",
+      "seed_derivation": null,
+      "seed_source": null
+    },
+    "source_fallback_samples": 0,
+    "test_package": {
+      "dataset_id": "imagenet100",
+      "full_test_pool": true,
+      "missing_or_empty_files": 0,
+      "package_created_at": "2026-07-23T01:43:00.906208+00:00",
+      "package_root": "Data/Datasets/ImageNet100/TestSets/imagenet100__test__balanced__full",
+      "source_manifest_sha256": "c571f7c6e8392b69e23d2f12fdd79c2b22e377f00f58461342c2b5415d021d7f",
+      "total_samples": 5000
+    }
+  },
   "accuracy_refresh": {
     "accuracy": 0.93,
     "backend": "pytorch",

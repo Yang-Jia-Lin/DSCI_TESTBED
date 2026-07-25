@@ -79,9 +79,14 @@ def save_experiment_results(
     )
 
     # ======== 4) 绘制并保存曲线 ========
-    plot_convergence(history, alg_name=f"{algo_name}_Convergence", save_dir=exp_dir)
-    plot_X(X_opt, paras.E, save_dir=exp_dir)
-    plot_Y(Y_opt, paras.E, save_dir=exp_dir)
+    plot_convergence(
+        history,
+        alg_name=f"{algo_name}_Convergence",
+        save_dir=exp_dir,
+        show=False,
+    )
+    plot_X(X_opt, paras.E, save_dir=exp_dir, show=False)
+    plot_Y(Y_opt, paras.E, save_dir=exp_dir, show=False)
 
 
 def load_and_analyze_results(exp_dir: Path, analysis=True):

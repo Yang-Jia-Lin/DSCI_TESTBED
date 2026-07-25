@@ -13,7 +13,11 @@ from Src.Shared.Config.visualization import COLORS
 
 
 def plot_convergence(
-    utility, save_dir: Path = Path(RESULT_CONVERGENCE_PATH), alg_name: str = "DSCI"
+    utility,
+    save_dir: Path = Path(RESULT_CONVERGENCE_PATH),
+    alg_name: str = "DSCI",
+    *,
+    show: bool = True,
 ):
     """
     Plot the convergence curve include DSCI、BF、GA
@@ -22,7 +26,7 @@ def plot_convergence(
 
     # 绘图
     set_ieee_style(mode="single")
-    plt.figure()
+    fig = plt.figure()
     plt.plot(utility, color=COLORS["blue"], label=alg_name, linewidth=1.5)
     plt.xlabel("Epoch")
     plt.ylabel("Utility")
@@ -35,10 +39,19 @@ def plot_convergence(
         save_dir
         / f"{alg_name}_utility_convergence_{datetime.now().strftime('%m%d_%H%M')}"
     )
-    plt.show()
+    if show:
+        plt.show()
+    else:
+        plt.close(fig)
 
 
-def plot_entropy(entropy_X, entropy_Y, save_dir=Path(RESULT_CONVERGENCE_PATH)):
+def plot_entropy(
+    entropy_X,
+    entropy_Y,
+    save_dir=Path(RESULT_CONVERGENCE_PATH),
+    *,
+    show: bool = True,
+):
     set_ieee_style(mode="single")
     fig, ax = plt.subplots()
     ax.plot(
@@ -69,10 +82,19 @@ def plot_entropy(entropy_X, entropy_Y, save_dir=Path(RESULT_CONVERGENCE_PATH)):
     save_fig_for_ieee(
         save_dir / f"entropy_convergence_{datetime.now().strftime('%m%d_%H%M')}"
     )
-    plt.show()
+    if show:
+        plt.show()
+    else:
+        plt.close(fig)
 
 
-def plot_lan_and_acc(latency, acc, save_dir=Path(RESULT_CONVERGENCE_PATH)):
+def plot_lan_and_acc(
+    latency,
+    acc,
+    save_dir=Path(RESULT_CONVERGENCE_PATH),
+    *,
+    show: bool = True,
+):
     set_ieee_style(mode="single")
     fig, ax1 = plt.subplots()
     ax2 = ax1.twinx()
@@ -113,7 +135,10 @@ def plot_lan_and_acc(latency, acc, save_dir=Path(RESULT_CONVERGENCE_PATH)):
     save_fig_for_ieee(
         save_dir / f"perf_tradeoff_{datetime.now().strftime('%m%d_%H%M')}"
     )
-    plt.show()
+    if show:
+        plt.show()
+    else:
+        plt.close(fig)
 
 
 if __name__ == "__main__":

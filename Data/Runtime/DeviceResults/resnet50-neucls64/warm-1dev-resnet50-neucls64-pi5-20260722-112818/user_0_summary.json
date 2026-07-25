@@ -1,5 +1,40 @@
 {
   "accuracy": 0.9833333333333333,
+  "accuracy_full_test": {
+    "accuracy": 0.9851851851851852,
+    "backend": "pytorch",
+    "bundle_id": "resnet50-neucls64",
+    "correct": 266,
+    "evaluated_at_utc": "2026-07-24T11:59:41.085504+00:00",
+    "evaluation_mode": "offline_batched_early_exit",
+    "exit_counts": {
+      "after_layer2": 64,
+      "after_layer3": 137,
+      "final": 69
+    },
+    "exit_thresholds": {
+      "after_layer1": 0.9991942048072815,
+      "after_layer2": 0.5910840034484863,
+      "after_layer3": 0.6344234347343445
+    },
+    "model_hash": "1db94b9047482ca37e3b8dce249b2fc1836c1f2bb20e240797ae865c47c2e8ba",
+    "samples": 270,
+    "sampling": {
+      "policy": "full_test",
+      "seed_derivation": null,
+      "seed_source": null
+    },
+    "source_fallback_samples": 0,
+    "test_package": {
+      "dataset_id": "neucls64",
+      "full_test_pool": true,
+      "missing_or_empty_files": 0,
+      "package_created_at": "2026-07-23T01:43:01.380176+00:00",
+      "package_root": "Data/Datasets/NEU-CLS-64/TestSets/neucls64__test__balanced__full",
+      "source_manifest_sha256": "300c63ce766edf7a258d8651bae69ae50e39033738b897e01c17c073310b0642",
+      "total_samples": 270
+    }
+  },
   "accuracy_refresh": {
     "accuracy": 0.99,
     "backend": "pytorch",

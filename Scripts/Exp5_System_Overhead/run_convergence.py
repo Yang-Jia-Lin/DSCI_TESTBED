@@ -37,7 +37,7 @@ from Scripts.Exp5_System_Overhead.plot_convergency import (
     plot_entropy,
     plot_lan_and_acc,
 )
-from Scripts.Exp5_System_Overhead.plot_dsci_startup_overhead
+from Scripts.Exp5_System_Overhead.plot_dsci_startup_overhead import (
     generate_startup_overhead_artifacts,
 )
 from Src.Phase2_Scheduler.Optimizer.BF.alg_BF import optimize_BF
@@ -49,8 +49,19 @@ from Src.Shared.Utils.phase_timing import PHASE1_OVERHEAD_LOG
 
 
 DEFAULT_PPO_DIR = Path("Scripts/Results/Optimize/DSCI_20260202_040737")
+DEFAULT_TRAINING_CONVERGENCE_DIR = Path(
+    "Data/Runtime/SolutionCache/TrainingConvergence"
+)
 DEFAULT_DEVICE_RESULTS = Path("Data/Runtime/DeviceResults")
 PHASE1_PROFILE_STEPS = ("profile_segments",)
+PPO_CONVERGENCE_COLUMNS = (
+    "epoch",
+    "outer_obj",
+    "entropy_X",
+    "entropy_Y",
+    "latency",
+    "acc",
+)
 PHASE3_COMPONENTS = (
     "device_compute",
     "d2e_transmission",
@@ -60,19 +71,94 @@ PHASE3_COMPONENTS = (
 )
 
 
+def _read_ppo_metrics_file(path: Path) -> pd.DataFrame:
+    if path.suffix.lower() == ".csv":
+        frame = pd.read_csv(path)
+    else:
+        frame = load_metrics_jsonl(path)
+    if "event" in frame:
+        frame = frame[frame["event"] == "ppo_epoch"].copy()
+        frame = frame.dropna(axis="columns", how="all")
+    return frame
+
+
+def load_ppo_convergence_metrics(
+    source: str | Path,
+) -> tuple[pd.DataFrame, Path]:
+    """Load one old metrics.jsonl or one Scheduler convergence JSONL run."""
+    source = Path(source)
+    if source.is_file():
+        candidates = [source]
+    elif source.is_dir():
+        legacy_path = source / "metrics.jsonl"
+        if legacy_path.is_file():
+            candidates = [legacy_path]
+        else:
+            candidates = sorted(
+                source.glob("*.jsonl"),
+                key=lambda path: (path.stat().st_mtime_ns, path.name),
+                reverse=True,
+            )
+    else:
+        raise FileNotFoundError(f"PPO convergence source does not exist: {source}")
+
+    if not candidates:
+        raise FileNotFoundError(
+            f"No metrics.jsonl or convergence *.jsonl file was found in: {source}"
+        )
+
+    rejected: list[str] = []
+    for path in candidates:
+        frame = _read_ppo_metrics_file(path)
+        if frame.empty:
+            rejected.append(f"{path.name}: no ppo_epoch rows")
+            continue
+        missing = [column for column in PPO_CONVERGENCE_COLUMNS if column not in frame]
+        if missing:
+            rejected.append(f"{path.name}: missing {', '.join(missing)}")
+            continue
+        frame = frame.copy()
+        for column in PPO_CONVERGENCE_COLUMNS:
+            frame[column] = pd.to_numeric(frame[column], errors="raise")
+        if not np.equal(frame["epoch"], np.floor(frame["epoch"])).all():
+            raise ValueError(f"Epoch values must be integers in: {path}")
+        frame["epoch"] = frame["epoch"].astype(int)
+        frame = frame.sort_values("epoch", kind="stable").reset_index(drop=True)
+        return frame, path
+
+    details = "; ".join(rejected)
+    raise ValueError(f"No plottable PPO epoch log was found in {source}. {details}")
+
+
+def default_ppo_convergence_source() -> Path:
+    """Prefer a fresh Scheduler convergence run, then fall back to legacy data."""
+    if DEFAULT_TRAINING_CONVERGENCE_DIR.is_dir():
+        try:
+            load_ppo_convergence_metrics(DEFAULT_TRAINING_CONVERGENCE_DIR)
+        except (FileNotFoundError, ValueError):
+            pass
+        else:
+            return DEFAULT_TRAINING_CONVERGENCE_DIR
+    return DEFAULT_PPO_DIR
+
+
 def run_convergence_analysis(
-    data_dir: Path,
+    data_source: str | Path,
     output_dir: Path = EXP3_RESULT_DIR,
 ) -> Path:
-    metrics_path = Path(data_dir) / "metrics.jsonl"
-    df = load_metrics_jsonl(metrics_path)
-    fig_save_dir = Path(output_dir) / Path(data_dir).name
+    df, metrics_path = load_ppo_convergence_metrics(data_source)
+    source_path = Path(data_source)
+    run_name = source_path.name if source_path.is_file() else metrics_path.parent.name
+    if metrics_path.name != "metrics.jsonl":
+        run_name = metrics_path.stem
+    fig_save_dir = Path(output_dir) / run_name
     fig_save_dir.mkdir(parents=True, exist_ok=True)
-    plot_convergence(df["outer_obj"], fig_save_dir)
-    plot_entropy(df["entropy_X"], df["entropy_Y"], fig_save_dir)
-    plot_lan_and_acc(df["latency"], df["acc"], fig_save_dir)
+    plot_convergence(df["outer_obj"], fig_save_dir, show=False)
+    plot_entropy(df["entropy_X"], df["entropy_Y"], fig_save_dir, show=False)
+    plot_lan_and_acc(df["latency"], df["acc"], fig_save_dir, show=False)
     csv_path = fig_save_dir / "ppo_convergence.csv"
     df.to_csv(csv_path, index=False, encoding="utf-8-sig")
+    print(f"convergence source: {metrics_path}")
     return csv_path
 
 
@@ -202,7 +288,7 @@ def run_optimizer_baselines(
 
 def run_ppo_vs_baselines(
     *,
-    ppo_dir: str | Path,
+    ppo_source: str | Path,
     solution_npz: str | Path = DEFAULT_SOLUTION_NPZ,
     solution_meta: str | Path = DEFAULT_SOLUTION_META,
     output_dir: str | Path = EXP3_RESULT_DIR,
@@ -218,7 +304,8 @@ def run_ppo_vs_baselines(
         greedy_passes=greedy_passes,
         bf_max_iter=bf_max_iter,
     )
-    ppo = normalize_ppo_metrics(load_metrics_jsonl(Path(ppo_dir) / "metrics.jsonl"))
+    ppo_metrics, _ = load_ppo_convergence_metrics(ppo_source)
+    ppo = normalize_ppo_metrics(ppo_metrics)
     baselines = pd.read_csv(outputs["optimizer_baselines"])
     max_episode = int(ppo["episode"].max()) if not ppo.empty else 0
     baseline_rows = []
@@ -440,9 +527,19 @@ def write_exp3_summary(*, output_dir: str | Path, outputs: dict[str, Path]) -> P
 def main(argv=None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
+        "--ppo-source",
         "--ppo-dir",
-        default=str(DEFAULT_PPO_DIR),
-        help="Directory containing metrics.jsonl.",
+        dest="ppo_source",
+        help=(
+            "Old experiment directory/metrics.jsonl, or a Scheduler "
+            "TrainingConvergence directory/JSONL file. Defaults to the latest "
+            "fresh Scheduler run, falling back to the legacy experiment."
+        ),
+    )
+    parser.add_argument(
+        "--convergence-only",
+        action="store_true",
+        help="Only export the PPO convergence CSV and figures.",
     )
     parser.add_argument("--solution-npz", default=str(DEFAULT_SOLUTION_NPZ))
     parser.add_argument("--solution-meta", default=str(DEFAULT_SOLUTION_META))
@@ -459,12 +556,19 @@ def main(argv=None) -> None:
     args = parser.parse_args(argv)
 
     generated_outputs: dict[str, Path] = {}
-    if args.ppo_dir:
-        path = run_convergence_analysis(Path(args.ppo_dir), Path(args.output_dir))
+    ppo_source = (
+        Path(args.ppo_source)
+        if args.ppo_source
+        else default_ppo_convergence_source()
+    )
+    if ppo_source:
+        path = run_convergence_analysis(ppo_source, Path(args.output_dir))
         print(f"convergence: {path}")
-        if args.run_optimizer_baselines or not args.skip_optimizer_baselines:
+        if not args.convergence_only and (
+            args.run_optimizer_baselines or not args.skip_optimizer_baselines
+        ):
             comparison_outputs = run_ppo_vs_baselines(
-                ppo_dir=args.ppo_dir,
+                ppo_source=ppo_source,
                 solution_npz=args.solution_npz,
                 solution_meta=args.solution_meta,
                 output_dir=args.output_dir,
@@ -487,6 +591,8 @@ def main(argv=None) -> None:
         for name, path in baseline_outputs.items():
             print(f"{name}: {path}")
         generated_outputs.update(baseline_outputs)
+    if args.convergence_only:
+        return
     outputs = run_overhead_summary(
         output_dir=args.output_dir,
         training_events=args.training_events,

@@ -11,6 +11,7 @@ import argparse
 import contextlib
 import io
 import json
+import random
 import time
 from datetime import datetime
 from itertools import product
@@ -34,6 +35,7 @@ from Src.Phase2_Scheduler.Optimizer.Greedy.alg_greedy import optimize_greedy
 from Src.Phase2_Scheduler.Optimizer.Random.alg_random import optimize_random
 from Src.Phase2_Scheduler.Optimizer.baseline_common import evaluate_candidate
 from Src.Phase2_Scheduler.paras import Paras
+from Src.Shared.Config.visualization import COLORS
 from Src.Shared.Config.paths import RESULT_DIR
 from Src.Shared.Partitioning.split_actions import enumerate_deployment_pairs
 from Src.Shared.Utils.plot_utils import save_fig_for_ieee, set_ieee_style
@@ -176,6 +178,8 @@ def run_baselines(
                 population_size=ga_population_size,
                 generations=ga_generations,
                 mutation_rate=ga_mutation_rate,
+                seed=seed,
+                verbose=verbose_optimizers,
                 return_metrics=True,
             )
         ga_elapsed = time.perf_counter() - started
@@ -288,7 +292,16 @@ def ppo_solution_curve(bundle: SolutionBundle) -> pd.DataFrame:
 
 
 def train_ppo_curve(bundle: SolutionBundle, args: argparse.Namespace) -> pd.DataFrame:
+    import torch
+
     from Src.Phase2_Scheduler.Optimizer.DSCI.agent import PPOAgent
+
+    seed = int(args.seed)
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
 
     params = dict(DEFAULT_PPO_PARAMS)
     params.update(
@@ -306,15 +319,16 @@ def train_ppo_curve(bundle: SolutionBundle, args: argparse.Namespace) -> pd.Data
         raise RuntimeError("PPO training produced no metrics")
     ppo["algorithm"] = "DSCI"
     ppo["curve_type"] = "dsci_train"
+    ppo["stage"] = "training"
     if float(best_val) > float(ppo["utility"].max()):
         last = ppo.sort_values("episode").iloc[-1].to_dict()
         last["step"] = int(last["step"]) + 1
-        last["episode"] = int(last["episode"]) + int(max(1, ppo["episode"].diff().dropna().median() if len(ppo) > 1 else 1))
         last["best_obj"] = float(best_val)
         last["current_obj"] = float(best_val)
         last["utility"] = float(best_val)
         last["elapsed_s"] = float(time.perf_counter() - started)
         last["curve_type"] = "dsci_train"
+        last["stage"] = "deterministic_polish"
         ppo = pd.concat([ppo, pd.DataFrame([last])], ignore_index=True)
     ppo["best_obj"] = ppo["utility"].astype(float).cummax()
     ppo["utility"] = ppo["best_obj"]
@@ -420,6 +434,142 @@ def build_summary(ppo: pd.DataFrame, baselines: pd.DataFrame) -> pd.DataFrame:
             }
         )
     return pd.DataFrame(rows)
+
+
+def build_search_process_metrics(
+    ppo: pd.DataFrame,
+    baselines: pd.DataFrame,
+    *,
+    random_window_size: int,
+) -> pd.DataFrame:
+    """Align PPO epochs, GA generations, and Random windows as batch statistics."""
+    rows: list[dict[str, Any]] = []
+
+    if {"batch_mean_obj", "batch_std_obj"}.issubset(ppo.columns):
+        training = ppo.copy()
+        if "stage" in training.columns:
+            training = training[training["stage"] == "training"]
+        for batch_index, row in enumerate(training.itertuples(index=False)):
+            mean_obj = float(row.batch_mean_obj)
+            std_obj = float(row.batch_std_obj)
+            if not np.isfinite(mean_obj):
+                continue
+            rows.append(
+                {
+                    "algorithm": "DSCI",
+                    "batch": int(batch_index),
+                    "evaluations": int(row.evaluations),
+                    "mean_obj": mean_obj,
+                    "std_obj": std_obj if np.isfinite(std_obj) else 0.0,
+                    "batch_size": int(row.batch_size),
+                    "statistic": "episode_mean",
+                }
+            )
+
+    ga = baselines[baselines["algorithm"] == "GA"].copy()
+    if {"batch_mean_obj", "batch_std_obj"}.issubset(ga.columns):
+        for batch_index, row in enumerate(ga.itertuples(index=False)):
+            mean_obj = float(row.batch_mean_obj)
+            std_obj = float(row.batch_std_obj)
+            if not np.isfinite(mean_obj):
+                continue
+            rows.append(
+                {
+                    "algorithm": "GA",
+                    "batch": int(batch_index),
+                    "evaluations": int(row.evaluations),
+                    "mean_obj": mean_obj,
+                    "std_obj": std_obj if np.isfinite(std_obj) else 0.0,
+                    "batch_size": int(row.batch_size),
+                    "statistic": "population_mean",
+                }
+            )
+
+    random_rows = (
+        baselines[baselines["algorithm"] == "Random"]
+        .sort_values("evaluations")
+        .reset_index(drop=True)
+    )
+    window_size = int(random_window_size)
+    if window_size <= 0:
+        raise ValueError("random_window_size must be positive")
+    for batch_index, start in enumerate(range(0, len(random_rows), window_size)):
+        window = random_rows.iloc[start : start + window_size]
+        values = window["current_obj"].astype(float).to_numpy()
+        if values.size == 0:
+            continue
+        rows.append(
+            {
+                "algorithm": "Random",
+                "batch": int(batch_index),
+                "evaluations": int(window["evaluations"].max()),
+                "mean_obj": float(np.mean(values)),
+                "std_obj": float(np.std(values, ddof=0)),
+                "batch_size": int(values.size),
+                "statistic": "window_mean",
+            }
+        )
+
+    frame = pd.DataFrame(rows)
+    if frame.empty:
+        return frame
+    frame["lower_obj"] = frame["mean_obj"] - frame["std_obj"]
+    frame["upper_obj"] = frame["mean_obj"] + frame["std_obj"]
+    return frame.sort_values(["algorithm", "evaluations"]).reset_index(drop=True)
+
+
+def plot_search_training_process(
+    metrics: pd.DataFrame, output_dir: str | Path
+) -> Path:
+    """Plot non-monotonic batch quality with one-standard-deviation bands."""
+    if metrics.empty:
+        raise ValueError("Search-process metrics are empty")
+
+    output_dir = Path(output_dir)
+    set_ieee_style(mode="single")
+    fig, ax = plt.subplots()
+    colors = {
+        "DSCI": COLORS["blue"],
+        "GA": COLORS["green"],
+        "Random": "#ff7f0e",
+    }
+    line_styles = {"DSCI": "-", "GA": "--", "Random": ":"}
+
+    for algorithm in ("DSCI", "GA", "Random"):
+        group = metrics[metrics["algorithm"] == algorithm].sort_values(
+            "evaluations"
+        )
+        if group.empty:
+            continue
+        x = group["evaluations"].to_numpy(dtype=float)
+        mean = group["mean_obj"].to_numpy(dtype=float)
+        lower = group["lower_obj"].to_numpy(dtype=float)
+        upper = group["upper_obj"].to_numpy(dtype=float)
+        color = colors[algorithm]
+        ax.plot(
+            x,
+            mean,
+            color=color,
+            linestyle=line_styles[algorithm],
+            linewidth=1.6,
+            label=algorithm,
+        )
+        ax.fill_between(x, lower, upper, color=color, alpha=0.12, linewidth=0)
+
+    ax.set_xlabel("Candidate Evaluations")
+    ax.set_ylabel("Batch Mean Utility")
+    ax.legend(
+        loc="lower center",
+        bbox_to_anchor=(0.5, 1.01),
+        ncol=3,
+        frameon=False,
+        borderaxespad=0.0,
+    )
+    fig.tight_layout(pad=0.2)
+    target = output_dir / "search_training_process"
+    save_fig_for_ieee(target, fig=fig)
+    plt.close(fig)
+    return target
 
 
 def plot_ppo_vs_baselines(metrics: pd.DataFrame, output_dir: str | Path) -> Path:
@@ -555,6 +705,8 @@ def write_config(args: argparse.Namespace, output_dir: Path, paras: Paras) -> Pa
         "ga_population_size": int(args.ga_population_size),
         "ga_generations": int(args.ga_generations),
         "ga_mutation_rate": float(args.ga_mutation_rate),
+        "search_process_random_window_size": int(args.ga_population_size),
+        "search_process_std_ddof": 0,
         "bf_scope": "coordinate exhaustive baseline from optimize_BF",
     }
     target = output_dir / "config.json"
@@ -596,6 +748,11 @@ def run_algorithm_contrast(args: argparse.Namespace) -> dict[str, Path]:
     )
     comparison = build_ppo_vs_baselines(ppo, baselines)
     summary = build_summary(ppo, baselines)
+    search_process = build_search_process_metrics(
+        ppo,
+        baselines,
+        random_window_size=args.ga_population_size,
+    )
 
     paths: dict[str, Path] = {}
     paths["config"] = write_config(args, output_dir, paras)
@@ -611,6 +768,10 @@ def run_algorithm_contrast(args: argparse.Namespace) -> dict[str, Path]:
     comparison.to_csv(paths["ppo_vs_baselines"], index=False, encoding="utf-8-sig")
     paths["summary"] = output_dir / "final_summary.csv"
     summary.to_csv(paths["summary"], index=False, encoding="utf-8-sig")
+    paths["search_process_metrics"] = output_dir / "search_training_process.csv"
+    search_process.to_csv(
+        paths["search_process_metrics"], index=False, encoding="utf-8-sig"
+    )
     if ppo.attrs.get("solution") is not None:
         paths["dsci_solution_npz"] = write_solution_npz(
             output_dir,
@@ -628,6 +789,9 @@ def run_algorithm_contrast(args: argparse.Namespace) -> dict[str, Path]:
     paths["optimizer_progress_fig"] = plot_optimizer_progress(baselines, output_dir)
     paths["time_progress_fig"] = plot_time_progress(comparison, output_dir)
     paths["final_utility_bar_fig"] = plot_final_utility_bar(summary, output_dir)
+    paths["search_training_process_fig"] = plot_search_training_process(
+        search_process, output_dir
+    )
     return paths
 
 

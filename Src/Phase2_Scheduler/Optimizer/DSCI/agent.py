@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import time
 from pathlib import Path
-from typing import cast
+from typing import Callable, cast
 
 import numpy as np
 import torch
@@ -688,7 +688,11 @@ class PPOAgent:
         final_obj = objective_for(X_best, Y_best)
         return final_obj, (X_best, Y_best, F_e.copy(), F_c.copy())
 
-    def train(self, initial_solution=None):
+    def train(
+        self,
+        initial_solution=None,
+        epoch_log_callback: Callable[[dict], None] | None = None,
+    ):
         started_at = time.perf_counter()
         best_val = -np.inf
         best_sol = None
@@ -834,6 +838,11 @@ class PPOAgent:
                 if len(episode_final_objs) > 0
                 else float("nan")
             )
+            std_epoch_obj = (
+                float(np.std(episode_final_objs, ddof=0))
+                if len(episode_final_objs) > 0
+                else float("nan")
+            )
             mean_entropy_X = (
                 float(np.mean(entropy_X_list))
                 if len(entropy_X_list) > 0
@@ -876,25 +885,47 @@ class PPOAgent:
                 self.best_policy_state_dict = {
                     k: v.clone() for k, v in self.policy.state_dict().items()
                 }
-            self.logs.append(
-                {
-                    "epoch": int(epoch),
-                    "inner_best_obj": inner_best_obj,
-                    "outer_obj": outer_obj,
-                    "inner_mean_obj": float(
-                        mean_epoch_obj
-                    ),  # 这个仍然是旧资源下 episode mean
-                    "latency": float(latency),
-                    "acc": float(acc),
-                    "entropy_X": float(mean_entropy_X),
-                    "entropy_Y": float(mean_entropy_Y),
-                    "entropy_coef": float(entropy_coef),
-                    "y_variance_coef": float(y_variance_coef),
-                    "steps_collected": int(steps),
-                    "num_episodes": int(len(episode_final_objs)),
-                    "elapsed_s": float(time.perf_counter() - started_at),
-                }
-            )
+            rel_change = None
+            cv = None
+            converged = False
+            if len(history) >= 2 * patience:
+                current_window = history[-patience:]
+                previous_window = history[-2 * patience : -patience]
+                curr_mean = np.mean(current_window)
+                prev_mean = np.mean(previous_window)
+                rel_change = float(
+                    abs(curr_mean - prev_mean) / (abs(prev_mean) + 1e-10)
+                )
+                cv = float(np.std(current_window) / (abs(curr_mean) + 1e-10))
+                converged = bool(
+                    epoch > min_epochs
+                    and rel_change < rel_tolerance
+                    and cv < (rel_tolerance * 5)
+                )
+            epoch_log = {
+                "epoch": int(epoch),
+                "inner_best_obj": inner_best_obj,
+                "outer_obj": outer_obj,
+                "inner_mean_obj": float(
+                    mean_epoch_obj
+                ),  # 这个仍然是旧资源下 episode mean
+                "inner_std_obj": float(std_epoch_obj),
+                "latency": float(latency),
+                "acc": float(acc),
+                "entropy_X": float(mean_entropy_X),
+                "entropy_Y": float(mean_entropy_Y),
+                "entropy_coef": float(entropy_coef),
+                "y_variance_coef": float(y_variance_coef),
+                "steps_collected": int(steps),
+                "num_episodes": int(len(episode_final_objs)),
+                "elapsed_s": float(time.perf_counter() - started_at),
+                "convergence_rel_change": rel_change,
+                "convergence_cv": cv,
+                "converged": converged,
+            }
+            self.logs.append(epoch_log)
+            if epoch_log_callback is not None:
+                epoch_log_callback(dict(epoch_log))
             if self.evaluator is not None:
                 self.evaluator.record("ppo", epoch, outer_obj, self.evaluator.best_value)
             print(
@@ -909,17 +940,10 @@ class PPOAgent:
 
             # 收敛检测（窗口内波动很小就停）
 
-            if epoch > min_epochs and len(history) >= 2 * patience:
-                current_window = history[-patience:]
-                previous_window = history[-2 * patience : -patience]
-                curr_mean = np.mean(current_window)
-                prev_mean = np.mean(previous_window)
-                rel_change = abs(curr_mean - prev_mean) / (abs(prev_mean) + 1e-10)
-                cv = np.std(current_window) / (abs(curr_mean) + 1e-10)
-                if rel_change < rel_tolerance and cv < (rel_tolerance * 5):
-                    print("[Early Stop] Converged!")
-                    print(f"Epoch: {epoch}, Rel Change: {rel_change:.6f}, CV: {cv:.6f}")
-                    break
+            if converged:
+                print("[Early Stop] Converged!")
+                print(f"Epoch: {epoch}, Rel Change: {rel_change:.6f}, CV: {cv:.6f}")
+                break
 
         if (
             getattr(self.paras, "resource_mode", None) == "fixed_worker_pool"
