@@ -93,13 +93,14 @@ def add_comparison_legend(
     labels: list[str],
     *,
     ncol: int | None = None,
+    anchor_y: float = 0.83,
 ) -> plt.Legend:
     """Place a compact, consistently styled legend above the plot area."""
     return fig.legend(
         handles,
         labels,
         loc="lower center",
-        bbox_to_anchor=(0.5, 0.83),
+        bbox_to_anchor=(0.5, anchor_y),
         ncol=ncol or len(labels),
         borderaxespad=0.0,
         borderpad=0.12,

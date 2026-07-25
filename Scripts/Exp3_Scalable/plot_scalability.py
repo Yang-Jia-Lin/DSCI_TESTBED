@@ -151,9 +151,9 @@ def plot(output: Path) -> Path:
     ]
     legend_labels = [label for label, _, _, _ in legend_specs]
     add_comparison_legend(fig, legend_handles, legend_labels, ncol=4)
-    fig.supxlabel("Number of devices", x=0.5, y=0.015)
+    fig.supxlabel("Number of devices", x=0.5, y=0.02)
     bold_tick_labels(ax_lat, ax_acc)
-    fig.subplots_adjust(**COMPARISON_SUBPLOTS)
+    fig.subplots_adjust(**{**COMPARISON_SUBPLOTS, "bottom": 0.18})
     return save_pdf(fig, output, fixed_canvas=True)
 
 

@@ -73,7 +73,7 @@ def plot(output: Path) -> Path:
     ax_acc.set_ylim(0, 105)
     ax_acc.set_yticks([0, 50, 100])
     handles, legend_labels = ax_acc.get_legend_handles_labels()
-    add_comparison_legend(fig, handles, legend_labels)
+    add_comparison_legend(fig, handles, legend_labels, anchor_y=0.88)
     ax_lat.set_ylim(0, 360)
     ax_lat.set_yticks([0, 150, 300])
     ax_lat.set_xticks(x, LABELS, rotation=38, ha="right", rotation_mode="anchor")
