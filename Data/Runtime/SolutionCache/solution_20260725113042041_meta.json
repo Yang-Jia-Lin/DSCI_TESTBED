@@ -9,7 +9,7 @@
         "after_layer3"
       ]
     },
-    "num_users": 2,
+    "num_users": 1,
     "resource_mode": "fixed_worker_pool",
     "objective": {
       "mode": "weighted",
@@ -24,14 +24,8 @@
       {
         "user_id": 0,
         "f_u": 1.0,
-        "BW_d2e": 76.1613,
+        "BW_d2e": 64.2833,
         "execution_profile_id": "resnet50-cifar10-device-pi5"
-      },
-      {
-        "user_id": 1,
-        "f_u": 1.0,
-        "BW_d2e": 56.8162,
-        "execution_profile_id": "resnet50-cifar10-device-pi4-1"
       }
     ],
     "edge": {
@@ -41,7 +35,7 @@
     },
     "cloud": {
       "f_c_max": 1.0,
-      "BW_e2c": 62.3567,
+      "BW_e2c": 94.5841,
       "execution_profile_id": "resnet50-cifar10-cloud-5880",
       "worker_count": 1
     }
@@ -56,7 +50,7 @@
         "after_layer3"
       ]
     },
-    "num_users": 2,
+    "num_users": 1,
     "resource_mode": "fixed_worker_pool",
     "objective": {
       "mode": "weighted",
@@ -68,35 +62,32 @@
     "manifest_id": "resnet50-cifar10-partition-v1",
     "model_hash": "42222e588316eba09b272dd13e261ab47f674256446150916379c4945be9aad2",
     "user_profiles": [
-      "resnet50-cifar10-device-pi5",
-      "resnet50-cifar10-device-pi4-1"
+      "resnet50-cifar10-device-pi5"
     ],
     "edge_profile": "resnet50-cifar10-edge-kaijie-laptop",
     "cloud_profile": "resnet50-cifar10-cloud-5880"
   },
   "state_vector": [
-    76.1613,
-    1.0,
-    56.8162,
+    64.2833,
     1.0,
     1.0,
     1.0,
     1.0,
     1.0,
-    62.3567,
+    94.5841,
     1.0
   ],
-  "objective": 1.128555440277065,
-  "created_at": 1784706879.8183727,
-  "policy_path": "C:\\Users\\t1960\\DSCI_TESTBED\\Data\\Runtime\\SolutionCache\\solution_20260722155439819_policy.pt",
-  "training_mode": "medium",
-  "training_started_at": 1784706778.4370384,
-  "training_finished_at": 1784706879.8193684,
-  "training_duration_s": 101.3823299407959,
+  "objective": 0.5596780193897477,
+  "created_at": 1784950242.0408206,
+  "policy_path": "C:\\Users\\t1960\\DSCI_TESTBED\\Data\\Runtime\\SolutionCache\\solution_20260725113042041_policy.pt",
+  "training_mode": "cold",
+  "training_started_at": 1784949951.5106323,
+  "training_finished_at": 1784950242.0408206,
+  "training_duration_s": 290.53018832206726,
   "objective_alpha": 1.0,
   "objective_beta": 5.0,
   "expected_accuracy": 0.978474903858784,
-  "expected_latency": 0.08283943674405031,
+  "expected_latency": 0.08375937689380726,
   "constraint_satisfied": null,
-  "saved_at": 1784706879.8248844
+  "saved_at": 1784950242.1140454
 }
