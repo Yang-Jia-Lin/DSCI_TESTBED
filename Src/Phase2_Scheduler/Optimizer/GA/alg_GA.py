@@ -1,261 +1,326 @@
-"""
-Src/Optimizer/GA/alg_GA.py
-"""
+"""Genetic-algorithm optimizer for the current Phase 2 decision contract."""
 
-import random
+from __future__ import annotations
+
+from dataclasses import dataclass
 import time
+from typing import Any
+
 import numpy as np
-from Src.Phase2_Scheduler.Objective.objective import objective
+
+from Src.Phase2_Scheduler.Optimizer.baseline_common import evaluate_candidate
+from Src.Phase2_Scheduler.paras import Paras
 from Src.Shared.Partitioning.split_actions import (
-    decode_split_row,
     encode_split_row,
     enumerate_deployment_pairs,
 )
 
 
+@dataclass
+class _Individual:
+    X: np.ndarray
+    Y: np.ndarray
+    value: float = float("-inf")
+    F_e: np.ndarray | None = None
+    F_c: np.ndarray | None = None
+
+    def copy(self) -> "_Individual":
+        return _Individual(
+            X=self.X.copy(),
+            Y=self.Y.copy(),
+            value=float(self.value),
+            F_e=None if self.F_e is None else self.F_e.copy(),
+            F_c=None if self.F_c is None else self.F_c.copy(),
+        )
+
+
+def _validate_hyperparameters(
+    *,
+    population_size: int,
+    generations: int,
+    mutation_rate: float,
+    crossover_rate: float,
+    elite_size: int,
+    tournament_size: int,
+    threshold_mutation_std: float,
+    patience: int | None,
+    rel_tolerance: float,
+) -> None:
+    if population_size < 2:
+        raise ValueError("population_size must be at least 2")
+    if generations < 0:
+        raise ValueError("generations must be non-negative")
+    if not 0.0 <= mutation_rate <= 1.0:
+        raise ValueError("mutation_rate must be in [0, 1]")
+    if not 0.0 <= crossover_rate <= 1.0:
+        raise ValueError("crossover_rate must be in [0, 1]")
+    if not 1 <= elite_size < population_size:
+        raise ValueError("elite_size must be in [1, population_size)")
+    if not 2 <= tournament_size <= population_size:
+        raise ValueError("tournament_size must be in [2, population_size]")
+    if threshold_mutation_std < 0.0:
+        raise ValueError("threshold_mutation_std must be non-negative")
+    if patience is not None and patience <= 0:
+        raise ValueError("patience must be positive or None")
+    if rel_tolerance < 0.0:
+        raise ValueError("rel_tolerance must be non-negative")
+
+
+def _normalise_initial_solution(
+    initial_solution: tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray],
+    paras: Paras,
+    valid_x_rows: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
+    X, Y, _F_e, _F_c = initial_solution
+    X = np.asarray(X, dtype=np.float32)
+    Y = np.asarray(Y, dtype=np.float32)
+    expected_shape = (int(paras.n), int(paras.m))
+    if X.shape != expected_shape or Y.shape != expected_shape:
+        raise ValueError(
+            f"initial_solution X/Y must both have shape {expected_shape}; "
+            f"got X={X.shape}, Y={Y.shape}"
+        )
+
+    legal_rows = {row.tobytes() for row in valid_x_rows.astype(np.float32)}
+    for user, row in enumerate(X):
+        binary_row = (row > 0.5).astype(np.float32)
+        if binary_row.tobytes() not in legal_rows:
+            raise ValueError(
+                f"initial_solution contains an invalid X row for user {user}"
+            )
+        X[user] = binary_row
+
+    normalised_Y = np.ones(expected_shape, dtype=np.float32)
+    for boundary in paras.E:
+        normalised_Y[:, int(boundary)] = np.clip(
+            Y[:, int(boundary)], 0.0, 1.0
+        )
+    return X.copy(), normalised_Y
+
+
 def optimize_GA(
-    paras,
+    paras: Paras,
     population_size: int = 50,
     generations: int = 150,
     mutation_rate: float = 0.1,
     return_metrics: bool = False,
+    *,
+    seed: int | None = 42,
+    crossover_rate: float = 0.9,
+    elite_size: int = 2,
+    tournament_size: int = 3,
+    threshold_mutation_std: float = 0.1,
+    initial_solution: (
+        tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray] | None
+    ) = None,
+    patience: int | None = None,
+    rel_tolerance: float = 1e-6,
+    verbose: bool = False,
 ):
-    """
-    使用遗传算法优化混合连续/离散优化问题.
+    """Optimize the same ``(X, Y, F_e, F_c)`` decision used by DSCI/PPO.
 
-    参数
-    ----------
-    - paras : Paras 包含所有参数的对象（如用户数、层数、资源上限等）
-    - population_size : int 种群大小
-    - generations : int 迭代次数
-    - mutation_rate : float 变异率
+    ``X`` and ``Y`` are optimized independently for every user. Every split
+    chromosome is a manifest-valid deployment pair, while edge/cloud resources
+    are recomputed with the same closed-form allocator used by DSCI.
 
-    返回
-    -------
-    - best_value:    最优目标函数值（最大值）。
-    - best_solution: 包含 (X, Y, F_e, F_c) 的最优变量解。
-    - history:       列表，记录每一代的最佳目标值（用于分析收敛过程）。
+    The first three optional arguments and ``return_metrics`` retain the legacy
+    GA call contract. New keyword-only arguments provide reproducibility,
+    warm-starting, elitism, and optional early stopping.
     """
 
+    _validate_hyperparameters(
+        population_size=int(population_size),
+        generations=int(generations),
+        mutation_rate=float(mutation_rate),
+        crossover_rate=float(crossover_rate),
+        elite_size=int(elite_size),
+        tournament_size=int(tournament_size),
+        threshold_mutation_std=float(threshold_mutation_std),
+        patience=patience,
+        rel_tolerance=float(rel_tolerance),
+    )
+
+    n, m = int(paras.n), int(paras.m)
+    pairs = enumerate_deployment_pairs(paras.partition_boundary_ids)
+    if not pairs:
+        raise ValueError("partition manifest does not define any deployment pairs")
+    valid_x_rows = np.stack(
+        [
+            encode_split_row(first, second, m, dtype=np.float32)
+            for first, second in pairs
+        ]
+    )
+    exit_boundaries = np.asarray([int(value) for value in paras.E], dtype=int)
+    rng = np.random.default_rng(seed)
     started = time.perf_counter()
+    evaluations = 0
 
-    # ---------- 0. 基本尺寸 ----------
-    n_rows = paras.n  # 用户数
-    n_cols = paras.m  # 模型层数
-    f_e_max = paras.f_e_max
-    f_c_max = paras.f_c_max
-    len_fe = len_fc = n_rows
-    valid_boundaries = [
-        int(value)
-        for value in (paras.partition_boundary_ids or range(n_cols))
-        if 0 <= int(value) < n_cols
-    ]
-    valid_x_rows = [
-        encode_split_row(first, second, n_cols, dtype=int).tolist()
-        for first, second in enumerate_deployment_pairs(valid_boundaries)
-    ]
+    def evaluate(individual: _Individual) -> None:
+        nonlocal evaluations
+        value, F_e, F_c = evaluate_candidate(paras, individual.X, individual.Y)
+        individual.value = (
+            float(value) if np.isfinite(value) else float("-inf")
+        )
+        individual.F_e = np.asarray(F_e, dtype=np.float32)
+        individual.F_c = np.asarray(F_c, dtype=np.float32)
+        evaluations += 1
 
-    # 早退层布尔表
-    early_exit_flags = [j in paras.E for j in range(n_cols)]
+    def random_individual() -> _Individual:
+        row_indices = rng.integers(0, len(valid_x_rows), size=n)
+        X = valid_x_rows[row_indices].copy()
+        Y = np.ones((n, m), dtype=np.float32)
+        if exit_boundaries.size:
+            Y[:, exit_boundaries] = rng.random((n, len(exit_boundaries)))
+        return _Individual(X=X, Y=Y)
 
-    # ---------- 2. 约束修复工具 ----------
-    def repair_X(mat):
-        """修复 X，使每行是一个合法部署 split。"""
-        for row_index, r in enumerate(mat):
-            for j in range(n_cols):
-                if j not in valid_boundaries:
-                    r[j] = 0
-                else:
-                    r[j] = 1 if r[j] else 0
-            try:
-                first, second = decode_split_row(np.asarray(r, dtype=float))
-                mat[row_index] = encode_split_row(first, second, n_cols, dtype=int).tolist()
-            except ValueError:
-                mat[row_index] = random.choice(valid_x_rows).copy()
-        return mat
+    population: list[_Individual] = []
+    if initial_solution is not None:
+        initial_X, initial_Y = _normalise_initial_solution(
+            initial_solution, paras, valid_x_rows
+        )
+        population.append(_Individual(X=initial_X, Y=initial_Y))
+    else:
+        # A deterministic feasible anchor makes tiny GA runs useful and keeps
+        # the all-device/no-early-exit corner represented in every run.
+        population.append(
+            _Individual(
+                X=np.tile(valid_x_rows[0], (n, 1)),
+                Y=np.ones((n, m), dtype=np.float32),
+            )
+        )
+    while len(population) < int(population_size):
+        population.append(random_individual())
+    for individual in population:
+        evaluate(individual)
 
-    def repair_Y(y):
-        """修复Y的取值约束，非早退层强制为1，早退层限制在[0, 1)"""
-        for j in range(n_cols):
-            if early_exit_flags[j]:
-                y[j] = max(0.0, min(1.0 - 1e-6, y[j]))
-            else:
-                y[j] = 1.0
-        return y
-
-    def repair_F(vec, f_max):
-        """修复F使其元素非负且总和不超过f_max"""
-        vec = [max(1e-6, v) for v in vec]  # 确保不为0
-        tot = sum(vec)
-        if tot > f_max and tot > 0:
-            scale = f_max / tot
-            vec = [v * scale for v in vec]
-        return vec
-
-    # ---------- 3. 初始化种群 ----------
-    population = []
-    for _ in range(population_size):
-        # X
-        X = [[0] * n_cols for _ in range(n_rows)]
-        for i in range(n_rows):
-            X[i] = random.choice(valid_x_rows).copy()
-        X = repair_X(X)
-
-        # Y（只存一行）
-        Y = [random.random() if early_exit_flags[j] else 1.0 for j in range(n_cols)]
-        Y = repair_Y(Y)
-
-        # F_e, F_c 随机分配
-        if paras.resource_mode == "fixed_worker_pool":
-            F_e = [0.0] * len_fe
-            F_c = [0.0] * len_fc
-        else:
-            F_e = repair_F([random.random() for _ in range(len_fe)], f_e_max)
-            F_c = repair_F([random.random() for _ in range(len_fc)], f_c_max)
-        population.append((X, Y, F_e, F_c))
-
-    # ---------- 4. 评估 ----------
-    def evaluate(ind):
-        X, Y, F_e, F_c = ind
-        X_mat = np.array(X, dtype=int)
-        Y_mat = np.tile(np.array(Y, dtype=float), (n_rows, 1))
-        F_e_arr = np.array(F_e, dtype=float).reshape(n_rows, 1)
-        F_c_arr = np.array(F_c, dtype=float).reshape(n_rows, 1)
-        return objective(X_mat, Y_mat, F_e_arr, F_c_arr, paras)
-
-    def best_of(pop):
-        best = max(pop, key=evaluate)
-        return best, evaluate(best)
-
-    best_ind, best_val = best_of(population)
-    history = [best_val]
-    metrics = [
+    population.sort(key=lambda item: item.value, reverse=True)
+    best = population[0].copy()
+    population_values = np.asarray(
+        [individual.value for individual in population], dtype=np.float64
+    )
+    history = [float(best.value)]
+    metrics: list[dict[str, Any]] = [
         {
             "algorithm": "GA",
             "step": 0,
-            "current_obj": float(best_val),
-            "best_obj": float(best_val),
-            "evaluations": int(population_size),
+            "current_obj": float(population[0].value),
+            "best_obj": float(best.value),
+            "batch_mean_obj": float(np.mean(population_values)),
+            "batch_std_obj": float(np.std(population_values, ddof=0)),
+            "batch_size": int(len(population)),
+            "evaluations": int(evaluations),
             "elapsed_s": float(time.perf_counter() - started),
         }
     ]
-    print(f"{best_val}")
+    if verbose:
+        print(f"GA generation 0: best={best.value:.8f}")
 
-    # ---------- 5. 进化 ----------
-    for generation in range(generations):
-        new_pop = [best_ind]  # 精英保留
-        while len(new_pop) < population_size:
-            # ---- 选择（2路锦标赛）
-            p1 = max(random.sample(population, 2), key=evaluate)
-            p2 = max(random.sample(population, 2), key=evaluate)
+    stale_generations = 0
 
-            # ---- 交叉
-            X1, Y1, Fe1, Fc1 = [], [], [], []
-            X2, Y2, Fe2, Fc2 = [], [], [], []
-            # X: 均匀交叉
-            flat1 = [b for row in p1[0] for b in row]
-            flat2 = [b for row in p2[0] for b in row]
-            child_flat1, child_flat2 = [], []
-            for a, b in zip(flat1, flat2):
-                if random.random() < 0.5:
-                    child_flat1.append(a)
-                    child_flat2.append(b)
-                else:
-                    child_flat1.append(b)
-                    child_flat2.append(a)
-            for i in range(n_rows):
-                X1.append(child_flat1[i * n_cols : (i + 1) * n_cols])
-                X2.append(child_flat2[i * n_cols : (i + 1) * n_cols])
-            X1, X2 = repair_X(X1), repair_X(X2)
+    def select_parent() -> _Individual:
+        indices = rng.choice(
+            len(population), size=int(tournament_size), replace=False
+        )
+        candidates = (population[int(index)] for index in indices)
+        return max(candidates, key=lambda item: item.value)
 
-            # Y: 均匀交叉（仅早退层可变）
-            Y1 = p1[1][:]
-            Y2 = p2[1][:]
-            for j in range(n_cols):
-                if early_exit_flags[j] and random.random() < 0.5:
-                    Y1[j], Y2[j] = Y2[j], Y1[j]
-            Y1, Y2 = repair_Y(Y1), repair_Y(Y2)
+    def crossover(
+        parent_a: _Individual, parent_b: _Individual
+    ) -> tuple[_Individual, _Individual]:
+        if rng.random() >= float(crossover_rate):
+            return parent_a.copy(), parent_b.copy()
 
-            # F_e/F_c: 均匀交叉
-            Fe1, Fe2, Fc1, Fc2 = [], [], [], []
-            for a, b in zip(p1[2], p2[2]):
-                Fe1.append(a if random.random() < 0.5 else b)
-                Fe2.append(b if random.random() < 0.5 else a)
-            for a, b in zip(p1[3], p2[3]):
-                Fc1.append(a if random.random() < 0.5 else b)
-                Fc2.append(b if random.random() < 0.5 else a)
-            if paras.resource_mode == "fixed_worker_pool":
-                Fe1 = Fe2 = [0.0] * len_fe
-                Fc1 = Fc2 = [0.0] * len_fc
-            else:
-                Fe1, Fe2 = repair_F(Fe1, f_e_max), repair_F(Fe2, f_e_max)
-                Fc1, Fc2 = repair_F(Fc1, f_c_max), repair_F(Fc2, f_c_max)
+        x_mask = rng.random(n) < 0.5
+        X_a = np.where(x_mask[:, None], parent_a.X, parent_b.X).astype(np.float32)
+        X_b = np.where(x_mask[:, None], parent_b.X, parent_a.X).astype(np.float32)
+        Y_a, Y_b = parent_a.Y.copy(), parent_b.Y.copy()
+        if exit_boundaries.size:
+            y_mask = rng.random((n, len(exit_boundaries))) < 0.5
+            a_values = parent_a.Y[:, exit_boundaries]
+            b_values = parent_b.Y[:, exit_boundaries]
+            Y_a[:, exit_boundaries] = np.where(y_mask, a_values, b_values)
+            Y_b[:, exit_boundaries] = np.where(y_mask, b_values, a_values)
+        return _Individual(X_a, Y_a), _Individual(X_b, Y_b)
 
-            # 变异时修复 Y 和 F
-            def mutate(ind):
-                X, Y, Fe, Fc = ind
-                # 变异 X
-                for i in range(n_rows):
-                    ones = sum(X[i])
-                    for j in range(n_cols):
-                        if random.random() < mutation_rate:
-                            if X[i][j] == 1:
-                                X[i][j] = 0
-                                ones -= 1
-                            elif ones < 2:
-                                X[i][j] = 1
-                                ones += 1
-                X = repair_X(X)
+    def mutate(individual: _Individual) -> None:
+        for user in range(n):
+            if rng.random() < float(mutation_rate):
+                individual.X[user] = valid_x_rows[int(rng.integers(len(valid_x_rows)))]
+        if exit_boundaries.size:
+            mutation_mask = (
+                rng.random((n, len(exit_boundaries))) < float(mutation_rate)
+            )
+            noise = rng.normal(
+                0.0,
+                float(threshold_mutation_std),
+                size=(n, len(exit_boundaries)),
+            )
+            values = individual.Y[:, exit_boundaries]
+            individual.Y[:, exit_boundaries] = np.clip(
+                values + mutation_mask * noise, 0.0, 1.0
+            )
+        individual.value = float("-inf")
+        individual.F_e = None
+        individual.F_c = None
 
-                # Y 变异
-                for j in range(n_cols):
-                    if early_exit_flags[j] and random.random() < mutation_rate:
-                        Y[j] += random.gauss(0, 0.1)
-                        Y[j] = max(0.0, min(1.0 - 1e-6, Y[j]))
-                Y = repair_Y(Y)
+    for generation in range(1, int(generations) + 1):
+        population.sort(key=lambda item: item.value, reverse=True)
+        next_population = [
+            population[index].copy() for index in range(int(elite_size))
+        ]
+        while len(next_population) < int(population_size):
+            child_a, child_b = crossover(select_parent(), select_parent())
+            mutate(child_a)
+            evaluate(child_a)
+            next_population.append(child_a)
+            if len(next_population) < int(population_size):
+                mutate(child_b)
+                evaluate(child_b)
+                next_population.append(child_b)
 
-                if paras.resource_mode == "fixed_worker_pool":
-                    return X, Y, [0.0] * len_fe, [0.0] * len_fc
+        population = next_population
+        generation_best = max(population, key=lambda item: item.value)
+        population_values = np.asarray(
+            [individual.value for individual in population], dtype=np.float64
+        )
+        previous_best = float(best.value)
+        if generation_best.value > best.value:
+            best = generation_best.copy()
 
-                # F 变异
-                for k in range(len_fe):
-                    if random.random() < mutation_rate:
-                        Fe[k] += random.gauss(0, 0.1 * f_e_max)
-                        Fe[k] = max(0, min(Fe[k], f_e_max))  # 保证不超范围
-                for k in range(len_fc):
-                    if random.random() < mutation_rate:
-                        Fc[k] += random.gauss(0, 0.1 * f_c_max)
-                        Fc[k] = max(0, min(Fc[k], f_c_max))  # 保证不超范围
-                Fe = repair_F(Fe, f_e_max)
-                Fc = repair_F(Fc, f_c_max)
+        scale = max(1.0, abs(previous_best))
+        if best.value > previous_best + float(rel_tolerance) * scale:
+            stale_generations = 0
+        else:
+            stale_generations += 1
 
-                return X, Y, Fe, Fc
-
-            new_pop.append(mutate((X1, Y1, Fe1, Fc1)))
-            if len(new_pop) < population_size:
-                new_pop.append(mutate((X2, Y2, Fe2, Fc2)))
-
-        population = new_pop
-        best_ind, best_val = best_of(population)
-        history.append(best_val)
+        history.append(float(best.value))
         metrics.append(
             {
                 "algorithm": "GA",
-                "step": int(generation + 1),
-                "current_obj": float(best_val),
-                "best_obj": float(best_val),
-                "evaluations": int((generation + 2) * population_size),
+                "step": int(generation),
+                "current_obj": float(generation_best.value),
+                "best_obj": float(best.value),
+                "batch_mean_obj": float(np.mean(population_values)),
+                "batch_std_obj": float(np.std(population_values, ddof=0)),
+                "batch_size": int(len(population)),
+                "evaluations": int(evaluations),
                 "elapsed_s": float(time.perf_counter() - started),
             }
         )
-        print(f"Generation {generation}: {best_val}")
+        if verbose:
+            print(f"GA generation {generation}: best={best.value:.8f}")
+        if patience is not None and stale_generations >= int(patience):
+            break
 
-    # --------- 6. 返回 ---------
-    X_mat = np.array(best_ind[0], dtype=int)
-    Y_mat = np.tile(np.array(best_ind[1]), (n_rows, 1))
-    Fe_arr = np.array(best_ind[2]).reshape(n_rows, 1)
-    Fc_arr = np.array(best_ind[3]).reshape(n_rows, 1)
-
+    if best.F_e is None or best.F_c is None:
+        raise RuntimeError("GA finished without a fully evaluated solution")
+    best_solution = (
+        best.X.astype(np.float32, copy=True),
+        best.Y.astype(np.float32, copy=True),
+        best.F_e.astype(np.float32, copy=True),
+        best.F_c.astype(np.float32, copy=True),
+    )
+    result = (float(best.value), best_solution, history)
     if return_metrics:
-        return best_val, (X_mat, Y_mat, Fe_arr, Fc_arr), history, metrics
-    return best_val, (X_mat, Y_mat, Fe_arr, Fc_arr), history
+        return (*result, metrics)
+    return result

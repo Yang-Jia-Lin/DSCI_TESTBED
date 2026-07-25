@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import asdict, is_dataclass
 import json
 import os
 from pathlib import Path
@@ -15,6 +16,10 @@ class NumpyEncoder(json.JSONEncoder):
             return value.tolist()
         if isinstance(value, np.generic):
             return value.item()
+        if is_dataclass(value) and not isinstance(value, type):
+            return asdict(value)
+        if isinstance(value, Path):
+            return str(value)
         return super().default(value)
 
 

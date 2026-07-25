@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import copy
 import json
+import re
 import threading
 import time
 from dataclasses import dataclass, field, replace
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import numpy as np
 import torch
@@ -38,6 +39,7 @@ INTERFACE_SOLUTION_DIR = SOLUTION_CACHE_DIR
 LATEST_SOLUTION_PATH = INTERFACE_SOLUTION_DIR / "latest_solution.npz"
 LATEST_META_PATH = INTERFACE_SOLUTION_DIR / "latest_solution_meta.json"
 TRAINING_EVENTS_PATH = INTERFACE_SOLUTION_DIR / "training_events.jsonl"
+TRAINING_CONVERGENCE_DIR = INTERFACE_SOLUTION_DIR / "TrainingConvergence"
 DIRECT_REUSE_DISTANCE = 0.005
 NEAR_WARM_START_DISTANCE = 0.05
 MEDIUM_WARM_START_DISTANCE = 0.15
@@ -83,6 +85,7 @@ class AlgoServiceConfig:
     latest_solution_path: str | Path = LATEST_SOLUTION_PATH
     latest_meta_path: str | Path = LATEST_META_PATH
     training_events_path: str | Path = TRAINING_EVENTS_PATH
+    training_convergence_dir: str | Path = TRAINING_CONVERGENCE_DIR
     max_cached_solutions: int = 10
     fixed_split: Any = None
     fixed_threshold: Any = None
@@ -157,6 +160,9 @@ class AlgoService:
     _last_training_finished_at: float | None = field(default=None, init=False, repr=False)
     _last_training_duration_s: float | None = field(default=None, init=False, repr=False)
     _last_training_round_id: str | None = field(default=None, init=False, repr=False)
+    _last_training_convergence_path: str | None = field(
+        default=None, init=False, repr=False
+    )
     _force_retrain_pending: bool = field(default=False, init=False, repr=False)
     _constraint_search_status: str = field(default="disabled", init=False, repr=False)
     _constraint_candidates_completed: int = field(default=0, init=False, repr=False)
@@ -209,6 +215,9 @@ class AlgoService:
         self.config.latest_solution_path = Path(self.config.latest_solution_path)
         self.config.latest_meta_path = Path(self.config.latest_meta_path)
         self.config.training_events_path = Path(self.config.training_events_path)
+        self.config.training_convergence_dir = Path(
+            self.config.training_convergence_dir
+        )
         self.config.fixed_split = self._parse_fixed_split(self.config.fixed_split)
         self.config.fixed_threshold = self._parse_fixed_threshold(
             self.config.fixed_threshold
@@ -281,13 +290,27 @@ class AlgoService:
                 self._last_training_mode = f"fresh_ablation:{mode}"
                 self._last_warm_start_source = None
                 self._last_error = None
+            convergence_path = self._create_training_convergence_log(
+                round_id=round_id,
+                training_mode=f"fresh_ablation:{mode}",
+                started_at=started_at,
+                context={"ablation_mode": mode},
+            )
             try:
                 # This is intentionally the same cold PPO path used by Ours: no
                 # cached solution, policy checkpoint, warm start, or constrained
                 # PPO action space is supplied.
                 params = self._training_params(None)
                 agent = PPOAgent(paras, params)
-                best_val, best_sol, _history = agent.train(initial_solution=None)
+                best_val, best_sol, _history = agent.train(
+                    initial_solution=None,
+                    epoch_log_callback=self._epoch_log_callback(
+                        convergence_path,
+                        round_id=round_id,
+                        training_mode=f"fresh_ablation:{mode}",
+                        context={"ablation_mode": mode},
+                    ),
+                )
                 if best_sol is None:
                     raise RuntimeError("DSCI training returned no solution")
 
@@ -325,6 +348,21 @@ class AlgoService:
 
                 finished_at = time.time()
                 duration_s = finished_at - started_at
+                self._append_jsonl_record(
+                    convergence_path,
+                    {
+                        "event": "training_complete",
+                        "round_id": round_id,
+                        "training_mode": f"fresh_ablation:{mode}",
+                        "ablation_mode": mode,
+                        "source_ours_objective": source_objective,
+                        "returned_objective": float(solution.objective),
+                        "expected_accuracy": solution.expected_accuracy,
+                        "expected_latency": solution.expected_latency,
+                        "finished_at": finished_at,
+                        "duration_s": duration_s,
+                    },
+                )
                 with self._lock:
                     self._training_status = "idle"
                     self._training_signature = None
@@ -339,6 +377,7 @@ class AlgoService:
                         "ablation_mode": mode,
                         "cache_used": False,
                         "policy_source": None,
+                        "convergence_log_path": str(convergence_path),
                         "source_ours_objective": source_objective,
                         "returned_objective": float(solution.objective),
                         "expected_accuracy": solution.expected_accuracy,
@@ -352,6 +391,18 @@ class AlgoService:
                 return solution, source_objective, duration_s
             except Exception as exc:
                 finished_at = time.time()
+                self._append_jsonl_record(
+                    convergence_path,
+                    {
+                        "event": "training_error",
+                        "round_id": round_id,
+                        "training_mode": f"fresh_ablation:{mode}",
+                        "ablation_mode": mode,
+                        "finished_at": finished_at,
+                        "duration_s": finished_at - started_at,
+                        "error": str(exc),
+                    },
+                )
                 with self._lock:
                     self._training_status = "error"
                     self._training_signature = None
@@ -365,6 +416,7 @@ class AlgoService:
                         "round_id": round_id,
                         "ablation_mode": mode,
                         "cache_used": False,
+                        "convergence_log_path": str(convergence_path),
                         "error": str(exc),
                         "started_at": started_at,
                         "finished_at": finished_at,
@@ -1210,6 +1262,7 @@ class AlgoService:
         signature: dict[str, Any],
         match: CacheMatch | None,
         round_id: str,
+        convergence_path: Path,
     ) -> tuple[CachedSolution, dict[str, Any], str, str | None]:
         params = self._training_params(match)
         alpha_min = float(self.config.constraint_alpha_min)
@@ -1249,7 +1302,17 @@ class AlgoService:
                 initial_solution = self._initial_solution_from_match(match)
 
             best_val, best_sol, _history = agent.train(
-                initial_solution=initial_solution
+                initial_solution=initial_solution,
+                epoch_log_callback=self._epoch_log_callback(
+                    convergence_path,
+                    round_id=round_id,
+                    training_mode=training_mode,
+                    context={
+                        "candidate_index": int(index),
+                        "objective_alpha": float(alpha),
+                        "objective_beta": 1.0,
+                    },
+                ),
             )
             if best_sol is None:
                 raise RuntimeError(
@@ -1289,6 +1352,7 @@ class AlgoService:
                     "expected_accuracy": solution.expected_accuracy,
                     "expected_latency": solution.expected_latency,
                     "constraint_satisfied": solution.constraint_satisfied,
+                    "convergence_log_path": str(convergence_path),
                 }
             )
 
@@ -1353,11 +1417,25 @@ class AlgoService:
         round_id = str(state.get("round_id") or "")
         training_mode = match.training_mode if match else "cold"
         policy_source = match.policy_path if match else None
+        convergence_path: Path | None = None
         try:
             if self.config.target_accuracy is not None:
+                convergence_path = self._create_training_convergence_log(
+                    round_id=round_id,
+                    training_mode="constraint_search",
+                    started_at=started_at,
+                    context={
+                        "target_accuracy": float(self.config.target_accuracy),
+                        "accuracy_tolerance": float(self.config.accuracy_tolerance),
+                    },
+                )
                 solution, policy_state, training_mode, policy_source = (
                     self._train_constraint_search(
-                        state, signature, match, round_id
+                        state,
+                        signature,
+                        match,
+                        round_id,
+                        convergence_path,
                     )
                 )
             else:
@@ -1366,8 +1444,20 @@ class AlgoService:
                 agent = PPOAgent(paras, params)
                 training_mode, policy_source = self._load_warm_policy(agent, match)
                 initial_solution = self._initial_solution_from_match(match)
+                convergence_path = self._create_training_convergence_log(
+                    round_id=round_id,
+                    training_mode=training_mode,
+                    started_at=started_at,
+                    context={"policy_source": policy_source},
+                )
                 best_val, best_sol, _history = agent.train(
-                    initial_solution=initial_solution
+                    initial_solution=initial_solution,
+                    epoch_log_callback=self._epoch_log_callback(
+                        convergence_path,
+                        round_id=round_id,
+                        training_mode=training_mode,
+                        context={"policy_source": policy_source},
+                    ),
                 )
                 if best_sol is None:
                     raise RuntimeError("DSCI training returned no solution")
@@ -1388,6 +1478,24 @@ class AlgoService:
 
             finished_at = time.time()
             duration_s = finished_at - started_at
+            if convergence_path is not None:
+                self._append_jsonl_record(
+                    convergence_path,
+                    {
+                        "event": "training_complete",
+                        "round_id": round_id,
+                        "training_mode": training_mode,
+                        "policy_source": policy_source,
+                        "objective": float(solution.objective),
+                        "objective_alpha": solution.objective_alpha,
+                        "objective_beta": solution.objective_beta,
+                        "expected_accuracy": solution.expected_accuracy,
+                        "expected_latency": solution.expected_latency,
+                        "constraint_satisfied": solution.constraint_satisfied,
+                        "finished_at": finished_at,
+                        "duration_s": duration_s,
+                    },
+                )
 
             with self._lock:
                 self._cached_solution = solution
@@ -1412,6 +1520,7 @@ class AlgoService:
                     training_started_at=started_at,
                     training_finished_at=finished_at,
                     training_duration_s=duration_s,
+                    training_convergence_path=convergence_path,
                 )
                 self._append_training_event(
                     {
@@ -1419,6 +1528,9 @@ class AlgoService:
                         "round_id": round_id,
                         "training_mode": training_mode,
                         "policy_source": policy_source,
+                        "convergence_log_path": (
+                            str(convergence_path) if convergence_path else None
+                        ),
                         "objective": float(solution.objective),
                         "objective_alpha": solution.objective_alpha,
                         "objective_beta": solution.objective_beta,
@@ -1438,6 +1550,9 @@ class AlgoService:
                             "round_id": round_id,
                             "target_accuracy": self.config.target_accuracy,
                             "accuracy_tolerance": self.config.accuracy_tolerance,
+                            "convergence_log_path": (
+                                str(convergence_path) if convergence_path else None
+                            ),
                             "candidates_completed": self._constraint_candidates_completed,
                             "selected_alpha": solution.objective_alpha,
                             "selected_beta": solution.objective_beta,
@@ -1456,6 +1571,19 @@ class AlgoService:
         except Exception as exc:  # pragma: no cover - long-running training path
             finished_at = time.time()
             duration_s = finished_at - started_at
+            if convergence_path is not None:
+                self._append_jsonl_record(
+                    convergence_path,
+                    {
+                        "event": "training_error",
+                        "round_id": round_id,
+                        "training_mode": training_mode,
+                        "policy_source": policy_source,
+                        "finished_at": finished_at,
+                        "duration_s": duration_s,
+                        "error": str(exc),
+                    },
+                )
             with self._lock:
                 self._training_status = "error"
                 self._training_signature = None
@@ -1473,6 +1601,9 @@ class AlgoService:
                     "round_id": round_id,
                     "training_mode": training_mode,
                     "policy_source": policy_source,
+                    "convergence_log_path": (
+                        str(convergence_path) if convergence_path else None
+                    ),
                     "started_at": started_at,
                     "finished_at": finished_at,
                     "duration_s": duration_s,
@@ -1480,17 +1611,84 @@ class AlgoService:
                 }
             )
 
-    def _append_training_event(self, event: dict[str, Any]) -> None:
+    @staticmethod
+    def _safe_log_component(value: str, *, fallback: str) -> str:
+        cleaned = re.sub(r"[^A-Za-z0-9._-]+", "_", str(value)).strip("._")
+        return (cleaned or fallback)[:96]
+
+    def _create_training_convergence_log(
+        self,
+        *,
+        round_id: str,
+        training_mode: str,
+        started_at: float,
+        context: dict[str, Any] | None = None,
+    ) -> Path:
+        timestamp = time.strftime("%Y%m%d-%H%M%S", time.localtime(started_at))
+        milliseconds = int((started_at % 1) * 1000)
+        round_name = self._safe_log_component(round_id, fallback="no-round")
+        mode_name = self._safe_log_component(training_mode, fallback="training")
+        path = Path(self.config.training_convergence_dir) / (
+            f"{timestamp}-{milliseconds:03d}_{round_name}_{mode_name}.jsonl"
+        )
+        path.parent.mkdir(parents=True, exist_ok=True)
+        self._append_jsonl_record(
+            path,
+            {
+                "event": "training_start",
+                "round_id": round_id,
+                "training_mode": training_mode,
+                "started_at": float(started_at),
+                **(context or {}),
+            },
+        )
+        with self._lock:
+            self._last_training_convergence_path = str(path)
+        return path
+
+    def _epoch_log_callback(
+        self,
+        path: Path,
+        *,
+        round_id: str,
+        training_mode: str,
+        context: dict[str, Any] | None = None,
+    ) -> Callable[[dict], None]:
+        common = {
+            "round_id": round_id,
+            "training_mode": training_mode,
+            **(context or {}),
+        }
+
+        def append_epoch(epoch_log: dict) -> None:
+            self._append_jsonl_record(
+                path,
+                {
+                    "event": "ppo_epoch",
+                    **common,
+                    **epoch_log,
+                },
+            )
+
+        return append_epoch
+
+    def _append_jsonl_record(self, path: Path, record: dict[str, Any]) -> None:
         try:
-            path = Path(self.config.training_events_path)
+            path = Path(path)
             path.parent.mkdir(parents=True, exist_ok=True)
-            record = {"logged_at": time.time(), **event}
             with path.open("a", encoding="utf-8") as f:
-                json.dump(record, f, ensure_ascii=False)
+                json.dump(
+                    {"logged_at": time.time(), **record},
+                    f,
+                    ensure_ascii=False,
+                )
                 f.write("\n")
         except Exception as exc:  # pragma: no cover - logging should not break service
             with self._lock:
-                self._last_error = f"Failed to write training event: {exc}"
+                self._last_error = f"Failed to write JSONL log {path}: {exc}"
+
+    def _append_training_event(self, event: dict[str, Any]) -> None:
+        self._append_jsonl_record(Path(self.config.training_events_path), event)
 
     def _save_latest_solution(
         self,
@@ -1501,6 +1699,7 @@ class AlgoService:
         training_started_at: float | None = None,
         training_finished_at: float | None = None,
         training_duration_s: float | None = None,
+        training_convergence_path: str | Path | None = None,
     ) -> None:
         solution_path = Path(self.config.latest_solution_path)
         meta_path = Path(self.config.latest_meta_path)
@@ -1532,6 +1731,11 @@ class AlgoService:
             "training_started_at": training_started_at,
             "training_finished_at": training_finished_at,
             "training_duration_s": training_duration_s,
+            "training_convergence_path": (
+                str(training_convergence_path)
+                if training_convergence_path is not None
+                else None
+            ),
             "objective_alpha": solution.objective_alpha,
             "objective_beta": solution.objective_beta,
             "expected_accuracy": solution.expected_accuracy,
@@ -1716,6 +1920,7 @@ class AlgoService:
                 "last_training_duration_s": self._last_training_duration_s,
                 "last_training_round_id": self._last_training_round_id,
                 "training_events_path": str(self.config.training_events_path),
+                "last_training_convergence_path": self._last_training_convergence_path,
                 "has_cached_solution": cached is not None,
                 "cached_state_signature": cached.state_signature if cached else None,
                 "cached_objective": float(cached.objective) if cached else None,

@@ -69,9 +69,13 @@ def normalize_ppo_metrics(metrics: pd.DataFrame) -> pd.DataFrame:
             ]
         )
     if "num_episodes" in metrics:
-        episode = (metrics["epoch"].astype(int) + 1) * metrics["num_episodes"].astype(int)
+        episode = metrics["num_episodes"].fillna(0).astype(int).cumsum()
     else:
         episode = metrics["epoch"]
+    # One completed PPO episode produces one joint solution for all users.
+    # ``steps_collected`` counts per-user decisions, so using it would inflate
+    # the candidate-evaluation axis by ``n`` in multi-device scenarios.
+    evaluations = episode
     return pd.DataFrame(
         {
             "algorithm": "PPO",
@@ -80,7 +84,10 @@ def normalize_ppo_metrics(metrics: pd.DataFrame) -> pd.DataFrame:
             "best_obj": metrics["outer_obj"],
             "current_obj": metrics.get("inner_best_obj", metrics["outer_obj"]),
             "utility": metrics["outer_obj"],
-            "evaluations": metrics.get("steps_collected", metrics["epoch"]),
+            "batch_mean_obj": metrics.get("inner_mean_obj", metrics["outer_obj"]),
+            "batch_std_obj": metrics.get("inner_std_obj", np.nan),
+            "batch_size": metrics.get("num_episodes", 1),
+            "evaluations": evaluations,
             "elapsed_s": metrics.get("elapsed_s", 0.0),
             "curve_type": "ppo",
         }
