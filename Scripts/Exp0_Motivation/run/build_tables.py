@@ -11,7 +11,7 @@ import pandas as pd
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
-from Scripts.Exp0_Motivation.config import (  # noqa: E402
+from Scripts.Exp0_Motivation.run.config import (  # noqa: E402
     DEFAULT_CONFIG,
     canonical_curve_path,
     prepare_result_dirs,
@@ -40,7 +40,9 @@ def main(argv=None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--reuse-existing", action="store_true")
     parser.add_argument("--data-root")
-    parser.add_argument("--batch-size", type=int, default=DEFAULT_CONFIG.curve_batch_size)
+    parser.add_argument(
+        "--batch-size", type=int, default=DEFAULT_CONFIG.curve_batch_size
+    )
     parser.add_argument("--download", action="store_true")
     args = parser.parse_args(argv)
 

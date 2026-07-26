@@ -8,8 +8,8 @@ from pathlib import Path
 from typing import Any
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-EXPERIMENT_ROOT = Path(__file__).resolve().parent
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+EXPERIMENT_ROOT = Path(__file__).resolve().parents[1]
 RESULT_DATA_DIR = EXPERIMENT_ROOT / "result_data"
 RESULT_FIGURE_DIR = EXPERIMENT_ROOT / "result_figure"
 

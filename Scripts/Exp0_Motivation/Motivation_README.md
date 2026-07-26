@@ -16,17 +16,32 @@ conda activate DSCI
 conda run -n DSCI python Scripts\Exp0_Motivation\run\build_tables.py
 conda run -n DSCI python Scripts\Exp0_Motivation\run\run_exp1_selection_effect.py
 conda run -n DSCI python Scripts\Exp0_Motivation\run\run_exp2_coupling_failure.py
-conda run -n DSCI python Scripts\Exp0_Motivation\plot\plot_all.py
+conda run -n DSCI python Scripts\Exp0_Motivation\plot_all.py
 ```
 
 各脚本直接读写本实验目录下的 `result_data` 和 `result_figure`。
 
+## 目录结构
+
+```text
+Scripts\Exp0_Motivation\
+  run\
+    config.py
+    build_tables.py
+    run_exp1_selection_effect.py
+    run_exp2_coupling_failure.py
+  plot_all.py
+  result_data\
+  result_figure\
+  Motivation_README.md
+```
+
 ## 各脚本作用
 
-- `config.py`：统一配置 bundle、profile、带宽、精度约束和输出目录。
-- `build_tables.py`：使用当前权重和当前数据集口径重新生成 canonical early-exit curve。
-- `run_exp1_selection_effect.py`：生成 Figure 1 数据，说明阈值诱导的条件筛选效应。该实验使用每个 early-exit head 的独立条件准确率和独立早退概率，不绘制 Final Exit rate，并排除 `threshold=1.0`。
-- `run_exp2_coupling_failure.py`：生成 Figure 2 数据，在相同精度约束下比较 `Local-full`、`Cloud-full`、`Split-only`、`EE-only`、`Decoupled` 和 `Joint` 的期望时延。该实验使用 Figure 1 的 sequential early-exit flow 口径。
+- `run\config.py`：统一配置 bundle、profile、带宽、精度约束和输出目录。
+- `run\build_tables.py`：使用当前权重和当前数据集口径重新生成 canonical early-exit curve。
+- `run\run_exp1_selection_effect.py`：生成 Figure 1 数据，说明阈值诱导的条件筛选效应。该实验使用每个 early-exit head 的独立条件准确率和独立早退概率，不绘制 Final Exit rate，并排除 `threshold=1.0`。
+- `run\run_exp2_coupling_failure.py`：生成 Figure 2 数据，在相同精度约束下比较 `Local-full`、`Cloud-full`、`Split-only`、`EE-only`、`Decoupled` 和 `Joint` 的期望时延。该实验使用 Figure 1 的 sequential early-exit flow 口径。
 - `plot_all.py`：读取两个实验的数据，统一输出 Figure 1(a)、Figure 1(b) 和 Figure 2 的 PDF/PNG 图片。
 
 ## 输出位置
@@ -51,7 +66,13 @@ Scripts\Exp0_Motivation\
 
 ## 单独运行
 
-`build_tables.py` 是后续实验的前置步骤。它不会和历史结果比较，只会把当前权重、当前数据集 split 得到的曲线保存为当前实验的 canonical curve。
+`run\build_tables.py` 是后续实验的前置步骤。它不会和历史结果比较，只会把当前权重、当前数据集 split 得到的曲线保存为当前实验的 canonical curve。
+
+若数据已经存在，只重新绘图即可：
+
+```powershell
+conda run -n DSCI python Scripts\Exp0_Motivation\plot_all.py
+```
 
 ## 固定实验设置
 

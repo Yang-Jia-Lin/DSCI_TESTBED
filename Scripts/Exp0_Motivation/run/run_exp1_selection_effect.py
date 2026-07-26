@@ -11,7 +11,7 @@ import pandas as pd
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
-from Scripts.Exp0_Motivation.config import (  # noqa: E402
+from Scripts.Exp0_Motivation.run.config import (  # noqa: E402
     DEFAULT_CONFIG,
     canonical_curve_path,
     data_dir,
@@ -45,11 +45,15 @@ def _policy_accuracy_record(row: pd.Series, bundle) -> dict:
     final_accuracy = 0.0
     if final_selected_prob > 0.0:
         early_contrib = expected_accuracy
-        final_accuracy = (float(row["overall_accuracy"]) - early_contrib) / final_selected_prob
+        final_accuracy = (
+            float(row["overall_accuracy"]) - early_contrib
+        ) / final_selected_prob
         final_accuracy = max(0.0, min(100.0, final_accuracy))
         expected_accuracy += final_selected_prob * final_accuracy
     record["final_exit_selected_probability_pct"] = final_selected_prob * 100.0
-    record["final_exit_accuracy_pct"] = final_accuracy if final_selected_prob > 0.0 else None
+    record["final_exit_accuracy_pct"] = (
+        final_accuracy if final_selected_prob > 0.0 else None
+    )
     record["expected_accuracy_pct"] = expected_accuracy
     record["overall_policy_accuracy_pct"] = float(row["overall_accuracy"])
     return record

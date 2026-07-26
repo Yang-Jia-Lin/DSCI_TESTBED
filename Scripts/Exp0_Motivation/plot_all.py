@@ -10,9 +10,9 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 if __package__ in {None, ""}:
-    sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from Scripts.Exp0_Motivation.config import (  # noqa: E402
+from Scripts.Exp0_Motivation.run.config import (  # noqa: E402
     data_dir,
     figure_dir,
     prepare_result_dirs,
@@ -211,7 +211,9 @@ def _plot_figure2(run_dir: Path) -> dict:
                 color=PALETTE[strategy],
                 label=strategy,
             )
-    pivot = frame.pivot(index="bandwidth_d2e_mbps", columns="strategy", values="latency_ms")
+    pivot = frame.pivot(
+        index="bandwidth_d2e_mbps", columns="strategy", values="latency_ms"
+    )
     joint_gain = pivot[pivot["Joint"] + 1e-9 < pivot["Decoupled"]]
     if not joint_gain.empty:
         ax.axvspan(

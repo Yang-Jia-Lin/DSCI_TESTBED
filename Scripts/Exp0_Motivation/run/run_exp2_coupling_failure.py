@@ -13,7 +13,7 @@ import pandas as pd
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
-from Scripts.Exp0_Motivation.config import (  # noqa: E402
+from Scripts.Exp0_Motivation.run.config import (  # noqa: E402
     DEFAULT_CONFIG,
     canonical_curve_path,
     data_dir,
@@ -33,7 +33,13 @@ from Src.Shared.Partitioning.split_actions import (  # noqa: E402
 )
 
 
-def _profile_owner(profile_id: str, manifest, *, bw_d2e: float | None = None, bw_e2c: float | None = None) -> dict:
+def _profile_owner(
+    profile_id: str,
+    manifest,
+    *,
+    bw_d2e: float | None = None,
+    bw_e2c: float | None = None,
+) -> dict:
     owner = {
         "resource_mode": "fixed_worker_pool",
         "bundle_id": manifest.bundle_id,
@@ -59,7 +65,9 @@ def _state_for_bandwidth(bw_d2e: float) -> dict:
     manifest = load_partition_manifest(bundle.bundle_id)
     user = _profile_owner(cfg.device_profile_id, manifest, bw_d2e=bw_d2e)
     edge = _profile_owner(cfg.edge_profile_id, manifest)
-    cloud = _profile_owner(cfg.cloud_profile_id, manifest, bw_e2c=cfg.bandwidth_e2c_mbps)
+    cloud = _profile_owner(
+        cfg.cloud_profile_id, manifest, bw_e2c=cfg.bandwidth_e2c_mbps
+    )
     return {
         "resource_mode": "fixed_worker_pool",
         "bundle_id": bundle.bundle_id,
@@ -115,7 +123,9 @@ def _choose_best_split_only(paras: Paras, pairs: Iterable[tuple[int, int]]) -> d
     return best
 
 
-def _threshold_candidates(curves: pd.DataFrame, target_accuracy: float, main_accuracy: float) -> list[dict]:
+def _threshold_candidates(
+    curves: pd.DataFrame, target_accuracy: float, main_accuracy: float
+) -> list[dict]:
     candidates = [
         {
             "tau": None,
@@ -128,20 +138,18 @@ def _threshold_candidates(curves: pd.DataFrame, target_accuracy: float, main_acc
     for _, row in curves.iterrows():
         accuracy = float(row["overall_accuracy"])
         if accuracy + 1e-12 >= target_accuracy:
-            candidates.append(
-                {
-                    "tau": float(row["threshold"]),
-                    "tau_label": f"{float(row['threshold']):.2f}",
-                    "accuracy_pct": accuracy,
-                    "feasible": True,
-                    "flow_policy": "sequential",
-                    "sequential_exit_rates_pct": (
-                        float(row["after_layer2_sequential_rate"]),
-                        float(row["after_layer3_sequential_rate"]),
-                    ),
-                    "final_rate_pct": float(row["final_rate"]),
-                }
-            )
+            candidates.append({
+                "tau": float(row["threshold"]),
+                "tau_label": f"{float(row['threshold']):.2f}",
+                "accuracy_pct": accuracy,
+                "feasible": True,
+                "flow_policy": "sequential",
+                "sequential_exit_rates_pct": (
+                    float(row["after_layer2_sequential_rate"]),
+                    float(row["after_layer3_sequential_rate"]),
+                ),
+                "final_rate_pct": float(row["final_rate"]),
+            })
     return candidates
 
 
@@ -197,26 +205,36 @@ def _result_row(
 
 
 def _summarize(results: pd.DataFrame, run_dir: Path, main_accuracy: float) -> dict:
-    pivot = results.pivot(index="bandwidth_d2e_mbps", columns="strategy", values="latency_ms")
+    pivot = results.pivot(
+        index="bandwidth_d2e_mbps", columns="strategy", values="latency_ms"
+    )
     inversion = pivot[pivot["Decoupled"] > pivot["Local-full"]]
     if inversion.empty:
         inversion_info = {
             "occurred": False,
             "first_bandwidth_mbps": None,
-            "max_decoupled_minus_local_ms": float((pivot["Decoupled"] - pivot["Local-full"]).max()),
+            "max_decoupled_minus_local_ms": float(
+                (pivot["Decoupled"] - pivot["Local-full"]).max()
+            ),
         }
     else:
         inversion_info = {
             "occurred": True,
             "first_bandwidth_mbps": float(inversion.index.min()),
-            "max_decoupled_minus_local_ms": float((inversion["Decoupled"] - inversion["Local-full"]).max()),
+            "max_decoupled_minus_local_ms": float(
+                (inversion["Decoupled"] - inversion["Local-full"]).max()
+            ),
         }
     improvement = (pivot["Decoupled"] - pivot["Joint"]) / pivot["Decoupled"] * 100.0
     positive_improvement = improvement[improvement > 1e-9]
     joint_over_ee_only = (pivot["EE-only"] - pivot["Joint"]) / pivot["EE-only"] * 100.0
-    decoupled_over_ee_only = (pivot["Decoupled"] - pivot["EE-only"]) / pivot["EE-only"] * 100.0
+    decoupled_over_ee_only = (
+        (pivot["Decoupled"] - pivot["EE-only"]) / pivot["EE-only"] * 100.0
+    )
     split_rows = results[results["strategy"].isin(["Split-only", "Decoupled", "Joint"])]
-    split_pivot = split_rows.pivot(index="bandwidth_d2e_mbps", columns="strategy", values="b1")
+    split_pivot = split_rows.pivot(
+        index="bandwidth_d2e_mbps", columns="strategy", values="b1"
+    )
     divergence = (split_pivot["Decoupled"] - split_pivot["Joint"]).abs()
     return {
         "output_csv": str(data_dir(run_dir) / "exp2_coupling_failure.csv"),
@@ -227,10 +245,14 @@ def _summarize(results: pd.DataFrame, run_dir: Path, main_accuracy: float) -> di
         "decoupled_performance_inversion": inversion_info,
         "max_joint_latency_reduction_over_decoupled_pct": float(improvement.max()),
         "first_bandwidth_with_joint_gain_mbps": (
-            None if positive_improvement.empty else float(positive_improvement.index.min())
+            None
+            if positive_improvement.empty
+            else float(positive_improvement.index.min())
         ),
         "max_joint_latency_reduction_over_ee_only_pct": float(joint_over_ee_only.max()),
-        "max_decoupled_latency_increase_over_ee_only_pct": float(decoupled_over_ee_only.max()),
+        "max_decoupled_latency_increase_over_ee_only_pct": float(
+            decoupled_over_ee_only.max()
+        ),
         "max_abs_b1_divergence_decoupled_vs_joint": int(divergence.max()),
     }
 
@@ -270,65 +292,65 @@ def main(argv=None) -> None:
         decoupled = _choose_best_threshold_for_pair(paras, split["pair"], candidates)
         joint = _choose_joint(paras, pairs, candidates)
 
-        all_rows.extend(
-            [
-                _result_row(
-                    bandwidth,
-                    "Local-full",
-                    local_pair,
-                    local_latency,
-                    main_accuracy,
-                    "no_exit",
-                ),
-                _result_row(
-                    bandwidth,
-                    "Cloud-full",
-                    cloud_pair,
-                    cloud_latency,
-                    main_accuracy,
-                    "no_exit",
-                ),
-                _result_row(
-                    bandwidth,
-                    "Split-only",
-                    split["pair"],
-                    split["latency_ms"],
-                    main_accuracy,
-                    "no_exit",
-                ),
-                _result_row(
-                    bandwidth,
-                    "EE-only",
-                    ee_only["pair"],
-                    ee_only["latency_ms"],
-                    ee_only["accuracy_pct"],
-                    ee_only["tau_label"],
-                ),
-                _result_row(
-                    bandwidth,
-                    "Decoupled",
-                    decoupled["pair"],
-                    decoupled["latency_ms"],
-                    decoupled["accuracy_pct"],
-                    decoupled["tau_label"],
-                ),
-                _result_row(
-                    bandwidth,
-                    "Joint",
-                    joint["pair"],
-                    joint["latency_ms"],
-                    joint["accuracy_pct"],
-                    joint["tau_label"],
-                ),
-            ]
-        )
+        all_rows.extend([
+            _result_row(
+                bandwidth,
+                "Local-full",
+                local_pair,
+                local_latency,
+                main_accuracy,
+                "no_exit",
+            ),
+            _result_row(
+                bandwidth,
+                "Cloud-full",
+                cloud_pair,
+                cloud_latency,
+                main_accuracy,
+                "no_exit",
+            ),
+            _result_row(
+                bandwidth,
+                "Split-only",
+                split["pair"],
+                split["latency_ms"],
+                main_accuracy,
+                "no_exit",
+            ),
+            _result_row(
+                bandwidth,
+                "EE-only",
+                ee_only["pair"],
+                ee_only["latency_ms"],
+                ee_only["accuracy_pct"],
+                ee_only["tau_label"],
+            ),
+            _result_row(
+                bandwidth,
+                "Decoupled",
+                decoupled["pair"],
+                decoupled["latency_ms"],
+                decoupled["accuracy_pct"],
+                decoupled["tau_label"],
+            ),
+            _result_row(
+                bandwidth,
+                "Joint",
+                joint["pair"],
+                joint["latency_ms"],
+                joint["accuracy_pct"],
+                joint["tau_label"],
+            ),
+        ])
 
     results = pd.DataFrame(all_rows)
     if not results["feasible"].all():
         raise AssertionError("At least one strategy is infeasible")
     out_path = data_dir(run_dir) / "exp2_coupling_failure.csv"
     results.to_csv(out_path, index=False)
-    update_paper_numbers(run_dir, "figure2", _summarize(results, run_dir, main_accuracy))
+    update_paper_numbers(
+        run_dir, "figure2", _summarize(results, run_dir, main_accuracy)
+    )
     print(f"Figure 2 data: {out_path}")
 
 
