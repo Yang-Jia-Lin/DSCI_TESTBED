@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import sys
 from pathlib import Path
 
@@ -21,11 +22,9 @@ from Scripts.EvaluationCommon.paper_figure_style import (  # noqa: E402
 )
 
 EXPERIMENT_ROOT = Path(__file__).resolve().parent
+PLOT_DATA_PATH = EXPERIMENT_ROOT / "result_data" / "ablation_plot_data.csv"
 RESULT_FIGURE_DIR = EXPERIMENT_ROOT / "result_figure"
 
-VARIANTS = ["Cloud\nonly", "End\nonly", "Split\nonly", "EE\nonly", "Ours"]
-LATENCY = np.array([360.29, 248.79, 130.40, 219.56, 119.74])
-ACCURACY = np.array([95.86, 95.86, 95.86, 95.58, 95.59])
 ACCURACY_FLOOR = 90.0
 
 
@@ -53,16 +52,36 @@ def _annotate_bars(
         )
 
 
-def plot(output: Path) -> Path:
+def _load_plot_data(path: Path) -> tuple[list[str], np.ndarray, np.ndarray]:
+    with Path(path).open(encoding="utf-8-sig", newline="") as handle:
+        rows = sorted(
+            csv.DictReader(handle),
+            key=lambda row: int(row["order"]),
+        )
+    if not rows:
+        raise ValueError(f"No plot data found in {path}")
+    variants = [
+        row["variant"].replace(" only", "\nonly") for row in rows
+    ]
+    latency = np.asarray([float(row["latency_ms"]) for row in rows], dtype=float)
+    accuracy = np.asarray(
+        [float(row["full_test_accuracy_pct"]) for row in rows],
+        dtype=float,
+    )
+    return variants, latency, accuracy
+
+
+def plot(data_path: Path, output: Path) -> Path:
+    variants, latency, accuracy = _load_plot_data(data_path)
     apply_large_single_panel_style()
     fig, ax_lat = plt.subplots(figsize=(280 / 72, 2.6318))
     ax_acc = ax_lat.twinx()
 
-    x = np.arange(len(VARIANTS))
+    x = np.arange(len(variants))
     width = 0.34
     latency_bars = ax_lat.bar(
         x - width / 2,
-        LATENCY,
+        latency,
         width=width,
         color=SEAM_COLOR,
         edgecolor="black",
@@ -71,7 +90,7 @@ def plot(output: Path) -> Path:
     )
     accuracy_bars = ax_acc.bar(
         x + width / 2,
-        ACCURACY - ACCURACY_FLOOR,
+        accuracy - ACCURACY_FLOOR,
         bottom=ACCURACY_FLOOR,
         width=width,
         color=ISPLITEE_COLOR,
@@ -84,13 +103,13 @@ def plot(output: Path) -> Path:
     _annotate_bars(
         ax_acc,
         latency_bars,
-        LATENCY,
+        latency,
         offset=10.0,
         x_offset=width * 0.25,
         ha="right",
         coordinate_ax=ax_lat,
     )
-    _annotate_bars(ax_acc, accuracy_bars, ACCURACY, offset=0.15)
+    _annotate_bars(ax_acc, accuracy_bars, accuracy, offset=0.15)
 
     ax_lat.set_ylabel("E2E latency (ms)", color=SEAM_COLOR, labelpad=1.5)
     ax_acc.set_ylabel("Full-test acc. (%)", color=ISPLITEE_COLOR, labelpad=2.0)
@@ -102,7 +121,7 @@ def plot(output: Path) -> Path:
     ax_acc.set_ylim(ACCURACY_FLOOR, 97)
     ax_lat.set_yticks([0, 100, 200, 300, 400])
     ax_acc.set_yticks([90, 92, 94, 96])
-    ax_lat.set_xticks(x, VARIANTS)
+    ax_lat.set_xticks(x, variants)
     bold_tick_labels(ax_lat, ax_acc)
     ax_lat.set_axisbelow(True)
     ax_lat.grid(axis="x", visible=False)
@@ -132,13 +151,14 @@ def plot(output: Path) -> Path:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
+    parser.add_argument("--data", type=Path, default=PLOT_DATA_PATH)
     parser.add_argument(
         "--output",
         type=Path,
         default=RESULT_FIGURE_DIR / "ablation.pdf",
     )
     args = parser.parse_args()
-    print(plot(args.output))
+    print(plot(args.data, args.output))
 
 
 if __name__ == "__main__":

@@ -23,10 +23,11 @@ FIGURES = [
     {
         "name": "cross_arch_dataset_latency",
         "script": EXP2_ROOT / "plot_generalization.py",
+        "data": EXP2_ROOT / "result_data" / "cross_arch_dataset_plot_data.csv",
         "argument_output": EXP2_ROOT / "result_figure" / "cross_arch_dataset.pdf",
         "output": EXP2_ROOT / "result_figure" / "cross_arch_dataset_latency.pdf",
         "status": "complete_from_draft",
-        "source": "User-provided Evaluation handoff draft table",
+        "source": "Exp2_Cross-Arch-Dataset/result_data/cross_arch_dataset_plot_data.csv",
         "selection": "Pi 5; ResNet-50/ViT-Base; CIFAR-10/ImageNet-100/NEU-CLS-64",
         "aggregation": "Values copied verbatim; no repository re-aggregation requested",
         "notes": [
@@ -36,10 +37,11 @@ FIGURES = [
     {
         "name": "cross_arch_dataset_accuracy",
         "script": EXP2_ROOT / "plot_generalization.py",
+        "data": EXP2_ROOT / "result_data" / "cross_arch_dataset_plot_data.csv",
         "argument_output": EXP2_ROOT / "result_figure" / "cross_arch_dataset.pdf",
         "output": EXP2_ROOT / "result_figure" / "cross_arch_dataset_accuracy.pdf",
         "status": "complete_from_draft",
-        "source": "User-provided Evaluation handoff draft table",
+        "source": "Exp2_Cross-Arch-Dataset/result_data/cross_arch_dataset_plot_data.csv",
         "selection": "Pi 5; ResNet-50/ViT-Base; CIFAR-10/ImageNet-100/NEU-CLS-64",
         "aggregation": "Values copied verbatim; no repository re-aggregation requested",
         "notes": [
@@ -49,10 +51,11 @@ FIGURES = [
     {
         "name": "multi_device",
         "script": EXP3_ROOT / "plot_multi_device.py",
+        "data": EXP3_ROOT / "result_data" / "multi_device_plot_data.csv",
         "argument_output": EXP3_ROOT / "result_figure" / "multi_device.pdf",
         "output": EXP3_ROOT / "result_figure" / "multi_device.pdf",
         "status": "complete_from_current_plot_data",
-        "source": "Current paper-facing multi-device arrays",
+        "source": "Exp3_Multi-Device/result_data/multi_device_plot_data.csv",
         "selection": "ResNet-50/CIFAR-10; N=1..4",
         "aggregation": "Paper-facing mean/P95/worst-device latency and accuracy values",
         "notes": [
@@ -77,10 +80,11 @@ FIGURES = [
     {
         "name": "ablation",
         "script": EXP5_ROOT / "plot_ablation.py",
+        "data": EXP5_ROOT / "result_data" / "ablation_plot_data.csv",
         "argument_output": EXP5_ROOT / "result_figure" / "ablation.pdf",
         "output": EXP5_ROOT / "result_figure" / "ablation.pdf",
         "status": "complete_from_measured_results",
-        "source": "Exp5_Ablation/result_data/real_device_ablation_summary.csv",
+        "source": "Exp5_Ablation/result_data/ablation_plot_data.csv",
         "selection": "ResNet-50/CIFAR-10; single Pi 5",
         "aggregation": "Paper-facing values from the retained real-device ablation summary",
         "notes": [
@@ -110,6 +114,20 @@ def _check_dependencies() -> None:
         raise SystemExit(f"Missing plotting dependencies: {', '.join(missing)}")
 
 
+def _manifest_figure(figure: dict) -> dict:
+    payload = {
+        **figure,
+        "script": str(figure["script"].relative_to(REPO_ROOT)),
+        "argument_output": str(
+            figure["argument_output"].relative_to(REPO_ROOT)
+        ),
+        "output": str(figure["output"].relative_to(REPO_ROOT)),
+    }
+    if "data" in figure:
+        payload["data"] = str(figure["data"].relative_to(REPO_ROOT))
+    return payload
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -120,18 +138,25 @@ def main() -> None:
     args = parser.parse_args()
     _check_dependencies()
 
-    generated: set[tuple[Path, Path]] = set()
+    generated: set[tuple[Path, Path, Path | None]] = set()
     for figure in FIGURES:
-        command = (figure["script"], figure["argument_output"])
+        command = (
+            figure["script"],
+            figure["argument_output"],
+            figure.get("data"),
+        )
         if command in generated:
             continue
+        arguments = [
+            sys.executable,
+            str(figure["script"]),
+            "--output",
+            str(figure["argument_output"]),
+        ]
+        if "data" in figure:
+            arguments.extend(["--data", str(figure["data"])])
         subprocess.run(
-            [
-                sys.executable,
-                str(figure["script"]),
-                "--output",
-                str(figure["argument_output"]),
-            ],
+            arguments,
             cwd=REPO_ROOT,
             check=True,
         )
@@ -146,17 +171,7 @@ def main() -> None:
             "Each figure records its own paper-facing source and aggregation status; "
             "missing Exp4 values remain explicitly incomplete."
         ),
-        "figures": [
-            {
-                **figure,
-                "script": str(figure["script"].relative_to(REPO_ROOT)),
-                "argument_output": str(
-                    figure["argument_output"].relative_to(REPO_ROOT)
-                ),
-                "output": str(figure["output"].relative_to(REPO_ROOT)),
-            }
-            for figure in FIGURES
-        ],
+        "figures": [_manifest_figure(figure) for figure in FIGURES],
     }
     manifest_path.write_text(
         json.dumps(payload, ensure_ascii=False, indent=2) + "\n",

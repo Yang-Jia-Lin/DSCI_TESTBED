@@ -121,8 +121,7 @@ def _machine_manifest() -> dict[str, Any]:
     }
 
 
-def _experiment_id(smoke: bool) -> str:
-    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+def _experiment_id(smoke: bool, timestamp: str) -> str:
     prefix = "smoke" if smoke else "controlled"
     return f"{prefix}-{timestamp}-{uuid.uuid4().hex[:8]}"
 
@@ -550,11 +549,15 @@ def _prepare_experiment(
     canonical_state: dict[str, Any],
     source_meta: dict[str, Any],
 ) -> tuple[str, Path]:
-    experiment_id = args.experiment_id or _experiment_id(args.smoke)
-    experiment_root = Path(args.output_dir).resolve() / experiment_id
-    manifest_path = experiment_root / "manifest.json"
+    run_timestamp = (
+        args.run_timestamp or datetime.now().strftime("%Y%m%d-%H%M%S")
+    )
+    experiment_id = _experiment_id(args.smoke, run_timestamp)
+    experiment_root = Path(args.output_dir).resolve()
+    manifest_path = experiment_root / f"manifest_{run_timestamp}.json"
     manifest = {
         "experiment_id": experiment_id,
+        "run_timestamp": run_timestamp,
         "created_at": time.time(),
         "smoke": bool(args.smoke),
         "state_meta_path": str(Path(args.state_meta).resolve()),
@@ -570,7 +573,7 @@ def _prepare_experiment(
             mode: distance for _, mode, distance in MODE_SPECS
         },
         "ppo_hyperparameters": _effective_hyperparameters(
-            experiment_root,
+            experiment_root / f"_manifest_probe_{run_timestamp}",
             alpha=float(args.objective_alpha),
             beta=float(args.objective_beta),
             smoke=bool(args.smoke),
@@ -578,26 +581,13 @@ def _prepare_experiment(
         "canonical_state": canonical_state,
         "hardware": _machine_manifest(),
     }
+    experiment_root.mkdir(parents=True, exist_ok=True)
     if manifest_path.exists():
-        existing = _load_json(manifest_path)
-        stable_keys = (
-            "experiment_id",
-            "smoke",
-            "state_meta_path",
-            "objective_alpha",
-            "objective_beta",
-            "seeds",
+        raise FileExistsError(
+            f"Manifest already exists for timestamp {run_timestamp}: "
+            f"{manifest_path}"
         )
-        mismatches = [
-            key for key in stable_keys if existing.get(key) != manifest.get(key)
-        ]
-        if mismatches:
-            raise ValueError(
-                f"Existing experiment manifest differs in: {', '.join(mismatches)}"
-            )
-    else:
-        experiment_root.mkdir(parents=True, exist_ok=False)
-        _write_json_once(manifest_path, manifest)
+    _write_json_once(manifest_path, manifest)
     return experiment_id, experiment_root
 
 
@@ -606,22 +596,13 @@ def run_experiment(args: argparse.Namespace) -> Path:
     experiment_id, experiment_root = _prepare_experiment(
         args, canonical_state, source_meta
     )
-    print(f"Experiment directory: {experiment_root}")
+    print(f"Result directory: {experiment_root}")
 
     for seed in args.seeds:
         seed = int(seed)
-        seed_dir = experiment_root / f"seed_{seed}"
+        seed_timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        seed_dir = experiment_root / f"seed_{seed}_{seed_timestamp}"
         status_path = seed_dir / "status.json"
-        if status_path.exists():
-            status = _load_json(status_path)
-            if status.get("status") == "complete":
-                print(f"[seed {seed}] already complete; skipping")
-                continue
-            raise RuntimeError(
-                f"[seed {seed}] has an incomplete retained run at {seed_dir}; "
-                "use a new experiment id to avoid mixing attempts"
-            )
-
         seed_dir.mkdir(parents=True, exist_ok=False)
         events_path = seed_dir / "run_events.jsonl"
         _seed_everything(seed)
@@ -646,6 +627,7 @@ def run_experiment(args: argparse.Namespace) -> Path:
                 "event": "seed_start",
                 "experiment_id": experiment_id,
                 "seed": seed,
+                "seed_timestamp": seed_timestamp,
             },
         )
         records: list[dict[str, Any]] = []
@@ -727,7 +709,15 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--objective-beta", type=float, default=1.0)
     parser.add_argument("--seeds", type=int, nargs="+", default=[0, 1, 2, 3, 4])
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
-    parser.add_argument("--experiment-id")
+    parser.add_argument(
+        "--run-timestamp",
+        "--experiment-id",
+        dest="run_timestamp",
+        help=(
+            "Optional YYYYMMDD-HHMMSS manifest timestamp. "
+            "--experiment-id is retained as a compatibility alias."
+        ),
+    )
     parser.add_argument("--training-timeout-s", type=float, default=3600.0)
     parser.add_argument("--poll-interval-s", type=float, default=0.25)
     parser.add_argument("--smoke", action="store_true")

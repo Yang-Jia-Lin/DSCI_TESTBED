@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import sys
 from pathlib import Path
 
@@ -29,67 +30,96 @@ from Scripts.EvaluationCommon.paper_figure_style import (  # noqa: E402
 )
 
 EXPERIMENT_ROOT = Path(__file__).resolve().parent
+PLOT_DATA_PATH = EXPERIMENT_ROOT / "result_data" / "multi_device_plot_data.csv"
 RESULT_FIGURE_DIR = EXPERIMENT_ROOT / "result_figure"
 
-N = np.array([1, 2, 3, 4])
-SEAS_MEAN = np.array([119.74, 219.33, 346.18, 292.02])
-SEAS_P95 = np.array([177.97, 314.50, 478.95, 492.94])
-SEAS_WORST = np.array([119.74, 244.64, 372.24, 385.91])
-SEAS_ACCURACY = np.array([95.59, 95.56, 95.52, 95.21])
-ISPLITEE_MEAN = np.array([294.31, 480.47, 730.77, 653.76])
-ISPLITEE_P95 = np.array([391.05, 854.64, 1948.38, 1962.36])
-ISPLITEE_WORST = np.array([294.31, 659.89, 1238.34, 1277.88])
-ISPLITEE_ACCURACY = np.array([94.87, 94.90, 94.69, 94.37])
+def _load_plot_data(path: Path) -> tuple[np.ndarray, dict[str, dict[str, np.ndarray]]]:
+    with Path(path).open(encoding="utf-8-sig", newline="") as handle:
+        rows = list(csv.DictReader(handle))
+    if not rows:
+        raise ValueError(f"No plot data found in {path}")
+    methods = ("SEAS", "I-SplitEE")
+    fields = (
+        "mean_latency_ms",
+        "p95_latency_ms",
+        "worst_device_mean_latency_ms",
+        "accuracy_pct",
+    )
+    devices = np.asarray(
+        sorted({int(row["n_devices"]) for row in rows}),
+        dtype=int,
+    )
+    data: dict[str, dict[str, np.ndarray]] = {}
+    for method in methods:
+        method_rows = {
+            int(row["n_devices"]): row
+            for row in rows
+            if row["method"] == method
+        }
+        missing = [int(n) for n in devices if int(n) not in method_rows]
+        if missing:
+            raise ValueError(f"{method} is missing device counts: {missing}")
+        data[method] = {
+            field: np.asarray(
+                [float(method_rows[int(n)][field]) for n in devices],
+                dtype=float,
+            )
+            for field in fields
+        }
+    return devices, data
 
 
-def plot(output: Path) -> Path:
+def plot(data_path: Path, output: Path) -> Path:
+    devices, data = _load_plot_data(data_path)
+    seas = data["SEAS"]
+    isplitee = data["I-SplitEE"]
     apply_comparison_figure_style()
     fig, ax_lat = plt.subplots(figsize=(255 / 72, 190 / 72))
     ax_acc = ax_lat.twinx()
 
     ax_lat.plot(
-        N,
-        SEAS_MEAN,
+        devices,
+        seas["mean_latency_ms"],
         color=SEAM_COLOR,
         marker=SEAM_MARKER,
         linestyle="-",
         label="SEAS mean",
     )
     ax_lat.plot(
-        N,
-        SEAS_P95,
+        devices,
+        seas["p95_latency_ms"],
         color=SEAM_COLOR,
         marker="^",
         linestyle="--",
         label="SEAS P95",
     )
     ax_lat.plot(
-        N,
-        SEAS_WORST,
+        devices,
+        seas["worst_device_mean_latency_ms"],
         color=SEAM_COLOR,
         marker="D",
         linestyle=":",
         label="SEAS worst-dev.",
     )
     ax_lat.plot(
-        N,
-        ISPLITEE_MEAN,
+        devices,
+        isplitee["mean_latency_ms"],
         color=ISPLITEE_COLOR,
         marker=SEAM_MARKER,
         linestyle="-",
         label="I-SplitEE mean",
     )
     ax_lat.plot(
-        N,
-        ISPLITEE_P95,
+        devices,
+        isplitee["p95_latency_ms"],
         color=ISPLITEE_COLOR,
         marker="^",
         linestyle="--",
         label="I-SplitEE P95",
     )
     ax_lat.plot(
-        N,
-        ISPLITEE_WORST,
+        devices,
+        isplitee["worst_device_mean_latency_ms"],
         color=ISPLITEE_COLOR,
         marker="D",
         linestyle=":",
@@ -99,16 +129,16 @@ def plot(output: Path) -> Path:
     ax_lat.set_ylim(0, 2050)
     ax_lat.set_yticks([0, 1000, 2000])
     ax_acc.plot(
-        N,
-        SEAS_ACCURACY,
+        devices,
+        seas["accuracy_pct"],
         color=RANDOM_COLOR,
         marker=ISPLITEE_MARKER,
         linestyle="-.",
         label="SEAS acc.",
     )
     ax_acc.plot(
-        N,
-        ISPLITEE_ACCURACY,
+        devices,
+        isplitee["accuracy_pct"],
         color=GA_COLOR,
         marker=ISPLITEE_MARKER,
         linestyle="-.",
@@ -122,7 +152,7 @@ def plot(output: Path) -> Path:
     ax_acc.yaxis.label.set_color(RANDOM_COLOR)
 
     ax_lat.set_xlim(0.8, 4.2)
-    ax_lat.set_xticks(N)
+    ax_lat.set_xticks(devices)
     ax_lat.set_xlabel("Number of devices", labelpad=1.5)
     ax_lat.set_axisbelow(True)
     ax_lat.grid(axis="x", visible=False)
@@ -156,13 +186,14 @@ def plot(output: Path) -> Path:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
+    parser.add_argument("--data", type=Path, default=PLOT_DATA_PATH)
     parser.add_argument(
         "--output",
         type=Path,
         default=RESULT_FIGURE_DIR / "multi_device.pdf",
     )
     args = parser.parse_args()
-    print(plot(args.output))
+    print(plot(args.data, args.output))
 
 
 if __name__ == "__main__":

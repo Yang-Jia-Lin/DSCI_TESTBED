@@ -67,13 +67,24 @@ def _convergence_path(
     resolved = path if path.is_absolute() else experiment_dir / path
     if resolved.exists():
         return resolved
-    relocated = (
-        experiment_dir
-        / f"seed_{int(record['seed'])}"
-        / "convergence"
-        / path.name
+    relocated = sorted(
+        experiment_dir.glob(
+            f"seed_{int(record['seed'])}_*/convergence/{path.name}"
+        )
     )
-    return relocated
+    if len(relocated) == 1:
+        return relocated[0]
+    if not relocated:
+        return (
+            experiment_dir
+            / f"seed_{int(record['seed'])}"
+            / "convergence"
+            / path.name
+        )
+    raise ValueError(
+        f"Multiple relocated convergence logs match {path.name}: "
+        + ", ".join(str(item) for item in relocated)
+    )
 
 
 def load_convergence_runs(
@@ -259,7 +270,19 @@ def write_latex_table(summary: pd.DataFrame, path: Path) -> None:
 
 def summarize(experiment_dir: Path) -> Path:
     experiment_dir = experiment_dir.resolve()
-    manifest = _load_json(experiment_dir / "manifest.json")
+    manifest_paths = sorted(experiment_dir.glob("manifest_*.json"))
+    legacy_manifest = experiment_dir / "manifest.json"
+    if legacy_manifest.is_file():
+        manifest_path = legacy_manifest
+    elif len(manifest_paths) == 1:
+        manifest_path = manifest_paths[0]
+    elif not manifest_paths:
+        raise FileNotFoundError(f"No manifest found under {experiment_dir}")
+    else:
+        raise ValueError(
+            "Multiple manifests found; summarize one timestamped run at a time"
+        )
+    manifest = _load_json(manifest_path)
     if not (
         np.isclose(float(manifest["objective_alpha"]), 1.0)
         and np.isclose(float(manifest["objective_beta"]), 1.0)
@@ -307,7 +330,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--experiment-dir",
         type=Path,
         required=True,
-        help="Directory containing manifest.json and seed_* outputs.",
+        help="Directory containing manifest_*.json and timestamped seed_* outputs.",
     )
     return parser
 

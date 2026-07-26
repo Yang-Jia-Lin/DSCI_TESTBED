@@ -1,0 +1,6 @@
+order,variant,latency_ms,full_test_accuracy_pct,utility
+1,Cloud only,360.29,95.86,0.59831
+2,End only,248.79,95.86,0.70981
+3,Split only,130.40,95.86,0.82820
+4,EE only,219.56,95.58,0.73624
+5,Ours,119.74,95.59,0.83616
