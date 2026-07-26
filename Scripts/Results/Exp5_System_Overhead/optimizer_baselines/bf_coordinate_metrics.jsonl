@@ -1,3 +1,0 @@
-{"algorithm": "Exhaustive/BF", "step": 0, "current_obj": -142.7087508211233, "best_obj": -142.7087508211233, "evaluations": 1, "elapsed_s": 0.0}
-{"algorithm": "Exhaustive/BF", "step": 1, "current_obj": 1.1359788606916403, "best_obj": 1.1359788606916403, "evaluations": 2, "elapsed_s": 0.0}
-{"algorithm": "Exhaustive/BF", "step": 2, "current_obj": 1.1359788606916403, "best_obj": 1.1359788606916403, "evaluations": 3, "elapsed_s": 0.0}

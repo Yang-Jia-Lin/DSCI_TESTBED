@@ -1,0 +1,12 @@
+{
+  "status": "complete",
+  "experiment_id": "controlled-5seed-resnet50-cifar10-20260726",
+  "seed": 1,
+  "completed_at": 1785063901.461536,
+  "modes": [
+    "cold",
+    "medium",
+    "near",
+    "reuse"
+  ]
+}

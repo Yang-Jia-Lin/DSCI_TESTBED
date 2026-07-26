@@ -1,0 +1,52 @@
+{
+  "tables": {
+    "canonical_curve_csv": "D:\\Coding\\Python\\DSCI_SEAS\\Scripts\\Exp0_Motivation\\result_data\\canonical_exit_curves.csv",
+    "final_accuracy_pct": 86.51,
+    "overall_accuracy_max_pct": 87.03,
+    "overall_accuracy_at_tau_1_pct": 86.51,
+    "final_rate_at_tau_1_pct": 99.66,
+    "num_rows": 101
+  },
+  "figure2": {
+    "output_csv": "D:\\Coding\\Python\\DSCI_SEAS\\Scripts\\Exp0_Motivation\\result_data\\exp2_coupling_failure.csv",
+    "accuracy_constraint_pct": 86.01,
+    "main_exit_accuracy_pct": 86.51,
+    "decoupled_performance_inversion": {
+      "occurred": false,
+      "first_bandwidth_mbps": null,
+      "max_decoupled_minus_local_ms": -29.045870136059136
+    },
+    "max_joint_latency_reduction_over_decoupled_pct": 10.4344093685476,
+    "first_bandwidth_with_joint_gain_mbps": 89.0,
+    "max_joint_latency_reduction_over_ee_only_pct": 6.76034228427651,
+    "max_decoupled_latency_increase_over_ee_only_pct": 11.650020163975102,
+    "max_abs_b1_divergence_decoupled_vs_joint": 19
+  },
+  "figure1": {
+    "main_exit_accuracy_pct": 86.51,
+    "overall_accuracy_max_pct": 87.03,
+    "overall_policy_accuracy_max_pct": 87.03,
+    "overall_policy_accuracy_peak_threshold": 0.88,
+    "output_csv": "D:\\Coding\\Python\\DSCI_SEAS\\Scripts\\Exp0_Motivation\\result_data\\exp1_selection_effect.csv",
+    "after_layer2_max_conditional_accuracy_pct": 97.33333333333331,
+    "after_layer2_first_threshold_ge_main": 0.67,
+    "after_layer3_max_conditional_accuracy_pct": 100.0,
+    "after_layer3_first_threshold_ge_main": 0.44
+  },
+  "figures": {
+    "figure1": {
+      "accuracy_expectation": {
+        "pdf": "D:\\Coding\\Python\\DSCI_SEAS\\Scripts\\Exp0_Motivation\\result_figure\\fig1a_accuracy_expectation.pdf",
+        "png": "D:\\Coding\\Python\\DSCI_SEAS\\Scripts\\Exp0_Motivation\\result_figure\\fig1a_accuracy_expectation.png"
+      },
+      "early_exit_probability": {
+        "pdf": "D:\\Coding\\Python\\DSCI_SEAS\\Scripts\\Exp0_Motivation\\result_figure\\fig1b_early_exit_probability.pdf",
+        "png": "D:\\Coding\\Python\\DSCI_SEAS\\Scripts\\Exp0_Motivation\\result_figure\\fig1b_early_exit_probability.png"
+      }
+    },
+    "figure2": {
+      "pdf": "D:\\Coding\\Python\\DSCI_SEAS\\Scripts\\Exp0_Motivation\\result_figure\\fig2_coupling_failure.pdf",
+      "png": "D:\\Coding\\Python\\DSCI_SEAS\\Scripts\\Exp0_Motivation\\result_figure\\fig2_coupling_failure.png"
+    }
+  }
+}

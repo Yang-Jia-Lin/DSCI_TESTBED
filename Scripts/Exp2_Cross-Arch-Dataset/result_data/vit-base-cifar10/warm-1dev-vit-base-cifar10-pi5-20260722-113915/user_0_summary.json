@@ -1,0 +1,206 @@
+{
+  "accuracy": 0.98,
+  "accuracy_full_test": {
+    "accuracy": 0.9857,
+    "backend": "pytorch",
+    "bundle_id": "vit-base-cifar10",
+    "correct": 9857,
+    "evaluated_at_utc": "2026-07-24T12:13:27.510116+00:00",
+    "evaluation_mode": "offline_batched_early_exit",
+    "exit_counts": {
+      "after_block3": 486,
+      "after_block6": 3763,
+      "after_block9": 4342,
+      "final": 1409
+    },
+    "exit_thresholds": {
+      "after_block3": 0.9580193161964417,
+      "after_block6": 0.9633917808532715,
+      "after_block9": 0.9290227890014648
+    },
+    "model_hash": "fee60ffa57bba9b355670d5e57f75726ac8d321f10a97206fff3a2bc1a85bbc0",
+    "samples": 10000,
+    "sampling": {
+      "policy": "full_test",
+      "seed_derivation": null,
+      "seed_source": null
+    },
+    "source_fallback_samples": 0,
+    "test_package": {
+      "dataset_id": "cifar10",
+      "full_test_pool": true,
+      "missing_or_empty_files": 0,
+      "package_created_at": "2026-07-23T01:42:52.633010+00:00",
+      "package_root": "Data/Datasets/CIFAR10/TestSets/cifar10__test__balanced__full",
+      "source_manifest_sha256": "76d91f656719814818b082f2b17689796c623ec8f71c37deac4776ec2ea26b45",
+      "total_samples": 10000
+    }
+  },
+  "accuracy_refresh": {
+    "accuracy": 1.0,
+    "backend": "pytorch",
+    "bundle_id": "vit-base-cifar10",
+    "correct": 100,
+    "evaluated_at_utc": "2026-07-24T10:24:56.318203+00:00",
+    "evaluation_mode": "offline_batched_early_exit",
+    "exit_counts": {
+      "after_block3": 5,
+      "after_block6": 35,
+      "after_block9": 44,
+      "final": 16
+    },
+    "exit_thresholds": {
+      "after_block3": 0.9580193161964417,
+      "after_block6": 0.9633917808532715,
+      "after_block9": 0.9290227890014648
+    },
+    "model_hash": "fee60ffa57bba9b355670d5e57f75726ac8d321f10a97206fff3a2bc1a85bbc0",
+    "samples": 100,
+    "sampling": {
+      "base_seed": 719232618571490530,
+      "effective_seed": 5889903218567623727,
+      "policy": "stratified",
+      "seed_derivation": "round_id+dataset_id+user_id",
+      "seed_source": "round_id"
+    },
+    "source_fallback_samples": 16,
+    "test_package": {
+      "dataset_id": "cifar10",
+      "full_test_pool": true,
+      "missing_or_empty_files": 1824,
+      "package_created_at": "2026-07-23T01:42:52.633010+00:00",
+      "package_root": "Data/Datasets/CIFAR10/TestSets/cifar10__test__balanced__full",
+      "source_fallback": "torchvision CIFAR10 test split via manifest source_index",
+      "source_manifest_sha256": "76d91f656719814818b082f2b17689796c623ec8f71c37deac4776ec2ea26b45",
+      "total_samples": 10000
+    }
+  },
+  "alpha": 1.0,
+  "backend": "pytorch",
+  "beta": 5.0,
+  "bundle_id": "vit-base-cifar10",
+  "constraint_satisfied": null,
+  "constraint_status": "disabled",
+  "correct": 98,
+  "decision": {
+    "accuracy_tolerance": null,
+    "bundle_id": "vit-base-cifar10",
+    "constraint_satisfied": null,
+    "constraint_status": "disabled",
+    "decision_id": "warm-1dev-vit-base-cifar10-pi5-20260722-113915:v4",
+    "decision_source": "cached_dsci:warm:0.267539",
+    "decision_version": 4,
+    "expected_accuracy": 0.9959513831356288,
+    "expected_latency": 0.08447671025763685,
+    "manifest_id": "vit-base-cifar10-partition-v1",
+    "model_hash": "fee60ffa57bba9b355670d5e57f75726ac8d321f10a97206fff3a2bc1a85bbc0",
+    "objective": 0.5735678318474445,
+    "objective_alpha": 1.0,
+    "objective_beta": 5.0,
+    "objective_mode": "weighted",
+    "resource_mode": "fixed_worker_pool",
+    "round_id": "warm-1dev-vit-base-cifar10-pi5-20260722-113915",
+    "target_accuracy": null,
+    "user": {
+      "X_row": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "Y_row": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        0.9580193161964417,
+        1.0,
+        1.0,
+        0.9633917808532715,
+        1.0,
+        1.0,
+        0.9290227890014648,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "cloud_boundaries": [
+        15,
+        15
+      ],
+      "device_boundaries": [
+        0,
+        0
+      ],
+      "edge_boundaries": [
+        0,
+        15
+      ],
+      "exit_thresholds": {
+        "after_block3": 0.9580193161964417,
+        "after_block6": 0.9633917808532715,
+        "after_block9": 0.9290227890014648
+      },
+      "partition_boundary_1": 0,
+      "partition_boundary_2": 15,
+      "partition_s1": 0,
+      "partition_s2": 15,
+      "user_id": 0
+    }
+  },
+  "device_state": {
+    "BW_d2e": 53.847858279706706,
+    "backend": "pytorch",
+    "bundle_id": "vit-base-cifar10",
+    "execution_profile_id": "vit-base-cifar10-device-pi5",
+    "manifest_id": "vit-base-cifar10-partition-v1",
+    "model_hash": "fee60ffa57bba9b355670d5e57f75726ac8d321f10a97206fff3a2bc1a85bbc0",
+    "protocol_overhead_s": 0.0,
+    "resource_mode": "fixed_worker_pool",
+    "tensor_transport_dtype": "float32",
+    "threads_per_worker": 1,
+    "worker_count": 1
+  },
+  "latency": {
+    "T_c_compute_avg_ms": null,
+    "T_d2e_avg_ms": 140.03973741997697,
+    "T_d_compute_avg_ms": 0.042425120000189054,
+    "T_e2c_avg_ms": null,
+    "T_e_compute_avg_ms": 67.92938900000081,
+    "T_total_avg_ms": 211.19501858999683,
+    "cloud_exit_check_avg_ms": 0.0,
+    "cloud_exit_head_compute_avg_ms": 0.0,
+    "cloud_queue_avg_ms": 0.0,
+    "cloud_segment_compute_avg_ms": 0.0,
+    "d2e_transport_avg_ms": 140.03973741997697,
+    "device_compute_avg_ms": 0.042425120000189054,
+    "e2c_transport_avg_ms": 0.0,
+    "edge_exit_check_avg_ms": 0.3473280000343948,
+    "edge_exit_head_compute_avg_ms": 1.7400300000008428,
+    "edge_queue_avg_ms": 1.526981999986674,
+    "edge_segment_compute_avg_ms": 62.56379000018569,
+    "total_latency_avg_ms": 211.19501858999683,
+    "unattributed_overhead_avg_ms": 4.93472604981207
+  },
+  "objective_mode": "weighted",
+  "round_id": "warm-1dev-vit-base-cifar10-pi5-20260722-113915",
+  "samples": 100,
+  "target_accuracy": null,
+  "user_id": 0,
+  "utility_mean": -0.07597509294998417,
+  "utility_sum": -7.597509294998417
+}

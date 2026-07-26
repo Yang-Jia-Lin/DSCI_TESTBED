@@ -1,5 +1,0 @@
-{"algorithm": "Greedy", "step": 0, "current_obj": 0.7516082788272508, "best_obj": 0.7516082788272508, "evaluations": 1, "elapsed_s": 0.0}
-{"algorithm": "Greedy", "step": 1, "current_obj": 1.0516920326245036, "best_obj": 1.0516920326245036, "evaluations": 23233, "elapsed_s": 5.9540597999002784}
-{"algorithm": "Greedy", "step": 2, "current_obj": 1.1529526973302655, "best_obj": 1.1529526973302655, "evaluations": 46465, "elapsed_s": 10.92078849999234}
-{"algorithm": "Greedy", "step": 3, "current_obj": 1.1529526973302655, "best_obj": 1.1529526973302655, "evaluations": 69697, "elapsed_s": 16.847590999910608}
-{"algorithm": "Greedy", "step": 4, "current_obj": 1.1529526973302655, "best_obj": 1.1529526973302655, "evaluations": 92929, "elapsed_s": 21.688435799907893}

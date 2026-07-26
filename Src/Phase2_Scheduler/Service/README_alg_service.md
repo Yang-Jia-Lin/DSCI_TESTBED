@@ -128,9 +128,9 @@ PPO 内部一个 episode 仍是 `n` 步。10 个用户时就是 10 步，每步�
 
 ```powershell
 conda activate DSCI
-python -m Scripts.Exp5_System_Overhead.run_convergence `
+python Scripts\Exp4_System-Overhead\run\run_convergence.py `
   --ppo-source Data/Runtime/SolutionCache/TrainingConvergence `
-  --output-dir Scripts/Results/Exp5_System_Overhead `
+  --output-dir Scripts\Exp4_System-Overhead\result_data `
   --convergence-only
 ```
 

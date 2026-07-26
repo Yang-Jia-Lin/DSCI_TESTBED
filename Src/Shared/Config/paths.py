@@ -19,7 +19,15 @@ ARCHIVE_DIR = DATA_DIR / "Archive"
 RUNTIME_DIR = DATA_DIR / "Runtime"
 SOLUTION_CACHE_DIR = RUNTIME_DIR / "SolutionCache"
 DEVICE_RESULTS_DIR = RUNTIME_DIR / "DeviceResults"
-RESULT_DIR = PROJECT_ROOT / "Scripts" / "Results"
+# Compatibility root for legacy scheduler-reporting helpers. New experiment
+# scripts use their own result_data/result_figure directories directly.
+RESULT_DIR = (
+    PROJECT_ROOT
+    / "Scripts"
+    / "Exp4_System-Overhead"
+    / "result_data"
+    / "legacy"
+)
 
 
 @dataclass(frozen=True)
@@ -76,13 +84,21 @@ def bundle_paths(bundle_id: str | None = None) -> BundleArtifactPaths:
     return BundleArtifactPaths(get_bundle(bundle_id))
 
 
-RESULT_TESTBED_PATH = RESULT_DIR / "Exp1_SEAM"
-RESULT_SOTA_PATH = RESULT_DIR / "Exp2_Baseline"
-RESULT_DYNAMIC_PATH = RESULT_DIR / "Exp3_Dynamic"
-RESULT_CONVERGENCE_PATH = RESULT_DIR / "Exp4_DSCI_Convergency"
+RESULT_TESTBED_PATH = (
+    PROJECT_ROOT / "Scripts" / "Exp2_Cross-Arch-Dataset" / "result_data"
+)
+RESULT_SOTA_PATH = RESULT_TESTBED_PATH
+RESULT_DYNAMIC_PATH = (
+    PROJECT_ROOT / "Scripts" / "Exp3_Multi-Device" / "result_data"
+)
+RESULT_CONVERGENCE_PATH = (
+    PROJECT_ROOT / "Scripts" / "Exp4_System-Overhead" / "result_data"
+)
 RESULT_DSCI_CONVERGENCY_PATH = RESULT_CONVERGENCE_PATH
-RESULT_ABLATION_PATH = RESULT_DIR / "Exp5_Ablation"
-RESULT_EE_MODEL_PATH = RESULT_DIR / "Exp6_EE_Model"
+RESULT_ABLATION_PATH = (
+    PROJECT_ROOT / "Scripts" / "Exp5_Ablation" / "result_data"
+)
+RESULT_EE_MODEL_PATH = RESULT_DIR / "EE_Model"
 RESULT_GA_PATH = RESULT_DIR / "Optimize/GA"
 RESULT_RANDOM_PATH = RESULT_DIR / "Optimize/Random"
 RESULT_PPO_PATH = RESULT_DIR / "Optimize/DSCI"

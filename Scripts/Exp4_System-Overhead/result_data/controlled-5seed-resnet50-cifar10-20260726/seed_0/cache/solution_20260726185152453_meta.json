@@ -1,0 +1,121 @@
+{
+  "state_signature": {
+    "model": {
+      "bundle_id": "resnet50-cifar10",
+      "m": 20,
+      "exit_ids": [
+        "after_layer1",
+        "after_layer2",
+        "after_layer3"
+      ]
+    },
+    "num_users": 4,
+    "resource_mode": "fixed_worker_pool",
+    "objective": {
+      "mode": "weighted",
+      "alpha": 1.0,
+      "beta": 1.0
+    },
+    "tensor_transport_dtype": "float32",
+    "transport_byte_scale": 1.0,
+    "manifest_id": "resnet50-cifar10-partition-v1",
+    "model_hash": "42222e588316eba09b272dd13e261ab47f674256446150916379c4945be9aad2",
+    "users": [
+      {
+        "user_id": 0,
+        "f_u": 1.0,
+        "BW_d2e": 38.8118,
+        "execution_profile_id": "resnet50-cifar10-device-pi5"
+      },
+      {
+        "user_id": 1,
+        "f_u": 1.0,
+        "BW_d2e": 25.587,
+        "execution_profile_id": "resnet50-cifar10-device-pi4-1"
+      },
+      {
+        "user_id": 2,
+        "f_u": 1.0,
+        "BW_d2e": 24.7222,
+        "execution_profile_id": "resnet50-cifar10-device-pi4-2"
+      },
+      {
+        "user_id": 3,
+        "f_u": 1.0,
+        "BW_d2e": 99.6565,
+        "execution_profile_id": "resnet50-cifar10-device-nano"
+      }
+    ],
+    "edge": {
+      "f_e_max": 1.0,
+      "execution_profile_id": "resnet50-cifar10-edge-kaijie-laptop",
+      "worker_count": 1
+    },
+    "cloud": {
+      "f_c_max": 1.0,
+      "BW_e2c": 87.0105,
+      "execution_profile_id": "resnet50-cifar10-cloud-5880",
+      "worker_count": 1
+    }
+  },
+  "compat_key": {
+    "model": {
+      "bundle_id": "resnet50-cifar10",
+      "m": 20,
+      "exit_ids": [
+        "after_layer1",
+        "after_layer2",
+        "after_layer3"
+      ]
+    },
+    "num_users": 4,
+    "resource_mode": "fixed_worker_pool",
+    "objective": {
+      "mode": "weighted",
+      "alpha": 1.0,
+      "beta": 1.0
+    },
+    "tensor_transport_dtype": "float32",
+    "transport_byte_scale": 1.0,
+    "manifest_id": "resnet50-cifar10-partition-v1",
+    "model_hash": "42222e588316eba09b272dd13e261ab47f674256446150916379c4945be9aad2",
+    "user_profiles": [
+      "resnet50-cifar10-device-pi5",
+      "resnet50-cifar10-device-pi4-1",
+      "resnet50-cifar10-device-pi4-2",
+      "resnet50-cifar10-device-nano"
+    ],
+    "edge_profile": "resnet50-cifar10-edge-kaijie-laptop",
+    "cloud_profile": "resnet50-cifar10-cloud-5880"
+  },
+  "state_vector": [
+    38.8118,
+    1.0,
+    25.587,
+    1.0,
+    24.7222,
+    1.0,
+    99.6565,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    87.0105,
+    1.0
+  ],
+  "objective": 3.3304668526109706,
+  "created_at": 1785063112.4495203,
+  "policy_path": "D:\\Coding\\Python\\DSCI_SEAS\\Scripts\\Results\\Exp5_System_Overhead\\controlled_policy_update\\controlled-5seed-resnet50-cifar10-20260726\\seed_0\\cache\\solution_20260726185152453_policy.pt",
+  "training_mode": "medium",
+  "training_started_at": 1785062942.887064,
+  "training_finished_at": 1785063112.4510717,
+  "training_duration_s": 169.56400775909424,
+  "training_convergence_path": "D:\\Coding\\Python\\DSCI_SEAS\\Scripts\\Results\\Exp5_System_Overhead\\controlled_policy_update\\controlled-5seed-resnet50-cifar10-20260726\\seed_0\\convergence\\20260726-184902-887_controlled-5seed-resnet50-cifar10-20260726_seed-0_S1_medium.jsonl",
+  "objective_alpha": 1.0,
+  "objective_beta": 1.0,
+  "expected_accuracy": 0.979025101390504,
+  "expected_latency": 0.14640838823776134,
+  "constraint_satisfied": null,
+  "saved_at": 1785063112.458474
+}

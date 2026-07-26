@@ -1,6 +1,0 @@
-﻿component,label,mean_ms,share_of_total
-device_compute,Device compute,65.30901147855,1.0
-d2e_transmission,D2E transmission,0.0,0.0
-edge_compute,Edge compute,0.0,0.0
-e2c_transmission,E2C transmission,0.0,0.0
-cloud_compute,Cloud compute,0.0,0.0

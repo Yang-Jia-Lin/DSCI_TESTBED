@@ -1,0 +1,213 @@
+{
+  "accuracy": 0.98,
+  "accuracy_full_test": {
+    "accuracy": 0.9558,
+    "backend": "pytorch",
+    "bundle_id": "resnet50-cifar10",
+    "correct": 9558,
+    "evaluated_at_utc": "2026-07-24T11:56:25.466356+00:00",
+    "evaluation_mode": "offline_batched_early_exit",
+    "exit_counts": {
+      "after_layer1": 14,
+      "after_layer2": 84,
+      "after_layer3": 5901,
+      "final": 4001
+    },
+    "exit_thresholds": {
+      "after_layer1": 0.8500000238418579,
+      "after_layer2": 0.9200000166893005,
+      "after_layer3": 0.8339129686355591
+    },
+    "model_hash": "42222e588316eba09b272dd13e261ab47f674256446150916379c4945be9aad2",
+    "samples": 10000,
+    "sampling": {
+      "policy": "full_test",
+      "seed_derivation": null,
+      "seed_source": null
+    },
+    "source_fallback_samples": 0,
+    "test_package": {
+      "dataset_id": "cifar10",
+      "full_test_pool": true,
+      "missing_or_empty_files": 0,
+      "package_created_at": "2026-07-23T01:42:52.633010+00:00",
+      "package_root": "Data/Datasets/CIFAR10/TestSets/cifar10__test__balanced__full",
+      "source_manifest_sha256": "76d91f656719814818b082f2b17689796c623ec8f71c37deac4776ec2ea26b45",
+      "total_samples": 10000
+    }
+  },
+  "accuracy_refresh": {
+    "accuracy": 0.96,
+    "backend": "pytorch",
+    "bundle_id": "resnet50-cifar10",
+    "correct": 96,
+    "evaluated_at_utc": "2026-07-24T10:23:44.753849+00:00",
+    "evaluation_mode": "offline_batched_early_exit",
+    "exit_counts": {
+      "after_layer2": 2,
+      "after_layer3": 61,
+      "final": 37
+    },
+    "exit_thresholds": {
+      "after_layer1": 0.8500000238418579,
+      "after_layer2": 0.9200000166893005,
+      "after_layer3": 0.8339129686355591
+    },
+    "model_hash": "42222e588316eba09b272dd13e261ab47f674256446150916379c4945be9aad2",
+    "samples": 100,
+    "sampling": {
+      "base_seed": 2910097099457176952,
+      "effective_seed": 4739198308327511032,
+      "policy": "stratified",
+      "seed_derivation": "round_id+dataset_id+user_id",
+      "seed_source": "round_id"
+    },
+    "source_fallback_samples": 19,
+    "test_package": {
+      "dataset_id": "cifar10",
+      "full_test_pool": true,
+      "missing_or_empty_files": 1824,
+      "package_created_at": "2026-07-23T01:42:52.633010+00:00",
+      "package_root": "Data/Datasets/CIFAR10/TestSets/cifar10__test__balanced__full",
+      "source_fallback": "torchvision CIFAR10 test split via manifest source_index",
+      "source_manifest_sha256": "76d91f656719814818b082f2b17689796c623ec8f71c37deac4776ec2ea26b45",
+      "total_samples": 10000
+    }
+  },
+  "alpha": 1.0,
+  "backend": "pytorch",
+  "beta": 5.0,
+  "bundle_id": "resnet50-cifar10",
+  "constraint_satisfied": null,
+  "constraint_status": "disabled",
+  "correct": 98,
+  "decision": {
+    "accuracy_tolerance": null,
+    "bundle_id": "resnet50-cifar10",
+    "constraint_satisfied": null,
+    "constraint_status": "disabled",
+    "decision_id": "warm-3dev-resnet50-cifar10-20260722-171422:v4",
+    "decision_source": "cached_dsci:warm:0.412717",
+    "decision_version": 4,
+    "expected_accuracy": 0.978474903858784,
+    "expected_latency": 0.2274047553636843,
+    "manifest_id": "resnet50-cifar10-partition-v1",
+    "model_hash": "42222e588316eba09b272dd13e261ab47f674256446150916379c4945be9aad2",
+    "objective": -0.475646618878912,
+    "objective_alpha": 1.0,
+    "objective_beta": 5.0,
+    "objective_mode": "weighted",
+    "resource_mode": "fixed_worker_pool",
+    "round_id": "warm-3dev-resnet50-cifar10-20260722-171422",
+    "target_accuracy": null,
+    "user": {
+      "X_row": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "Y_row": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        0.8500000238418579,
+        1.0,
+        1.0,
+        1.0,
+        0.9200000166893005,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        0.8339129686355591,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "cloud_boundaries": [
+        19,
+        19
+      ],
+      "device_boundaries": [
+        0,
+        0
+      ],
+      "edge_boundaries": [
+        0,
+        19
+      ],
+      "exit_thresholds": {
+        "after_layer1": 0.8500000238418579,
+        "after_layer2": 0.9200000166893005,
+        "after_layer3": 0.8339129686355591
+      },
+      "partition_boundary_1": 0,
+      "partition_boundary_2": 19,
+      "partition_s1": 0,
+      "partition_s2": 19,
+      "user_id": 0
+    }
+  },
+  "device_state": {
+    "BW_d2e": 21.626202373065983,
+    "backend": "pytorch",
+    "bundle_id": "resnet50-cifar10",
+    "execution_profile_id": "resnet50-cifar10-device-pi5",
+    "manifest_id": "resnet50-cifar10-partition-v1",
+    "model_hash": "42222e588316eba09b272dd13e261ab47f674256446150916379c4945be9aad2",
+    "protocol_overhead_s": 0.0,
+    "resource_mode": "fixed_worker_pool",
+    "tensor_transport_dtype": "float32",
+    "threads_per_worker": 1,
+    "worker_count": 1
+  },
+  "latency": {
+    "T_c_compute_avg_ms": null,
+    "T_d2e_avg_ms": 230.17890368992084,
+    "T_d_compute_avg_ms": 0.04515097029070603,
+    "T_e2c_avg_ms": null,
+    "T_e_compute_avg_ms": 64.93812899985642,
+    "T_total_avg_ms": 320.358702109952,
+    "cloud_exit_check_avg_ms": 0.0,
+    "cloud_exit_head_compute_avg_ms": 0.0,
+    "cloud_queue_avg_ms": 0.0,
+    "cloud_segment_compute_avg_ms": 0.0,
+    "d2e_transport_avg_ms": 230.17890368992084,
+    "device_compute_avg_ms": 0.04515097029070603,
+    "e2c_transport_avg_ms": 0.0,
+    "edge_exit_check_avg_ms": 0.4721919999428792,
+    "edge_exit_head_compute_avg_ms": 3.311966000328539,
+    "edge_queue_avg_ms": 23.292969999929483,
+    "edge_segment_compute_avg_ms": 55.20063299973117,
+    "total_latency_avg_ms": 320.358702109952,
+    "unattributed_overhead_avg_ms": 7.856886449808371
+  },
+  "objective_mode": "weighted",
+  "round_id": "warm-3dev-resnet50-cifar10-20260722-171422",
+  "samples": 100,
+  "target_accuracy": null,
+  "user_id": 0,
+  "utility_mean": -0.62179351054976,
+  "utility_sum": -62.179351054975996
+}

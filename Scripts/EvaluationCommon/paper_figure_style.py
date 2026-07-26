@@ -9,7 +9,6 @@ import matplotlib.pyplot as plt
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-RESULTS_ROOT = REPO_ROOT / "Scripts" / "Results"
 
 SEAM_COLOR = "#0072B2"
 ISPLITEE_COLOR = "#D55E00"

@@ -1,0 +1,213 @@
+{
+  "accuracy": 0.92,
+  "accuracy_full_test": {
+    "accuracy": 0.9322,
+    "backend": "pytorch",
+    "bundle_id": "resnet50-imagenet100",
+    "correct": 4661,
+    "evaluated_at_utc": "2026-07-24T11:59:30.797051+00:00",
+    "evaluation_mode": "offline_batched_early_exit",
+    "exit_counts": {
+      "after_layer1": 37,
+      "after_layer2": 492,
+      "after_layer3": 1739,
+      "final": 2732
+    },
+    "exit_thresholds": {
+      "after_layer1": 0.9167976975440979,
+      "after_layer2": 0.7987673282623291,
+      "after_layer3": 0.8974502086639404
+    },
+    "model_hash": "8e5fa9e2d48cb24da816bcef7ccfa7cbe98eeceedd72a8c92449c339f7f517f1",
+    "samples": 5000,
+    "sampling": {
+      "policy": "full_test",
+      "seed_derivation": null,
+      "seed_source": null
+    },
+    "source_fallback_samples": 0,
+    "test_package": {
+      "dataset_id": "imagenet100",
+      "full_test_pool": true,
+      "missing_or_empty_files": 0,
+      "package_created_at": "2026-07-23T01:43:00.906208+00:00",
+      "package_root": "Data/Datasets/ImageNet100/TestSets/imagenet100__test__balanced__full",
+      "source_manifest_sha256": "c571f7c6e8392b69e23d2f12fdd79c2b22e377f00f58461342c2b5415d021d7f",
+      "total_samples": 5000
+    }
+  },
+  "accuracy_refresh": {
+    "accuracy": 0.92,
+    "backend": "pytorch",
+    "bundle_id": "resnet50-imagenet100",
+    "correct": 92,
+    "evaluated_at_utc": "2026-07-24T10:23:58.165247+00:00",
+    "evaluation_mode": "offline_batched_early_exit",
+    "exit_counts": {
+      "after_layer1": 1,
+      "after_layer2": 10,
+      "after_layer3": 40,
+      "final": 49
+    },
+    "exit_thresholds": {
+      "after_layer1": 0.9167976975440979,
+      "after_layer2": 0.7987673282623291,
+      "after_layer3": 0.8974502086639404
+    },
+    "model_hash": "8e5fa9e2d48cb24da816bcef7ccfa7cbe98eeceedd72a8c92449c339f7f517f1",
+    "samples": 100,
+    "sampling": {
+      "base_seed": 4803172536417814922,
+      "effective_seed": 6341801818061946004,
+      "policy": "stratified",
+      "seed_derivation": "round_id+dataset_id+user_id",
+      "seed_source": "round_id"
+    },
+    "source_fallback_samples": 0,
+    "test_package": {
+      "dataset_id": "imagenet100",
+      "full_test_pool": true,
+      "missing_or_empty_files": 0,
+      "package_created_at": "2026-07-23T01:43:00.906208+00:00",
+      "package_root": "Data/Datasets/ImageNet100/TestSets/imagenet100__test__balanced__full",
+      "source_manifest_sha256": "c571f7c6e8392b69e23d2f12fdd79c2b22e377f00f58461342c2b5415d021d7f",
+      "total_samples": 5000
+    }
+  },
+  "alpha": 1.0,
+  "backend": "pytorch",
+  "beta": 5.0,
+  "bundle_id": "resnet50-imagenet100",
+  "constraint_satisfied": null,
+  "constraint_status": "disabled",
+  "correct": 92,
+  "decision": {
+    "accuracy_tolerance": null,
+    "bundle_id": "resnet50-imagenet100",
+    "constraint_satisfied": null,
+    "constraint_status": "disabled",
+    "decision_id": "warm-1dev-resnet50-imagenet100-pi5-20260722-105149:v4",
+    "decision_source": "cached_dsci:warm:0.149312",
+    "decision_version": 4,
+    "expected_accuracy": 0.9820080365443324,
+    "expected_latency": 0.11443720409903362,
+    "manifest_id": "resnet50-imagenet100-partition-v1",
+    "model_hash": "8e5fa9e2d48cb24da816bcef7ccfa7cbe98eeceedd72a8c92449c339f7f517f1",
+    "objective": 0.40982201604916435,
+    "objective_alpha": 1.0,
+    "objective_beta": 5.0,
+    "objective_mode": "weighted",
+    "resource_mode": "fixed_worker_pool",
+    "round_id": "warm-1dev-resnet50-imagenet100-pi5-20260722-105149",
+    "target_accuracy": null,
+    "user": {
+      "X_row": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "Y_row": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        0.9167976975440979,
+        1.0,
+        1.0,
+        1.0,
+        0.7987673282623291,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        0.8974502086639404,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "cloud_boundaries": [
+        19,
+        19
+      ],
+      "device_boundaries": [
+        0,
+        0
+      ],
+      "edge_boundaries": [
+        0,
+        19
+      ],
+      "exit_thresholds": {
+        "after_layer1": 0.9167976975440979,
+        "after_layer2": 0.7987673282623291,
+        "after_layer3": 0.8974502086639404
+      },
+      "partition_boundary_1": 0,
+      "partition_boundary_2": 19,
+      "partition_s1": 0,
+      "partition_s2": 19,
+      "user_id": 0
+    }
+  },
+  "device_state": {
+    "BW_d2e": 42.654436586806355,
+    "backend": "pytorch",
+    "bundle_id": "resnet50-imagenet100",
+    "execution_profile_id": "resnet50-imagenet100-device-pi5",
+    "manifest_id": "resnet50-imagenet100-partition-v1",
+    "model_hash": "8e5fa9e2d48cb24da816bcef7ccfa7cbe98eeceedd72a8c92449c339f7f517f1",
+    "protocol_overhead_s": 0.0,
+    "resource_mode": "fixed_worker_pool",
+    "tensor_transport_dtype": "float32",
+    "threads_per_worker": 1,
+    "worker_count": 1
+  },
+  "latency": {
+    "T_c_compute_avg_ms": null,
+    "T_d2e_avg_ms": 156.5512912295344,
+    "T_d_compute_avg_ms": 0.03679403947899118,
+    "T_e2c_avg_ms": null,
+    "T_e_compute_avg_ms": 78.80647799998769,
+    "T_total_avg_ms": 239.0249456599122,
+    "cloud_exit_check_avg_ms": 0.0,
+    "cloud_exit_head_compute_avg_ms": 0.0,
+    "cloud_queue_avg_ms": 0.0,
+    "cloud_segment_compute_avg_ms": 0.0,
+    "d2e_transport_avg_ms": 156.5512912295344,
+    "device_compute_avg_ms": 0.03679403947899118,
+    "e2c_transport_avg_ms": 0.0,
+    "edge_exit_check_avg_ms": 0.49278399999820977,
+    "edge_exit_head_compute_avg_ms": 3.185497000004034,
+    "edge_queue_avg_ms": 1.854607000032047,
+    "edge_segment_compute_avg_ms": 68.9025539999966,
+    "total_latency_avg_ms": 239.0249456599122,
+    "unattributed_overhead_avg_ms": 8.001418390867912
+  },
+  "objective_mode": "weighted",
+  "round_id": "warm-1dev-resnet50-imagenet100-pi5-20260722-105149",
+  "samples": 100,
+  "target_accuracy": null,
+  "user_id": 0,
+  "utility_mean": -0.27512472829956097,
+  "utility_sum": -27.512472829956096
+}

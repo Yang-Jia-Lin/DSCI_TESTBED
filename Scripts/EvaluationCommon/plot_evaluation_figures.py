@@ -1,4 +1,4 @@
-"""Rebuild the four compact Evaluation PDFs and their data manifest."""
+"""Rebuild the compact Evaluation PDFs and their data manifest."""
 
 from __future__ import annotations
 
@@ -12,14 +12,19 @@ from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-RESULTS_ROOT = REPO_ROOT / "Scripts" / "Results"
-MANIFEST_DIR = RESULTS_ROOT / "EvaluationFigures"
+SCRIPTS_ROOT = REPO_ROOT / "Scripts"
+MANIFEST_DIR = Path(__file__).resolve().parent / "result_data"
+EXP2_ROOT = SCRIPTS_ROOT / "Exp2_Cross-Arch-Dataset"
+EXP3_ROOT = SCRIPTS_ROOT / "Exp3_Multi-Device"
+EXP4_ROOT = SCRIPTS_ROOT / "Exp4_System-Overhead"
+EXP5_ROOT = SCRIPTS_ROOT / "Exp5_Ablation"
 
 FIGURES = [
     {
-        "name": "generalization_latency",
-        "script": REPO_ROOT / "Scripts" / "Exp1_SEAM" / "plot_generalization.py",
-        "output": RESULTS_ROOT / "Exp1_SEAM" / "generalization_latency.pdf",
+        "name": "cross_arch_dataset_latency",
+        "script": EXP2_ROOT / "plot_generalization.py",
+        "argument_output": EXP2_ROOT / "result_figure" / "cross_arch_dataset.pdf",
+        "output": EXP2_ROOT / "result_figure" / "cross_arch_dataset_latency.pdf",
         "status": "complete_from_draft",
         "source": "User-provided Evaluation handoff draft table",
         "selection": "Pi 5; ResNet-50/ViT-Base; CIFAR-10/ImageNet-100/NEU-CLS-64",
@@ -29,9 +34,10 @@ FIGURES = [
         ],
     },
     {
-        "name": "generalization_accuracy",
-        "script": REPO_ROOT / "Scripts" / "Exp1_SEAM" / "plot_generalization.py",
-        "output": RESULTS_ROOT / "Exp1_SEAM" / "generalization_accuracy.pdf",
+        "name": "cross_arch_dataset_accuracy",
+        "script": EXP2_ROOT / "plot_generalization.py",
+        "argument_output": EXP2_ROOT / "result_figure" / "cross_arch_dataset.pdf",
+        "output": EXP2_ROOT / "result_figure" / "cross_arch_dataset_accuracy.pdf",
         "status": "complete_from_draft",
         "source": "User-provided Evaluation handoff draft table",
         "selection": "Pi 5; ResNet-50/ViT-Base; CIFAR-10/ImageNet-100/NEU-CLS-64",
@@ -41,28 +47,27 @@ FIGURES = [
         ],
     },
     {
-        "name": "scalability",
-        "script": REPO_ROOT / "Scripts" / "Exp3_Scalable" / "plot_scalability.py",
-        "output": RESULTS_ROOT / "Exp3_Scalable" / "scalability.pdf",
-        "status": "complete_from_draft_with_flagged_value",
-        "source": "User-provided Evaluation handoff draft table",
+        "name": "multi_device",
+        "script": EXP3_ROOT / "plot_multi_device.py",
+        "argument_output": EXP3_ROOT / "result_figure" / "multi_device.pdf",
+        "output": EXP3_ROOT / "result_figure" / "multi_device.pdf",
+        "status": "complete_from_current_plot_data",
+        "source": "Current paper-facing multi-device arrays",
         "selection": "ResNet-50/CIFAR-10; N=1..4",
-        "aggregation": "Draft means/P95/worst-device values; error bars are reported SD",
+        "aggregation": "Paper-facing mean/P95/worst-device latency and accuracy values",
         "notes": [
-            "I-SplitEE N=2 accuracy is plotted as the draft value 97.55%.",
-            "Its underlying invalid 101.08% run was not re-aggregated in this draft-only pass.",
-            "I-SplitEE N=4 is missing and is not interpolated or connected.",
+            "The figure contains the four configured device-count points.",
         ],
     },
     {
         "name": "algorithm_analysis_overhead",
-        "script": REPO_ROOT
-        / "Scripts"
-        / "Exp5_System_Overhead"
+        "script": EXP4_ROOT
+        / "plot"
         / "plot_algorithm_analysis_overhead_paper.py",
-        "output": RESULTS_ROOT
-        / "Exp5_System_Overhead"
+        "argument_output": EXP4_ROOT
+        / "result_figure"
         / "algorithm_analysis_overhead.pdf",
+        "output": EXP4_ROOT / "result_figure" / "algorithm_analysis_overhead.pdf",
         "status": "incomplete",
         "source": "No numeric experiment data in the paper draft",
         "selection": "Planned PPO/Random Search/GA and N=1..4 cold/hot overhead",
@@ -71,15 +76,15 @@ FIGURES = [
     },
     {
         "name": "ablation",
-        "script": REPO_ROOT / "Scripts" / "Exp4_Ablation" / "plot_ablation.py",
-        "output": RESULTS_ROOT / "Exp4_Ablation" / "ablation.pdf",
-        "status": "incomplete",
-        "source": "User-provided Evaluation handoff draft table",
-        "selection": "ResNet-50/ImageNet-100; single Pi 5",
-        "aggregation": "Values copied verbatim; no repository re-aggregation requested",
+        "script": EXP5_ROOT / "plot_ablation.py",
+        "argument_output": EXP5_ROOT / "result_figure" / "ablation.pdf",
+        "output": EXP5_ROOT / "result_figure" / "ablation.pdf",
+        "status": "complete_from_measured_results",
+        "source": "Exp5_Ablation/result_data/real_device_ablation_summary.csv",
+        "selection": "ResNet-50/CIFAR-10; single Pi 5",
+        "aggregation": "Paper-facing values from the retained real-device ablation summary",
         "notes": [
-            "Only SEAM is available (240.82 ms, 93.22%).",
-            "End only, Split only, and EE only are explicitly marked pending.",
+            "The figure contains Cloud only, End only, Split only, EE only, and Ours.",
         ],
     },
 ]
@@ -115,17 +120,22 @@ def main() -> None:
     args = parser.parse_args()
     _check_dependencies()
 
+    generated: set[tuple[Path, Path]] = set()
     for figure in FIGURES:
+        command = (figure["script"], figure["argument_output"])
+        if command in generated:
+            continue
         subprocess.run(
             [
                 sys.executable,
                 str(figure["script"]),
                 "--output",
-                str(figure["output"]),
+                str(figure["argument_output"]),
             ],
             cwd=REPO_ROOT,
             check=True,
         )
+        generated.add(command)
 
     MANIFEST_DIR.mkdir(parents=True, exist_ok=True)
     manifest_path = MANIFEST_DIR / "figure_data_manifest.json"
@@ -133,13 +143,16 @@ def main() -> None:
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
         "git_commit": _git_commit(),
         "data_policy": (
-            "Draft-only pass requested by user; repository experiment records were not "
-            "used to overwrite the supplied tables."
+            "Each figure records its own paper-facing source and aggregation status; "
+            "missing Exp4 values remain explicitly incomplete."
         ),
         "figures": [
             {
                 **figure,
                 "script": str(figure["script"].relative_to(REPO_ROOT)),
+                "argument_output": str(
+                    figure["argument_output"].relative_to(REPO_ROOT)
+                ),
                 "output": str(figure["output"].relative_to(REPO_ROOT)),
             }
             for figure in FIGURES

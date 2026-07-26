@@ -1,4 +1,4 @@
-"""Evaluation constants used by Scripts/Exp1-Exp3."""
+"""Shared evaluation constants and experiment-local output paths."""
 
 from __future__ import annotations
 
@@ -6,11 +6,10 @@ from pathlib import Path
 from collections.abc import Iterable
 from itertools import product
 
-from Src.Shared.Config.paths import RESULT_DIR
-
-EXP1_RESULT_DIR = RESULT_DIR / "Exp1_SEAM"
-EXP2_RESULT_DIR = RESULT_DIR / "Exp2_Ablation"
-EXP3_RESULT_DIR = RESULT_DIR / "Exp3_Convergency_and_Overhead"
+SCRIPTS_ROOT = Path(__file__).resolve().parents[1]
+EXP4_ROOT = SCRIPTS_ROOT / "Exp4_System-Overhead"
+EXP4_RESULT_DATA_DIR = EXP4_ROOT / "result_data"
+EXP4_RESULT_FIGURE_DIR = EXP4_ROOT / "result_figure"
 
 DEFAULT_SOLUTION_NPZ = Path("Data/Runtime/SolutionCache/latest_solution.npz")
 DEFAULT_SOLUTION_META = Path("Data/Runtime/SolutionCache/latest_solution_meta.json")

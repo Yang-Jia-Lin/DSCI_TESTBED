@@ -1,2 +1,0 @@
-﻿step,bundle_id,runs,duration_mean_s,duration_min_s,duration_max_s
-profile_segments,resnet50-cifar10-ee-v1,1,7.935725480783731,7.935725480783731,7.935725480783731

@@ -1,0 +1,211 @@
+{
+  "accuracy": 0.9833333333333333,
+  "accuracy_full_test": {
+    "accuracy": 0.9851851851851852,
+    "backend": "pytorch",
+    "bundle_id": "resnet50-neucls64",
+    "correct": 266,
+    "evaluated_at_utc": "2026-07-24T11:59:41.077648+00:00",
+    "evaluation_mode": "offline_batched_early_exit",
+    "exit_counts": {
+      "after_layer2": 64,
+      "after_layer3": 137,
+      "final": 69
+    },
+    "exit_thresholds": {
+      "after_layer1": 0.9991942048072815,
+      "after_layer2": 0.5910840034484863,
+      "after_layer3": 0.6344234347343445
+    },
+    "model_hash": "1db94b9047482ca37e3b8dce249b2fc1836c1f2bb20e240797ae865c47c2e8ba",
+    "samples": 270,
+    "sampling": {
+      "policy": "full_test",
+      "seed_derivation": null,
+      "seed_source": null
+    },
+    "source_fallback_samples": 0,
+    "test_package": {
+      "dataset_id": "neucls64",
+      "full_test_pool": true,
+      "missing_or_empty_files": 0,
+      "package_created_at": "2026-07-23T01:43:01.380176+00:00",
+      "package_root": "Data/Datasets/NEU-CLS-64/TestSets/neucls64__test__balanced__full",
+      "source_manifest_sha256": "300c63ce766edf7a258d8651bae69ae50e39033738b897e01c17c073310b0642",
+      "total_samples": 270
+    }
+  },
+  "accuracy_refresh": {
+    "accuracy": 0.99,
+    "backend": "pytorch",
+    "bundle_id": "resnet50-neucls64",
+    "correct": 99,
+    "evaluated_at_utc": "2026-07-24T10:24:08.498607+00:00",
+    "evaluation_mode": "offline_batched_early_exit",
+    "exit_counts": {
+      "after_layer2": 25,
+      "after_layer3": 48,
+      "final": 27
+    },
+    "exit_thresholds": {
+      "after_layer1": 0.9991942048072815,
+      "after_layer2": 0.5910840034484863,
+      "after_layer3": 0.6344234347343445
+    },
+    "model_hash": "1db94b9047482ca37e3b8dce249b2fc1836c1f2bb20e240797ae865c47c2e8ba",
+    "samples": 100,
+    "sampling": {
+      "base_seed": 4075656306548647291,
+      "effective_seed": 2238899528018316246,
+      "policy": "stratified",
+      "seed_derivation": "round_id+dataset_id+user_id",
+      "seed_source": "round_id"
+    },
+    "source_fallback_samples": 0,
+    "test_package": {
+      "dataset_id": "neucls64",
+      "full_test_pool": true,
+      "missing_or_empty_files": 0,
+      "package_created_at": "2026-07-23T01:43:01.380176+00:00",
+      "package_root": "Data/Datasets/NEU-CLS-64/TestSets/neucls64__test__balanced__full",
+      "source_manifest_sha256": "300c63ce766edf7a258d8651bae69ae50e39033738b897e01c17c073310b0642",
+      "total_samples": 270
+    }
+  },
+  "alpha": 1.0,
+  "backend": "pytorch",
+  "beta": 5.0,
+  "bundle_id": "resnet50-neucls64",
+  "constraint_satisfied": null,
+  "constraint_status": "disabled",
+  "correct": 59,
+  "decision": {
+    "accuracy_tolerance": null,
+    "bundle_id": "resnet50-neucls64",
+    "constraint_satisfied": null,
+    "constraint_status": "disabled",
+    "decision_id": "warm-1dev-resnet50-neucls64-pi5-20260722-112150:v3",
+    "decision_source": "cached_dsci:warm:0.223477",
+    "decision_version": 3,
+    "expected_accuracy": 0.9956687496824672,
+    "expected_latency": 0.11820031782528911,
+    "manifest_id": "resnet50-neucls64-partition-v1",
+    "model_hash": "1db94b9047482ca37e3b8dce249b2fc1836c1f2bb20e240797ae865c47c2e8ba",
+    "objective": 0.4046671605560217,
+    "objective_alpha": 1.0,
+    "objective_beta": 5.0,
+    "objective_mode": "weighted",
+    "resource_mode": "fixed_worker_pool",
+    "round_id": "warm-1dev-resnet50-neucls64-pi5-20260722-112150",
+    "target_accuracy": null,
+    "user": {
+      "X_row": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "Y_row": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        0.9991942048072815,
+        1.0,
+        1.0,
+        1.0,
+        0.5910840034484863,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        0.6344234347343445,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "cloud_boundaries": [
+        19,
+        19
+      ],
+      "device_boundaries": [
+        0,
+        0
+      ],
+      "edge_boundaries": [
+        0,
+        19
+      ],
+      "exit_thresholds": {
+        "after_layer1": 0.9991942048072815,
+        "after_layer2": 0.5910840034484863,
+        "after_layer3": 0.6344234347343445
+      },
+      "partition_boundary_1": 0,
+      "partition_boundary_2": 19,
+      "partition_s1": 0,
+      "partition_s2": 19,
+      "user_id": 0
+    }
+  },
+  "device_state": {
+    "BW_d2e": 54.3236187484993,
+    "backend": "pytorch",
+    "bundle_id": "resnet50-neucls64",
+    "execution_profile_id": "resnet50-neucls64-device-pi5",
+    "manifest_id": "resnet50-neucls64-partition-v1",
+    "model_hash": "1db94b9047482ca37e3b8dce249b2fc1836c1f2bb20e240797ae865c47c2e8ba",
+    "protocol_overhead_s": 0.0,
+    "resource_mode": "fixed_worker_pool",
+    "tensor_transport_dtype": "float32",
+    "threads_per_worker": 1,
+    "worker_count": 1
+  },
+  "latency": {
+    "T_c_compute_avg_ms": null,
+    "T_d2e_avg_ms": 135.28642931662728,
+    "T_d_compute_avg_ms": 0.04377216666616353,
+    "T_e2c_avg_ms": null,
+    "T_e_compute_avg_ms": 57.74295666663723,
+    "T_total_avg_ms": 196.4160121833312,
+    "cloud_exit_check_avg_ms": 0.0,
+    "cloud_exit_head_compute_avg_ms": 0.0,
+    "cloud_queue_avg_ms": 0.0,
+    "cloud_segment_compute_avg_ms": 0.0,
+    "d2e_transport_avg_ms": 135.28642931662728,
+    "device_compute_avg_ms": 0.04377216666616353,
+    "e2c_transport_avg_ms": 0.0,
+    "edge_exit_check_avg_ms": 0.38102000006195647,
+    "edge_exit_head_compute_avg_ms": 2.890086666623877,
+    "edge_queue_avg_ms": 1.5202049999819185,
+    "edge_segment_compute_avg_ms": 49.65342166683513,
+    "total_latency_avg_ms": 196.4160121833312,
+    "unattributed_overhead_avg_ms": 6.641077366534868
+  },
+  "objective_mode": "weighted",
+  "round_id": "warm-1dev-resnet50-neucls64-pi5-20260722-112150",
+  "samples": 60,
+  "target_accuracy": null,
+  "user_id": 0,
+  "utility_mean": 0.0012532724166774757,
+  "utility_sum": 0.07519634500064853
+}

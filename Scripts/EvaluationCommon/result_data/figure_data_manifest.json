@@ -1,0 +1,72 @@
+{
+  "generated_at_utc": "2026-07-26T12:42:54.871875+00:00",
+  "git_commit": "f67abdf494fcd8db0fa85bdf2d05d002887b8377",
+  "data_policy": "Each figure records its own paper-facing source and aggregation status; missing Exp4 values remain explicitly incomplete.",
+  "figures": [
+    {
+      "name": "cross_arch_dataset_latency",
+      "script": "Scripts\\Exp2_Cross-Arch-Dataset\\plot_generalization.py",
+      "argument_output": "Scripts\\Exp2_Cross-Arch-Dataset\\result_figure\\cross_arch_dataset.pdf",
+      "output": "Scripts\\Exp2_Cross-Arch-Dataset\\result_figure\\cross_arch_dataset_latency.pdf",
+      "status": "complete_from_draft",
+      "source": "User-provided Evaluation handoff draft table",
+      "selection": "Pi 5; ResNet-50/ViT-Base; CIFAR-10/ImageNet-100/NEU-CLS-64",
+      "aggregation": "Values copied verbatim; no repository re-aggregation requested",
+      "notes": [
+        "Latency view; uses the latest six-bundle generalization table."
+      ]
+    },
+    {
+      "name": "cross_arch_dataset_accuracy",
+      "script": "Scripts\\Exp2_Cross-Arch-Dataset\\plot_generalization.py",
+      "argument_output": "Scripts\\Exp2_Cross-Arch-Dataset\\result_figure\\cross_arch_dataset.pdf",
+      "output": "Scripts\\Exp2_Cross-Arch-Dataset\\result_figure\\cross_arch_dataset_accuracy.pdf",
+      "status": "complete_from_draft",
+      "source": "User-provided Evaluation handoff draft table",
+      "selection": "Pi 5; ResNet-50/ViT-Base; CIFAR-10/ImageNet-100/NEU-CLS-64",
+      "aggregation": "Values copied verbatim; no repository re-aggregation requested",
+      "notes": [
+        "Accuracy view; uses the latest six-bundle generalization table."
+      ]
+    },
+    {
+      "name": "multi_device",
+      "script": "Scripts\\Exp3_Multi-Device\\plot_multi_device.py",
+      "argument_output": "Scripts\\Exp3_Multi-Device\\result_figure\\multi_device.pdf",
+      "output": "Scripts\\Exp3_Multi-Device\\result_figure\\multi_device.pdf",
+      "status": "complete_from_current_plot_data",
+      "source": "Current paper-facing multi-device arrays",
+      "selection": "ResNet-50/CIFAR-10; N=1..4",
+      "aggregation": "Paper-facing mean/P95/worst-device latency and accuracy values",
+      "notes": [
+        "The figure contains the four configured device-count points."
+      ]
+    },
+    {
+      "name": "algorithm_analysis_overhead",
+      "script": "Scripts\\Exp4_System-Overhead\\plot\\plot_algorithm_analysis_overhead_paper.py",
+      "argument_output": "Scripts\\Exp4_System-Overhead\\result_figure\\algorithm_analysis_overhead.pdf",
+      "output": "Scripts\\Exp4_System-Overhead\\result_figure\\algorithm_analysis_overhead.pdf",
+      "status": "incomplete",
+      "source": "No numeric experiment data in the paper draft",
+      "selection": "Planned PPO/Random Search/GA and N=1..4 cold/hot overhead",
+      "aggregation": "None",
+      "notes": [
+        "PDF contains explicit Data pending panels; no values were fabricated."
+      ]
+    },
+    {
+      "name": "ablation",
+      "script": "Scripts\\Exp5_Ablation\\plot_ablation.py",
+      "argument_output": "Scripts\\Exp5_Ablation\\result_figure\\ablation.pdf",
+      "output": "Scripts\\Exp5_Ablation\\result_figure\\ablation.pdf",
+      "status": "complete_from_measured_results",
+      "source": "Exp5_Ablation/result_data/real_device_ablation_summary.csv",
+      "selection": "ResNet-50/CIFAR-10; single Pi 5",
+      "aggregation": "Paper-facing values from the retained real-device ablation summary",
+      "notes": [
+        "The figure contains Cloud only, End only, Split only, EE only, and Ours."
+      ]
+    }
+  ]
+}

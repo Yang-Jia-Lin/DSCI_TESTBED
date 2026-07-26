@@ -1,0 +1,286 @@
+{
+  "experiment_id": "controlled-5seed-resnet50-cifar10-20260726",
+  "seed": 4,
+  "states": [
+    {
+      "state_id": "S0",
+      "planned_mode": "cold",
+      "target_distance": null,
+      "step_distance": null,
+      "state": {
+        "bundle_id": "resnet50-cifar10",
+        "resource_mode": "fixed_worker_pool",
+        "users": [
+          {
+            "bundle_id": "resnet50-cifar10",
+            "manifest_id": "resnet50-cifar10-partition-v1",
+            "model_hash": "42222e588316eba09b272dd13e261ab47f674256446150916379c4945be9aad2",
+            "backend": "pytorch",
+            "execution_profile_id": "resnet50-cifar10-device-pi5",
+            "worker_count": 1,
+            "user_id": 0,
+            "BW_d2e": 32.3173
+          },
+          {
+            "bundle_id": "resnet50-cifar10",
+            "manifest_id": "resnet50-cifar10-partition-v1",
+            "model_hash": "42222e588316eba09b272dd13e261ab47f674256446150916379c4945be9aad2",
+            "backend": "pytorch",
+            "execution_profile_id": "resnet50-cifar10-device-pi4-1",
+            "worker_count": 1,
+            "user_id": 1,
+            "BW_d2e": 21.3055
+          },
+          {
+            "bundle_id": "resnet50-cifar10",
+            "manifest_id": "resnet50-cifar10-partition-v1",
+            "model_hash": "42222e588316eba09b272dd13e261ab47f674256446150916379c4945be9aad2",
+            "backend": "pytorch",
+            "execution_profile_id": "resnet50-cifar10-device-pi4-2",
+            "worker_count": 1,
+            "user_id": 2,
+            "BW_d2e": 20.5854
+          },
+          {
+            "bundle_id": "resnet50-cifar10",
+            "manifest_id": "resnet50-cifar10-partition-v1",
+            "model_hash": "42222e588316eba09b272dd13e261ab47f674256446150916379c4945be9aad2",
+            "backend": "pytorch",
+            "execution_profile_id": "resnet50-cifar10-device-nano",
+            "worker_count": 1,
+            "user_id": 3,
+            "BW_d2e": 82.9808
+          }
+        ],
+        "edge": {
+          "bundle_id": "resnet50-cifar10",
+          "manifest_id": "resnet50-cifar10-partition-v1",
+          "model_hash": "42222e588316eba09b272dd13e261ab47f674256446150916379c4945be9aad2",
+          "backend": "pytorch",
+          "execution_profile_id": "resnet50-cifar10-edge-kaijie-laptop",
+          "worker_count": 1
+        },
+        "cloud": {
+          "bundle_id": "resnet50-cifar10",
+          "manifest_id": "resnet50-cifar10-partition-v1",
+          "model_hash": "42222e588316eba09b272dd13e261ab47f674256446150916379c4945be9aad2",
+          "backend": "pytorch",
+          "execution_profile_id": "resnet50-cifar10-cloud-5880",
+          "worker_count": 1,
+          "BW_e2c": 72.4508
+        },
+        "shared_resource_model": true
+      }
+    },
+    {
+      "state_id": "S1",
+      "planned_mode": "medium",
+      "target_distance": 0.1,
+      "step_distance": 0.10000000238611924,
+      "state": {
+        "bundle_id": "resnet50-cifar10",
+        "resource_mode": "fixed_worker_pool",
+        "users": [
+          {
+            "bundle_id": "resnet50-cifar10",
+            "manifest_id": "resnet50-cifar10-partition-v1",
+            "model_hash": "42222e588316eba09b272dd13e261ab47f674256446150916379c4945be9aad2",
+            "backend": "pytorch",
+            "execution_profile_id": "resnet50-cifar10-device-pi5",
+            "worker_count": 1,
+            "user_id": 0,
+            "BW_d2e": 38.81175660979589
+          },
+          {
+            "bundle_id": "resnet50-cifar10",
+            "manifest_id": "resnet50-cifar10-partition-v1",
+            "model_hash": "42222e588316eba09b272dd13e261ab47f674256446150916379c4945be9aad2",
+            "backend": "pytorch",
+            "execution_profile_id": "resnet50-cifar10-device-pi4-1",
+            "worker_count": 1,
+            "user_id": 1,
+            "BW_d2e": 25.58703482190673
+          },
+          {
+            "bundle_id": "resnet50-cifar10",
+            "manifest_id": "resnet50-cifar10-partition-v1",
+            "model_hash": "42222e588316eba09b272dd13e261ab47f674256446150916379c4945be9aad2",
+            "backend": "pytorch",
+            "execution_profile_id": "resnet50-cifar10-device-pi4-2",
+            "worker_count": 1,
+            "user_id": 2,
+            "BW_d2e": 24.722224149767843
+          },
+          {
+            "bundle_id": "resnet50-cifar10",
+            "manifest_id": "resnet50-cifar10-partition-v1",
+            "model_hash": "42222e588316eba09b272dd13e261ab47f674256446150916379c4945be9aad2",
+            "backend": "pytorch",
+            "execution_profile_id": "resnet50-cifar10-device-nano",
+            "worker_count": 1,
+            "user_id": 3,
+            "BW_d2e": 99.65654967729826
+          }
+        ],
+        "edge": {
+          "bundle_id": "resnet50-cifar10",
+          "manifest_id": "resnet50-cifar10-partition-v1",
+          "model_hash": "42222e588316eba09b272dd13e261ab47f674256446150916379c4945be9aad2",
+          "backend": "pytorch",
+          "execution_profile_id": "resnet50-cifar10-edge-kaijie-laptop",
+          "worker_count": 1
+        },
+        "cloud": {
+          "bundle_id": "resnet50-cifar10",
+          "manifest_id": "resnet50-cifar10-partition-v1",
+          "model_hash": "42222e588316eba09b272dd13e261ab47f674256446150916379c4945be9aad2",
+          "backend": "pytorch",
+          "execution_profile_id": "resnet50-cifar10-cloud-5880",
+          "worker_count": 1,
+          "BW_e2c": 87.01045
+        },
+        "shared_resource_model": true
+      }
+    },
+    {
+      "state_id": "S2",
+      "planned_mode": "near",
+      "target_distance": 0.025,
+      "step_distance": 0.02500016447683627,
+      "state": {
+        "bundle_id": "resnet50-cifar10",
+        "resource_mode": "fixed_worker_pool",
+        "users": [
+          {
+            "bundle_id": "resnet50-cifar10",
+            "manifest_id": "resnet50-cifar10-partition-v1",
+            "model_hash": "42222e588316eba09b272dd13e261ab47f674256446150916379c4945be9aad2",
+            "backend": "pytorch",
+            "execution_profile_id": "resnet50-cifar10-device-pi5",
+            "worker_count": 1,
+            "user_id": 0,
+            "BW_d2e": 40.50625
+          },
+          {
+            "bundle_id": "resnet50-cifar10",
+            "manifest_id": "resnet50-cifar10-partition-v1",
+            "model_hash": "42222e588316eba09b272dd13e261ab47f674256446150916379c4945be9aad2",
+            "backend": "pytorch",
+            "execution_profile_id": "resnet50-cifar10-device-pi4-1",
+            "worker_count": 1,
+            "user_id": 1,
+            "BW_d2e": 26.70414636665192
+          },
+          {
+            "bundle_id": "resnet50-cifar10",
+            "manifest_id": "resnet50-cifar10-partition-v1",
+            "model_hash": "42222e588316eba09b272dd13e261ab47f674256446150916379c4945be9aad2",
+            "backend": "pytorch",
+            "execution_profile_id": "resnet50-cifar10-device-pi4-2",
+            "worker_count": 1,
+            "user_id": 2,
+            "BW_d2e": 25.801578682315665
+          },
+          {
+            "bundle_id": "resnet50-cifar10",
+            "manifest_id": "resnet50-cifar10-partition-v1",
+            "model_hash": "42222e588316eba09b272dd13e261ab47f674256446150916379c4945be9aad2",
+            "backend": "pytorch",
+            "execution_profile_id": "resnet50-cifar10-device-nano",
+            "worker_count": 1,
+            "user_id": 3,
+            "BW_d2e": 104.00748298898733
+          }
+        ],
+        "edge": {
+          "bundle_id": "resnet50-cifar10",
+          "manifest_id": "resnet50-cifar10-partition-v1",
+          "model_hash": "42222e588316eba09b272dd13e261ab47f674256446150916379c4945be9aad2",
+          "backend": "pytorch",
+          "execution_profile_id": "resnet50-cifar10-edge-kaijie-laptop",
+          "worker_count": 1
+        },
+        "cloud": {
+          "bundle_id": "resnet50-cifar10",
+          "manifest_id": "resnet50-cifar10-partition-v1",
+          "model_hash": "42222e588316eba09b272dd13e261ab47f674256446150916379c4945be9aad2",
+          "backend": "pytorch",
+          "execution_profile_id": "resnet50-cifar10-cloud-5880",
+          "worker_count": 1,
+          "BW_e2c": 90.80926369158315
+        },
+        "shared_resource_model": true
+      }
+    },
+    {
+      "state_id": "S3",
+      "planned_mode": "reuse",
+      "target_distance": 0.0025,
+      "step_distance": 0.0025000714027551695,
+      "state": {
+        "bundle_id": "resnet50-cifar10",
+        "resource_mode": "fixed_worker_pool",
+        "users": [
+          {
+            "bundle_id": "resnet50-cifar10",
+            "manifest_id": "resnet50-cifar10-partition-v1",
+            "model_hash": "42222e588316eba09b272dd13e261ab47f674256446150916379c4945be9aad2",
+            "backend": "pytorch",
+            "execution_profile_id": "resnet50-cifar10-device-pi5",
+            "worker_count": 1,
+            "user_id": 0,
+            "BW_d2e": 40.67642905328703
+          },
+          {
+            "bundle_id": "resnet50-cifar10",
+            "manifest_id": "resnet50-cifar10-partition-v1",
+            "model_hash": "42222e588316eba09b272dd13e261ab47f674256446150916379c4945be9aad2",
+            "backend": "pytorch",
+            "execution_profile_id": "resnet50-cifar10-device-pi4-1",
+            "worker_count": 1,
+            "user_id": 1,
+            "BW_d2e": 26.816338592481635
+          },
+          {
+            "bundle_id": "resnet50-cifar10",
+            "manifest_id": "resnet50-cifar10-partition-v1",
+            "model_hash": "42222e588316eba09b272dd13e261ab47f674256446150916379c4945be9aad2",
+            "backend": "pytorch",
+            "execution_profile_id": "resnet50-cifar10-device-pi4-2",
+            "worker_count": 1,
+            "user_id": 2,
+            "BW_d2e": 25.909978947298654
+          },
+          {
+            "bundle_id": "resnet50-cifar10",
+            "manifest_id": "resnet50-cifar10-partition-v1",
+            "model_hash": "42222e588316eba09b272dd13e261ab47f674256446150916379c4945be9aad2",
+            "backend": "pytorch",
+            "execution_profile_id": "resnet50-cifar10-device-nano",
+            "worker_count": 1,
+            "user_id": 3,
+            "BW_d2e": 104.44445000000002
+          }
+        ],
+        "edge": {
+          "bundle_id": "resnet50-cifar10",
+          "manifest_id": "resnet50-cifar10-partition-v1",
+          "model_hash": "42222e588316eba09b272dd13e261ab47f674256446150916379c4945be9aad2",
+          "backend": "pytorch",
+          "execution_profile_id": "resnet50-cifar10-edge-kaijie-laptop",
+          "worker_count": 1
+        },
+        "cloud": {
+          "bundle_id": "resnet50-cifar10",
+          "manifest_id": "resnet50-cifar10-partition-v1",
+          "model_hash": "42222e588316eba09b272dd13e261ab47f674256446150916379c4945be9aad2",
+          "backend": "pytorch",
+          "execution_profile_id": "resnet50-cifar10-cloud-5880",
+          "worker_count": 1,
+          "BW_e2c": 91.19078097656326
+        },
+        "shared_resource_model": true
+      }
+    }
+  ]
+}

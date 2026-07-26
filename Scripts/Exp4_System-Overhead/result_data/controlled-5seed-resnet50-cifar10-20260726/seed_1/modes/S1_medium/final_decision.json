@@ -1,0 +1,303 @@
+{
+  "decision_id": "controlled-5seed-resnet50-cifar10-20260726:seed-1:S1",
+  "round_id": "controlled-5seed-resnet50-cifar10-20260726:seed-1:S1",
+  "decision_version": 1,
+  "bundle_id": "resnet50-cifar10",
+  "num_users": 4,
+  "num_layers": 20,
+  "exit_ids": [
+    "after_layer1",
+    "after_layer2",
+    "after_layer3"
+  ],
+  "layer_index_base": 0,
+  "slice_semantics": "python_left_closed_right_open",
+  "users": [
+    {
+      "user_id": 0,
+      "partition_s1": 0,
+      "partition_s2": 19,
+      "exit_thresholds": {
+        "after_layer1": 0.8500000238418579,
+        "after_layer2": 0.9700000286102295,
+        "after_layer3": 0.8853498101234436
+      },
+      "partition_boundary_1": 0,
+      "partition_boundary_2": 19,
+      "device_boundaries": [
+        0,
+        0
+      ],
+      "edge_boundaries": [
+        0,
+        19
+      ],
+      "cloud_boundaries": [
+        19,
+        19
+      ],
+      "X_row": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "Y_row": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        0.8500000238418579,
+        1.0,
+        1.0,
+        1.0,
+        0.9700000286102295,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        0.8853498101234436,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "user_id": 1,
+      "partition_s1": 0,
+      "partition_s2": 19,
+      "exit_thresholds": {
+        "after_layer1": 0.8500000238418579,
+        "after_layer2": 0.9700000286102295,
+        "after_layer3": 0.8899999856948853
+      },
+      "partition_boundary_1": 0,
+      "partition_boundary_2": 19,
+      "device_boundaries": [
+        0,
+        0
+      ],
+      "edge_boundaries": [
+        0,
+        19
+      ],
+      "cloud_boundaries": [
+        19,
+        19
+      ],
+      "X_row": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "Y_row": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        0.8500000238418579,
+        1.0,
+        1.0,
+        1.0,
+        0.9700000286102295,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        0.8899999856948853,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "user_id": 2,
+      "partition_s1": 0,
+      "partition_s2": 19,
+      "exit_thresholds": {
+        "after_layer1": 0.8500000238418579,
+        "after_layer2": 0.9700000286102295,
+        "after_layer3": 0.8860837817192078
+      },
+      "partition_boundary_1": 0,
+      "partition_boundary_2": 19,
+      "device_boundaries": [
+        0,
+        0
+      ],
+      "edge_boundaries": [
+        0,
+        19
+      ],
+      "cloud_boundaries": [
+        19,
+        19
+      ],
+      "X_row": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "Y_row": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        0.8500000238418579,
+        1.0,
+        1.0,
+        1.0,
+        0.9700000286102295,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        0.8860837817192078,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "user_id": 3,
+      "partition_s1": 18,
+      "partition_s2": 19,
+      "exit_thresholds": {
+        "after_layer1": 0.8500000238418579,
+        "after_layer2": 0.9200000166893005,
+        "after_layer3": 0.8268740177154541
+      },
+      "partition_boundary_1": 18,
+      "partition_boundary_2": 19,
+      "device_boundaries": [
+        0,
+        18
+      ],
+      "edge_boundaries": [
+        18,
+        19
+      ],
+      "cloud_boundaries": [
+        19,
+        19
+      ],
+      "X_row": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        1.0
+      ],
+      "Y_row": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        0.8500000238418579,
+        1.0,
+        1.0,
+        1.0,
+        0.9200000166893005,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        0.8268740177154541,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ]
+    }
+  ],
+  "manifest_id": "resnet50-cifar10-partition-v1",
+  "model_hash": "42222e588316eba09b272dd13e261ab47f674256446150916379c4945be9aad2",
+  "resource_mode": "fixed_worker_pool",
+  "objective": 3.3304668526109706,
+  "decision_source": "cached_dsci:exact",
+  "objective_mode": "weighted",
+  "objective_alpha": 1.0,
+  "objective_beta": 1.0,
+  "target_accuracy": null,
+  "accuracy_tolerance": null,
+  "expected_accuracy": 0.979025101390504,
+  "expected_latency": 0.14640838823776134,
+  "constraint_status": "disabled",
+  "constraint_satisfied": null
+}

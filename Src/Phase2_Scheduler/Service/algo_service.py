@@ -33,7 +33,10 @@ from Src.Phase2_Scheduler.Optimizer.DSCI.agent import (
 from Src.Phase2_Scheduler.Optimizer.DSCI.run_DSCI import _build_ppo_params
 from Src.Phase2_Scheduler.paras import Paras
 from Src.Shared.Config.paths import SOLUTION_CACHE_DIR
-from Src.Shared.Partitioning.split_actions import encode_split_row, is_valid_deployment_pair
+from Src.Shared.Partitioning.split_actions import (
+    encode_split_row,
+    is_valid_deployment_pair,
+)
 
 INTERFACE_SOLUTION_DIR = SOLUTION_CACHE_DIR
 LATEST_SOLUTION_PATH = INTERFACE_SOLUTION_DIR / "latest_solution.npz"
@@ -75,6 +78,8 @@ class AlgoServiceConfig:
     outer_ema: float = 1.0
     buffer_size: int = DEFAULT_ALGO_CONFIG.buffer_size
     custom_ppo_hyperparams: dict | None = None
+    objective_alpha: float | None = None
+    objective_beta: float | None = None
     auto_train: bool = True
     force_retrain: bool = False
     target_accuracy: float | None = None
@@ -156,9 +161,15 @@ class AlgoService:
     _last_training_mode: str | None = field(default=None, init=False, repr=False)
     _last_warm_start_source: str | None = field(default=None, init=False, repr=False)
     _training_started_at: float | None = field(default=None, init=False, repr=False)
-    _last_training_started_at: float | None = field(default=None, init=False, repr=False)
-    _last_training_finished_at: float | None = field(default=None, init=False, repr=False)
-    _last_training_duration_s: float | None = field(default=None, init=False, repr=False)
+    _last_training_started_at: float | None = field(
+        default=None, init=False, repr=False
+    )
+    _last_training_finished_at: float | None = field(
+        default=None, init=False, repr=False
+    )
+    _last_training_duration_s: float | None = field(
+        default=None, init=False, repr=False
+    )
     _last_training_round_id: str | None = field(default=None, init=False, repr=False)
     _last_training_convergence_path: str | None = field(
         default=None, init=False, repr=False
@@ -168,17 +179,19 @@ class AlgoService:
     _constraint_candidates_completed: int = field(default=0, init=False, repr=False)
     _selected_alpha: float | None = field(default=None, init=False, repr=False)
     _selected_beta: float | None = field(default=None, init=False, repr=False)
-    _achieved_expected_accuracy: float | None = field(default=None, init=False, repr=False)
-    _achieved_expected_latency: float | None = field(default=None, init=False, repr=False)
+    _achieved_expected_accuracy: float | None = field(
+        default=None, init=False, repr=False
+    )
+    _achieved_expected_latency: float | None = field(
+        default=None, init=False, repr=False
+    )
     _constraint_satisfied: bool | None = field(default=None, init=False, repr=False)
 
     def __post_init__(self) -> None:
         if self.config.ablation_mode is not None:
             self.config.ablation_mode = str(self.config.ablation_mode).strip().lower()
             if self.config.ablation_mode not in ABLATION_MODES:
-                raise ValueError(
-                    "ablation_mode must be split-only or ee-only"
-                )
+                raise ValueError("ablation_mode must be split-only or ee-only")
             if not self.config.auto_train:
                 raise ValueError("ablation_mode requires fresh PPO solving")
             if self.config.force_retrain:
@@ -189,13 +202,32 @@ class AlgoService:
                 raise ValueError(
                     "ablation_mode does not support target_accuracy constraint search"
                 )
-            if self.config.fixed_split is not None or self.config.fixed_threshold is not None:
+            if (
+                self.config.fixed_split is not None
+                or self.config.fixed_threshold is not None
+            ):
                 raise ValueError(
                     "ablation_mode cannot be combined with fixed_split or fixed_threshold"
                 )
         if self.config.force_retrain and not self.config.auto_train:
             raise ValueError("force_retrain requires auto_train to be enabled")
+        for name in ("objective_alpha", "objective_beta"):
+            value = getattr(self.config, name)
+            if value is None:
+                continue
+            value = float(value)
+            if not np.isfinite(value) or value <= 0.0:
+                raise ValueError(f"{name} must be finite and positive")
+            setattr(self.config, name, value)
         if self.config.target_accuracy is not None:
+            if (
+                self.config.objective_alpha is not None
+                or self.config.objective_beta is not None
+            ):
+                raise ValueError(
+                    "explicit objective weights cannot be combined with "
+                    "target_accuracy constraint search"
+                )
             self.config.target_accuracy = float(self.config.target_accuracy)
             if not (0.0 < self.config.target_accuracy <= 1.0):
                 raise ValueError("target_accuracy must be in (0, 1]")
@@ -208,7 +240,8 @@ class AlgoService:
         if int(self.config.constraint_search_runs) <= 0:
             raise ValueError("constraint_search_runs must be positive")
         if not (
-            0.0 < float(self.config.constraint_alpha_min)
+            0.0
+            < float(self.config.constraint_alpha_min)
             <= float(self.config.constraint_alpha_max)
         ):
             raise ValueError("constraint alpha bounds must be positive and ordered")
@@ -231,10 +264,29 @@ class AlgoService:
         return _build_ppo_params(self.config.custom_ppo_hyperparams)
 
     def _paras_for_state(self, state: dict) -> Paras:
-        if self.config.target_accuracy is None:
+        if (
+            self.config.target_accuracy is None
+            and self.config.objective_alpha is None
+            and self.config.objective_beta is None
+        ):
             return to_paras(state)
-        auto_config = replace(DEFAULT_ALGO_CONFIG, alpha=1.0, beta=1.0)
-        return to_paras(state, algo_cfg=auto_config)
+        if self.config.target_accuracy is not None:
+            algo_config = replace(DEFAULT_ALGO_CONFIG, alpha=1.0, beta=1.0)
+        else:
+            algo_config = replace(
+                DEFAULT_ALGO_CONFIG,
+                alpha=(
+                    float(self.config.objective_alpha)
+                    if self.config.objective_alpha is not None
+                    else float(DEFAULT_ALGO_CONFIG.alpha)
+                ),
+                beta=(
+                    float(self.config.objective_beta)
+                    if self.config.objective_beta is not None
+                    else float(DEFAULT_ALGO_CONFIG.beta)
+                ),
+            )
+        return to_paras(state, algo_cfg=algo_config)
 
     @staticmethod
     def _paras_with_weights(paras: Paras, alpha: float, beta: float) -> Paras:
@@ -370,24 +422,22 @@ class AlgoService:
                     self._last_training_finished_at = finished_at
                     self._last_training_duration_s = duration_s
                     self._update_epoch += 1
-                self._append_training_event(
-                    {
-                        "event": "fresh_ablation_solve_complete",
-                        "round_id": round_id,
-                        "ablation_mode": mode,
-                        "cache_used": False,
-                        "policy_source": None,
-                        "convergence_log_path": str(convergence_path),
-                        "source_ours_objective": source_objective,
-                        "returned_objective": float(solution.objective),
-                        "expected_accuracy": solution.expected_accuracy,
-                        "expected_latency": solution.expected_latency,
-                        "started_at": started_at,
-                        "finished_at": finished_at,
-                        "duration_s": duration_s,
-                        "update_epoch": self._update_epoch,
-                    }
-                )
+                self._append_training_event({
+                    "event": "fresh_ablation_solve_complete",
+                    "round_id": round_id,
+                    "ablation_mode": mode,
+                    "cache_used": False,
+                    "policy_source": None,
+                    "convergence_log_path": str(convergence_path),
+                    "source_ours_objective": source_objective,
+                    "returned_objective": float(solution.objective),
+                    "expected_accuracy": solution.expected_accuracy,
+                    "expected_latency": solution.expected_latency,
+                    "started_at": started_at,
+                    "finished_at": finished_at,
+                    "duration_s": duration_s,
+                    "update_epoch": self._update_epoch,
+                })
                 return solution, source_objective, duration_s
             except Exception as exc:
                 finished_at = time.time()
@@ -410,18 +460,16 @@ class AlgoService:
                     self._last_training_finished_at = finished_at
                     self._last_training_duration_s = finished_at - started_at
                     self._last_error = str(exc)
-                self._append_training_event(
-                    {
-                        "event": "fresh_ablation_solve_error",
-                        "round_id": round_id,
-                        "ablation_mode": mode,
-                        "cache_used": False,
-                        "convergence_log_path": str(convergence_path),
-                        "error": str(exc),
-                        "started_at": started_at,
-                        "finished_at": finished_at,
-                    }
-                )
+                self._append_training_event({
+                    "event": "fresh_ablation_solve_error",
+                    "round_id": round_id,
+                    "ablation_mode": mode,
+                    "cache_used": False,
+                    "convergence_log_path": str(convergence_path),
+                    "error": str(exc),
+                    "started_at": started_at,
+                    "finished_at": finished_at,
+                })
                 raise
 
     def _annotate_solution(
@@ -446,9 +494,8 @@ class AlgoService:
         if self.config.target_accuracy is None:
             solution.constraint_satisfied = None
         else:
-            threshold = (
-                float(self.config.target_accuracy)
-                - float(self.config.accuracy_tolerance)
+            threshold = float(self.config.target_accuracy) - float(
+                self.config.accuracy_tolerance
             )
             solution.constraint_satisfied = solution.expected_accuracy >= threshold
         return solution
@@ -492,14 +539,12 @@ class AlgoService:
             else np.full(int(paras.n), 0.0)
         )
         for i, user in enumerate(state.get("users") or []):
-            users.append(
-                {
-                    "user_id": int(user.get("user_id", i)),
-                    "f_u": self._round_float(f_u_values[i]),
-                    "BW_d2e": self._round_float(bw_d2e_values[i]),
-                    "execution_profile_id": user.get("execution_profile_id"),
-                }
-            )
+            users.append({
+                "user_id": int(user.get("user_id", i)),
+                "f_u": self._round_float(f_u_values[i]),
+                "BW_d2e": self._round_float(bw_d2e_values[i]),
+                "execution_profile_id": user.get("execution_profile_id"),
+            })
         return {
             "model": {
                 "bundle_id": paras.bundle_id,
@@ -557,9 +602,7 @@ class AlgoService:
             "transport_byte_scale": signature.get("transport_byte_scale", 1.0),
             "manifest_id": signature.get("manifest_id"),
             "model_hash": signature.get("model_hash"),
-            "user_profiles": [
-                cls._profile_token(user) for user in users
-            ],
+            "user_profiles": [cls._profile_token(user) for user in users],
             "edge_profile": cls._profile_token(signature.get("edge") or {}),
             "cloud_profile": cls._profile_token(signature.get("cloud") or {}),
         }
@@ -583,22 +626,18 @@ class AlgoService:
 
         edge = signature.get("edge") or {}
         cloud = signature.get("cloud") or {}
-        vector.extend(
-            [
-                cls._float_or_zero(signature.get("transport_byte_scale", 1.0)),
-                cls._float_or_zero(edge.get("f_e_max")),
-                cls._float_or_zero(edge.get("worker_count")),
-                cls._float_or_zero(cloud.get("f_c_max")),
-                cls._float_or_zero(cloud.get("BW_e2c")),
-                cls._float_or_zero(cloud.get("worker_count")),
-            ]
-        )
+        vector.extend([
+            cls._float_or_zero(signature.get("transport_byte_scale", 1.0)),
+            cls._float_or_zero(edge.get("f_e_max")),
+            cls._float_or_zero(edge.get("worker_count")),
+            cls._float_or_zero(cloud.get("f_c_max")),
+            cls._float_or_zero(cloud.get("BW_e2c")),
+            cls._float_or_zero(cloud.get("worker_count")),
+        ])
         return vector
 
     @staticmethod
-    def _state_distance(
-        left: list[float] | None, right: list[float] | None
-    ) -> float:
+    def _state_distance(left: list[float] | None, right: list[float] | None) -> float:
         if left is None or right is None or len(left) != len(right):
             return float("inf")
         a = np.asarray(left, dtype=np.float64)
@@ -634,15 +673,16 @@ class AlgoService:
             and np.asarray(solution.F_c).reshape(-1).shape[0] == int(paras.n)
         )
 
-    def _normalise_cached_solution(
-        self, solution: CachedSolution
-    ) -> CachedSolution:
+    def _normalise_cached_solution(self, solution: CachedSolution) -> CachedSolution:
         if solution.compat_key is None:
             solution.compat_key = self._compat_key(solution.state_signature)
         if solution.state_vector is None:
             solution.state_vector = self._state_vector(solution.state_signature)
         objective_config = solution.state_signature.get("objective") or {}
-        if solution.objective_alpha is None and objective_config.get("mode") == "weighted":
+        if (
+            solution.objective_alpha is None
+            and objective_config.get("mode") == "weighted"
+        ):
             solution.objective_alpha = float(objective_config["alpha"])
         if solution.objective_beta is None and objective_config.get("beta") is not None:
             solution.objective_beta = float(objective_config["beta"])
@@ -694,7 +734,9 @@ class AlgoService:
             )
         if not candidates:
             return None
-        return min(candidates, key=lambda match: (match.distance, -match.solution.created_at))
+        return min(
+            candidates, key=lambda match: (match.distance, -match.solution.created_at)
+        )
 
     def _cache_match_for_decision(
         self, signature: dict[str, Any], paras: Paras
@@ -1030,9 +1072,7 @@ class AlgoService:
             return warm, f"cached_dsci:warm:{match.distance:.6f}"
         return default, "default"
 
-    def _should_start_training(
-        self, match: CacheMatch | None, paras: Paras
-    ) -> bool:
+    def _should_start_training(self, match: CacheMatch | None, paras: Paras) -> bool:
         if not self.config.auto_train:
             return False
         if self._training_status == "running":
@@ -1177,36 +1217,33 @@ class AlgoService:
         return decision
 
     def _training_params(self, match: CacheMatch | None) -> dict[str, Any]:
-        params = self._ppo_params()
+        params = _build_ppo_params(None)
         custom = self.config.custom_ppo_hyperparams or {}
         if "outer_ema" not in custom:
             params["outer_ema"] = float(self.config.outer_ema)
 
         mode = match.training_mode if match else "cold"
         if mode == "near":
-            params.update(
-                {
-                    "max_epochs": 30,
-                    "min_epochs": 8,
-                    "target_steps": 400,
-                    "k_epochs": 5,
-                    "lr": 5e-5,
-                    "entropy_coef": 0.003,
-                    "outer_ema": 1.0,
-                }
-            )
+            params.update({
+                "max_epochs": 30,
+                "min_epochs": 8,
+                "target_steps": 400,
+                "k_epochs": 5,
+                "lr": 5e-5,
+                "entropy_coef": 0.003,
+                "outer_ema": 1.0,
+            })
         elif mode == "medium":
-            params.update(
-                {
-                    "max_epochs": 80,
-                    "min_epochs": 20,
-                    "target_steps": 800,
-                    "k_epochs": 8,
-                    "lr": 8e-5,
-                    "entropy_coef": 0.006,
-                    "outer_ema": 0.5,
-                }
-            )
+            params.update({
+                "max_epochs": 80,
+                "min_epochs": 20,
+                "target_steps": 800,
+                "k_epochs": 8,
+                "lr": 8e-5,
+                "entropy_coef": 0.006,
+                "outer_ema": 0.5,
+            })
+        params.update(custom)
         return params
 
     def _load_warm_policy(
@@ -1341,20 +1378,18 @@ class AlgoService:
             with self._lock:
                 self._constraint_candidates_completed = len(candidates)
 
-            self._append_training_event(
-                {
-                    "event": "constraint_candidate_complete",
-                    "round_id": round_id,
-                    "candidate_index": index,
-                    "alpha": alpha,
-                    "beta": 1.0,
-                    "objective": solution.objective,
-                    "expected_accuracy": solution.expected_accuracy,
-                    "expected_latency": solution.expected_latency,
-                    "constraint_satisfied": solution.constraint_satisfied,
-                    "convergence_log_path": str(convergence_path),
-                }
-            )
+            self._append_training_event({
+                "event": "constraint_candidate_complete",
+                "round_id": round_id,
+                "candidate_index": index,
+                "alpha": alpha,
+                "beta": 1.0,
+                "objective": solution.objective,
+                "expected_accuracy": solution.expected_accuracy,
+                "expected_latency": solution.expected_latency,
+                "constraint_satisfied": solution.constraint_satisfied,
+                "convergence_log_path": str(convergence_path),
+            })
 
             feasible_alphas = [
                 float(item.solution.objective_alpha)
@@ -1439,7 +1474,7 @@ class AlgoService:
                     )
                 )
             else:
-                paras = to_paras(state)
+                paras = self._paras_for_state(state)
                 params = self._training_params(match)
                 agent = PPOAgent(paras, params)
                 training_mode, policy_source = self._load_warm_policy(agent, match)
@@ -1522,46 +1557,42 @@ class AlgoService:
                     training_duration_s=duration_s,
                     training_convergence_path=convergence_path,
                 )
-                self._append_training_event(
-                    {
-                        "event": "training_complete",
+                self._append_training_event({
+                    "event": "training_complete",
+                    "round_id": round_id,
+                    "training_mode": training_mode,
+                    "policy_source": policy_source,
+                    "convergence_log_path": (
+                        str(convergence_path) if convergence_path else None
+                    ),
+                    "objective": float(solution.objective),
+                    "objective_alpha": solution.objective_alpha,
+                    "objective_beta": solution.objective_beta,
+                    "expected_accuracy": solution.expected_accuracy,
+                    "expected_latency": solution.expected_latency,
+                    "constraint_satisfied": solution.constraint_satisfied,
+                    "started_at": started_at,
+                    "finished_at": finished_at,
+                    "duration_s": duration_s,
+                    "update_epoch": self._update_epoch,
+                })
+                if self.config.target_accuracy is not None:
+                    self._append_training_event({
+                        "event": "constraint_search_complete",
                         "round_id": round_id,
-                        "training_mode": training_mode,
-                        "policy_source": policy_source,
+                        "target_accuracy": self.config.target_accuracy,
+                        "accuracy_tolerance": self.config.accuracy_tolerance,
                         "convergence_log_path": (
                             str(convergence_path) if convergence_path else None
                         ),
-                        "objective": float(solution.objective),
-                        "objective_alpha": solution.objective_alpha,
-                        "objective_beta": solution.objective_beta,
+                        "candidates_completed": self._constraint_candidates_completed,
+                        "selected_alpha": solution.objective_alpha,
+                        "selected_beta": solution.objective_beta,
                         "expected_accuracy": solution.expected_accuracy,
                         "expected_latency": solution.expected_latency,
                         "constraint_satisfied": solution.constraint_satisfied,
-                        "started_at": started_at,
-                        "finished_at": finished_at,
                         "duration_s": duration_s,
-                        "update_epoch": self._update_epoch,
-                    }
-                )
-                if self.config.target_accuracy is not None:
-                    self._append_training_event(
-                        {
-                            "event": "constraint_search_complete",
-                            "round_id": round_id,
-                            "target_accuracy": self.config.target_accuracy,
-                            "accuracy_tolerance": self.config.accuracy_tolerance,
-                            "convergence_log_path": (
-                                str(convergence_path) if convergence_path else None
-                            ),
-                            "candidates_completed": self._constraint_candidates_completed,
-                            "selected_alpha": solution.objective_alpha,
-                            "selected_beta": solution.objective_beta,
-                            "expected_accuracy": solution.expected_accuracy,
-                            "expected_latency": solution.expected_latency,
-                            "constraint_satisfied": solution.constraint_satisfied,
-                            "duration_s": duration_s,
-                        }
-                    )
+                    })
             except Exception as exc:  # pragma: no cover - filesystem dependent
                 with self._lock:
                     self._training_status = "error"
@@ -1595,21 +1626,19 @@ class AlgoService:
                 self._last_error = str(exc)
                 if self.config.target_accuracy is not None:
                     self._constraint_search_status = "error"
-            self._append_training_event(
-                {
-                    "event": "training_error",
-                    "round_id": round_id,
-                    "training_mode": training_mode,
-                    "policy_source": policy_source,
-                    "convergence_log_path": (
-                        str(convergence_path) if convergence_path else None
-                    ),
-                    "started_at": started_at,
-                    "finished_at": finished_at,
-                    "duration_s": duration_s,
-                    "error": str(exc),
-                }
-            )
+            self._append_training_event({
+                "event": "training_error",
+                "round_id": round_id,
+                "training_mode": training_mode,
+                "policy_source": policy_source,
+                "convergence_log_path": (
+                    str(convergence_path) if convergence_path else None
+                ),
+                "started_at": started_at,
+                "finished_at": finished_at,
+                "duration_s": duration_s,
+                "error": str(exc),
+            })
 
     @staticmethod
     def _safe_log_component(value: str, *, fallback: str) -> str:
@@ -1726,7 +1755,9 @@ class AlgoService:
             "state_vector": solution.state_vector,
             "objective": float(solution.objective),
             "created_at": float(solution.created_at),
-            "policy_path": str(archived_policy) if policy_state_dict is not None else solution.policy_path,
+            "policy_path": str(archived_policy)
+            if policy_state_dict is not None
+            else solution.policy_path,
             "training_mode": solution.training_mode,
             "training_started_at": training_started_at,
             "training_finished_at": training_finished_at,
@@ -1747,7 +1778,9 @@ class AlgoService:
 
         latest_meta = dict(meta)
         latest_meta["policy_path"] = (
-            str(latest_policy) if policy_state_dict is not None else solution.policy_path
+            str(latest_policy)
+            if policy_state_dict is not None
+            else solution.policy_path
         )
         self._write_solution_pair(solution_path, meta_path, solution, latest_meta)
         self._prune_archived_solutions(solution_path.parent)
@@ -1892,12 +1925,20 @@ class AlgoService:
                 "objective_alpha": (
                     self._selected_alpha
                     if self.config.target_accuracy is not None
-                    else float(DEFAULT_ALGO_CONFIG.alpha)
+                    else float(
+                        self.config.objective_alpha
+                        if self.config.objective_alpha is not None
+                        else DEFAULT_ALGO_CONFIG.alpha
+                    )
                 ),
                 "objective_beta": (
                     self._selected_beta
                     if self.config.target_accuracy is not None
-                    else float(DEFAULT_ALGO_CONFIG.beta)
+                    else float(
+                        self.config.objective_beta
+                        if self.config.objective_beta is not None
+                        else DEFAULT_ALGO_CONFIG.beta
+                    )
                 ),
                 "target_accuracy": self.config.target_accuracy,
                 "accuracy_tolerance": (
