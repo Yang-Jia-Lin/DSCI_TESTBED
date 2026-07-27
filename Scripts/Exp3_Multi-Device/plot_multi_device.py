@@ -21,11 +21,13 @@ from Scripts.EvaluationCommon.paper_figure_style import (  # noqa: E402
     ISPLITEE_COLOR,
     ISPLITEE_MARKER,
     RANDOM_COLOR,
+    REFERENCE_FIGSIZE,
     SEAM_COLOR,
     SEAM_MARKER,
     add_comparison_legend,
     apply_comparison_figure_style,
     bold_tick_labels,
+    match_reference_plot_area,
     save_pdf,
 )
 
@@ -74,8 +76,9 @@ def plot(data_path: Path, output: Path) -> Path:
     seas = data["SEAS"]
     isplitee = data["I-SplitEE"]
     apply_comparison_figure_style()
-    fig, ax_lat = plt.subplots(figsize=(255 / 72, 190 / 72))
+    fig, ax_lat = plt.subplots(figsize=REFERENCE_FIGSIZE)
     ax_acc = ax_lat.twinx()
+    match_reference_plot_area(ax_lat, ax_acc)
 
     ax_lat.plot(
         devices,
@@ -181,7 +184,7 @@ def plot(data_path: Path, output: Path) -> Path:
     add_comparison_legend(fig, legend_handles, legend_labels, ncol=4)
     bold_tick_labels(ax_lat, ax_acc)
     fig.subplots_adjust(**{**COMPARISON_SUBPLOTS, "right": 0.86, "bottom": 0.18})
-    return save_pdf(fig, output, fixed_canvas=True)
+    return save_pdf(fig, output)
 
 
 def main() -> None:
@@ -190,7 +193,7 @@ def main() -> None:
     parser.add_argument(
         "--output",
         type=Path,
-        default=RESULT_FIGURE_DIR / "multi_device.pdf",
+        default=RESULT_FIGURE_DIR / "3_multi_device.pdf",
     )
     args = parser.parse_args()
     print(plot(args.data, args.output))

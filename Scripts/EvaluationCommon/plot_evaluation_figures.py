@@ -25,7 +25,9 @@ FIGURES = [
         "script": EXP2_ROOT / "plot_generalization.py",
         "data": EXP2_ROOT / "result_data" / "cross_arch_dataset_plot_data.csv",
         "argument_output": EXP2_ROOT / "result_figure" / "cross_arch_dataset.pdf",
-        "output": EXP2_ROOT / "result_figure" / "cross_arch_dataset_latency.pdf",
+        "output": EXP2_ROOT
+        / "result_figure"
+        / "2_a_cross_arch_dataset_latency.pdf",
         "status": "complete_from_draft",
         "source": "Exp2_Cross-Arch-Dataset/result_data/cross_arch_dataset_plot_data.csv",
         "selection": "Pi 5; ResNet-50/ViT-Base; CIFAR-10/ImageNet-100/NEU-CLS-64",
@@ -39,7 +41,9 @@ FIGURES = [
         "script": EXP2_ROOT / "plot_generalization.py",
         "data": EXP2_ROOT / "result_data" / "cross_arch_dataset_plot_data.csv",
         "argument_output": EXP2_ROOT / "result_figure" / "cross_arch_dataset.pdf",
-        "output": EXP2_ROOT / "result_figure" / "cross_arch_dataset_accuracy.pdf",
+        "output": EXP2_ROOT
+        / "result_figure"
+        / "2_b_cross_arch_dataset_accuracy.pdf",
         "status": "complete_from_draft",
         "source": "Exp2_Cross-Arch-Dataset/result_data/cross_arch_dataset_plot_data.csv",
         "selection": "Pi 5; ResNet-50/ViT-Base; CIFAR-10/ImageNet-100/NEU-CLS-64",
@@ -52,8 +56,8 @@ FIGURES = [
         "name": "multi_device",
         "script": EXP3_ROOT / "plot_multi_device.py",
         "data": EXP3_ROOT / "result_data" / "multi_device_plot_data.csv",
-        "argument_output": EXP3_ROOT / "result_figure" / "multi_device.pdf",
-        "output": EXP3_ROOT / "result_figure" / "multi_device.pdf",
+        "argument_output": EXP3_ROOT / "result_figure" / "3_multi_device.pdf",
+        "output": EXP3_ROOT / "result_figure" / "3_multi_device.pdf",
         "status": "complete_from_current_plot_data",
         "source": "Exp3_Multi-Device/result_data/multi_device_plot_data.csv",
         "selection": "ResNet-50/CIFAR-10; N=1..4",
@@ -81,8 +85,8 @@ FIGURES = [
         "name": "ablation",
         "script": EXP5_ROOT / "plot_ablation.py",
         "data": EXP5_ROOT / "result_data" / "ablation_plot_data.csv",
-        "argument_output": EXP5_ROOT / "result_figure" / "ablation.pdf",
-        "output": EXP5_ROOT / "result_figure" / "ablation.pdf",
+        "argument_output": EXP5_ROOT / "result_figure" / "5_ablation.pdf",
+        "output": EXP5_ROOT / "result_figure" / "5_ablation.pdf",
         "status": "complete_from_measured_results",
         "source": "Exp5_Ablation/result_data/ablation_plot_data.csv",
         "selection": "ResNet-50/CIFAR-10; single Pi 5",

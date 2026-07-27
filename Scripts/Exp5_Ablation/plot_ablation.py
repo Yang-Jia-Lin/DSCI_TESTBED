@@ -15,9 +15,11 @@ if __package__ in {None, ""}:
 
 from Scripts.EvaluationCommon.paper_figure_style import (  # noqa: E402
     ISPLITEE_COLOR,
+    REFERENCE_FIGSIZE,
     SEAM_COLOR,
     apply_large_single_panel_style,
     bold_tick_labels,
+    match_reference_plot_area,
     save_pdf,
 )
 
@@ -74,8 +76,9 @@ def _load_plot_data(path: Path) -> tuple[list[str], np.ndarray, np.ndarray]:
 def plot(data_path: Path, output: Path) -> Path:
     variants, latency, accuracy = _load_plot_data(data_path)
     apply_large_single_panel_style()
-    fig, ax_lat = plt.subplots(figsize=(280 / 72, 2.6318))
+    fig, ax_lat = plt.subplots(figsize=REFERENCE_FIGSIZE)
     ax_acc = ax_lat.twinx()
+    match_reference_plot_area(ax_lat, ax_acc)
 
     x = np.arange(len(variants))
     width = 0.34
@@ -146,7 +149,7 @@ def plot(data_path: Path, output: Path) -> Path:
         edgecolor="none",
     )
     fig.subplots_adjust(left=0.16, right=0.84, top=0.95, bottom=0.18)
-    return save_pdf(fig, output, fixed_canvas=True)
+    return save_pdf(fig, output)
 
 
 def main() -> None:
@@ -155,7 +158,7 @@ def main() -> None:
     parser.add_argument(
         "--output",
         type=Path,
-        default=RESULT_FIGURE_DIR / "ablation.pdf",
+        default=RESULT_FIGURE_DIR / "5_ablation.pdf",
     )
     args = parser.parse_args()
     print(plot(args.data, args.output))

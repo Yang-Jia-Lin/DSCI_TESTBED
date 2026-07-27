@@ -31,10 +31,10 @@ conda activate DSCI
 | 实验 | 运行/处理入口 | 绘图入口 | 绘图直接读取的数据 | 图片输出 |
 | --- | --- | --- | --- | --- |
 | Exp0 Motivation | `Exp0_Motivation\run` | `Exp0_Motivation\plot_all.py` | `Exp0_Motivation\result_data` 中的 CSV/JSON | `Exp0_Motivation\result_figure` |
-| Exp2 Cross-Arch-Dataset | 无需额外运行脚本 | `Exp2_Cross-Arch-Dataset\plot_generalization.py` | `result_data\cross_arch_dataset_plot_data.csv` | `result_figure\cross_arch_dataset_accuracy.pdf`、`cross_arch_dataset_latency.pdf` |
-| Exp3 Multi-Device | 无需额外运行脚本 | `Exp3_Multi-Device\plot_multi_device.py` | `result_data\multi_device_plot_data.csv` | `result_figure\multi_device.pdf` |
+| Exp2 Cross-Arch-Dataset | 无需额外运行脚本 | `Exp2_Cross-Arch-Dataset\plot_generalization.py` | `result_data\cross_arch_dataset_plot_data.csv` | `result_figure\2_a_cross_arch_dataset_latency.pdf`、`2_b_cross_arch_dataset_accuracy.pdf` |
+| Exp3 Multi-Device | 无需额外运行脚本 | `Exp3_Multi-Device\plot_multi_device.py` | `result_data\multi_device_plot_data.csv` | `result_figure\3_multi_device.pdf` |
 | Exp4 System-Overhead | `Exp4_System-Overhead\run` | `Exp4_System-Overhead\plot` | `result_data\summary\policy_update_summary.csv`、`convergence_summary.csv` | `Exp4_System-Overhead\result_figure` |
-| Exp5 Ablation | 无需额外运行脚本 | `Exp5_Ablation\plot_ablation.py` | `result_data\ablation_plot_data.csv` | `result_figure\ablation.pdf` |
+| Exp5 Ablation | 无需额外运行脚本 | `Exp5_Ablation\plot_ablation.py` | `result_data\ablation_plot_data.csv` | `result_figure\5_ablation.pdf` |
 
 在仓库根目录下可分别执行：
 

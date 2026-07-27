@@ -179,13 +179,37 @@ def convergence_summary(convergence: pd.DataFrame) -> pd.DataFrame:
     cold = convergence.loc[convergence["training_mode"] == "cold"].copy()
     if cold.empty:
         raise ValueError("No cold convergence rows found")
+    epochs = range(int(cold["epoch"].min()), int(cold["epoch"].max()) + 1)
+    carried_runs: list[pd.DataFrame] = []
+    for seed, run in cold.groupby("seed", sort=True):
+        carried = (
+            run.sort_values("epoch")
+            .set_index("epoch")[list(CONVERGENCE_FIELDS)]
+            .reindex(epochs)
+            .ffill()
+        )
+        if carried.isna().any().any():
+            raise ValueError(
+                f"Cold convergence run for seed {seed} does not start at "
+                f"epoch {min(epochs)}"
+            )
+        carried["seed"] = seed
+        carried["epoch"] = carried.index
+        carried_runs.append(carried.reset_index(drop=True))
+    carried_cold = pd.concat(carried_runs, ignore_index=True)
+    observed_seed_count = cold.groupby("epoch")["seed"].nunique()
     aggregations: dict[str, tuple[str, str]] = {
         "seed_count": ("seed", "nunique"),
     }
     for field in CONVERGENCE_FIELDS:
         aggregations[f"{field}_mean"] = (field, "mean")
         aggregations[f"{field}_std"] = (field, "std")
-    summary = cold.groupby("epoch", as_index=False).agg(**aggregations)
+    summary = carried_cold.groupby("epoch", as_index=False).agg(**aggregations)
+    summary.insert(
+        2,
+        "observed_seed_count",
+        summary["epoch"].map(observed_seed_count).fillna(0).astype(int),
+    )
     std_columns = [column for column in summary if column.endswith("_std")]
     summary[std_columns] = summary[std_columns].fillna(0.0)
     return summary

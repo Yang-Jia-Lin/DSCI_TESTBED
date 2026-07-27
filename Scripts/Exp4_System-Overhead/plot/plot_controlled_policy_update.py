@@ -1,4 +1,4 @@
-"""Plot controlled PPO convergence and policy-update summaries."""
+"""Plot standalone controlled PPO convergence and policy-update figures."""
 
 from __future__ import annotations
 
@@ -6,16 +6,15 @@ import argparse
 import sys
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
-
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
 from Src.Shared.Utils.plot_utils import save_fig_for_ieee, set_ieee_style
 
+REPO_ROOT = Path(__file__).resolve().parents[3]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 MODE_ORDER = ["cold", "medium", "near", "reuse"]
 MODE_LABELS = ["Cold", "Medium", "Near", "Reuse"]
@@ -36,26 +35,37 @@ def _band(
     axis.fill_between(x, mean - std, mean + std, color=color, alpha=0.18)
 
 
-def plot_convergence(summary_dir: Path, output_dir: Path) -> Path:
+def _new_single_axis() -> tuple[plt.Figure, plt.Axes]:
+    set_ieee_style("single")
+    return plt.subplots(figsize=(3.45, 2.55))
+
+
+def _save(output_dir: Path, stem: str, fig: plt.Figure) -> Path:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output = output_dir / stem
+    fig.tight_layout()
+    save_fig_for_ieee(output, fig=fig)
+    plt.close(fig)
+    return output
+
+
+def plot_convergence(summary_dir: Path, output_dir: Path) -> list[Path]:
     frame = pd.read_csv(summary_dir / "convergence_summary.csv")
     x = frame["epoch"].to_numpy(dtype=float)
-    set_ieee_style("double")
-    fig, axes = plt.subplots(1, 3, figsize=(10.5, 3.1))
 
+    objective_fig, objective_axis = _new_single_axis()
     _band(
-        axes[0],
+        objective_axis,
         x,
         frame["outer_objective_mean"].to_numpy(dtype=float),
         frame["outer_objective_std"].to_numpy(dtype=float),
         color="#4C78A8",
         label="Scheduling objective",
     )
-    axes[0].set_xlabel("PPO epoch")
-    axes[0].set_ylabel("Objective")
-    axes[0].set_title("(a) Scheduling objective")
-    axes[0].legend(frameon=False)
+    objective_axis.set_xlabel("PPO epoch")
+    objective_axis.set_ylabel("Objective")
 
-    accuracy_axis = axes[1]
+    metrics_fig, accuracy_axis = _new_single_axis()
     latency_axis = accuracy_axis.twinx()
     _band(
         accuracy_axis,
@@ -77,43 +87,20 @@ def plot_convergence(summary_dir: Path, output_dir: Path) -> Path:
     accuracy_axis.set_xlabel("PPO epoch")
     accuracy_axis.set_ylabel("Expected accuracy", color="#54A24B")
     latency_axis.set_ylabel("Expected latency (ms)", color="#E45756")
-    accuracy_axis.set_title("(b) Expected system metrics")
     lines = accuracy_axis.lines + latency_axis.lines
     accuracy_axis.legend(
         lines,
         [line.get_label() for line in lines],
         frameon=False,
-        loc="best",
+        loc="center right",
+        fontsize=8,
+        handlelength=2.2,
     )
 
-    _band(
-        axes[2],
-        x,
-        frame["split_entropy_HX_mean"].to_numpy(dtype=float),
-        frame["split_entropy_HX_std"].to_numpy(dtype=float),
-        color="#B279A2",
-        label=r"$H_X$",
-    )
-    _band(
-        axes[2],
-        x,
-        frame["exit_entropy_HY_mean"].to_numpy(dtype=float),
-        frame["exit_entropy_HY_std"].to_numpy(dtype=float),
-        color="#FF9DA6",
-        label=r"$H_Y$",
-        linestyle="--",
-    )
-    axes[2].set_xlabel("PPO epoch")
-    axes[2].set_ylabel("Policy entropy")
-    axes[2].set_title("(c) Policy entropy")
-    axes[2].legend(frameon=False)
-
-    fig.tight_layout()
-    output_dir.mkdir(parents=True, exist_ok=True)
-    output = output_dir / "ppo_convergence_multi_seed"
-    save_fig_for_ieee(output, fig=fig)
-    plt.close(fig)
-    return output
+    return [
+        _save(output_dir, "4_1a_ppo_objective", objective_fig),
+        _save(output_dir, "4_1b_expected_system_metrics", metrics_fig),
+    ]
 
 
 def _ordered_policy_frame(summary_dir: Path) -> pd.DataFrame:
@@ -126,14 +113,11 @@ def _ordered_policy_frame(summary_dir: Path) -> pd.DataFrame:
     return frame.sort_values("_order").reset_index(drop=True)
 
 
-def plot_policy_update(summary_dir: Path, output_dir: Path) -> Path:
+def plot_policy_update(summary_dir: Path, output_dir: Path) -> list[Path]:
     frame = _ordered_policy_frame(summary_dir)
-    set_ieee_style("double")
-    fig, axes = plt.subplots(1, 3, figsize=(10.2, 3.0))
     x = np.arange(len(frame))
     labels = [
-        MODE_LABELS[MODE_ORDER.index(mode)]
-        for mode in frame["actual_training_mode"]
+        MODE_LABELS[MODE_ORDER.index(mode)] for mode in frame["actual_training_mode"]
     ]
 
     panels = (
@@ -141,25 +125,27 @@ def plot_policy_update(summary_dir: Path, output_dir: Path) -> Path:
             "foreground_service_ms_mean",
             "foreground_service_ms_std",
             "Response (ms)",
-            "(a) Foreground response",
+            "4_2a_foreground_response",
             1.0,
         ),
         (
             "background_update_s_mean",
             "background_update_s_std",
             "Update (s)",
-            "(b) Background update",
+            "4_2b_background_update",
             1.0,
         ),
         (
             "utility_retention_mean",
             "utility_retention_std",
             "Utility retention (%)",
-            "(c) Immediate quality",
+            "4_2c_immediate_utility_retention",
             100.0,
         ),
     )
-    for axis, (mean_col, std_col, ylabel, title, scale) in zip(axes, panels):
+    outputs: list[Path] = []
+    for mean_col, std_col, ylabel, stem, scale in panels:
+        fig, axis = _new_single_axis()
         means = scale * frame[mean_col].to_numpy(dtype=float)
         stds = scale * frame[std_col].fillna(0.0).to_numpy(dtype=float)
         axis.bar(
@@ -173,14 +159,10 @@ def plot_policy_update(summary_dir: Path, output_dir: Path) -> Path:
         )
         axis.set_xticks(x, labels, rotation=15)
         axis.set_ylabel(ylabel)
-        axis.set_title(title)
         axis.grid(axis="x", visible=False)
-    fig.tight_layout()
-    output_dir.mkdir(parents=True, exist_ok=True)
-    output = output_dir / "controlled_policy_update_overhead"
-    save_fig_for_ieee(output, fig=fig)
-    plt.close(fig)
-    return output
+        fig.subplots_adjust(bottom=0.24)
+        outputs.append(_save(output_dir, stem, fig))
+    return outputs
 
 
 def plot_all(experiment_dir: Path, output_dir: Path) -> list[Path]:
@@ -196,8 +178,8 @@ def plot_all(experiment_dir: Path, output_dir: Path) -> list[Path]:
             + ", ".join(missing)
         )
     return [
-        plot_convergence(summary_dir, output_dir),
-        plot_policy_update(summary_dir, output_dir),
+        *plot_convergence(summary_dir, output_dir),
+        *plot_policy_update(summary_dir, output_dir),
     ]
 
 

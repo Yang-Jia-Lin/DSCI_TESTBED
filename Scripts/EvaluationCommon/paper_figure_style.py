@@ -1,4 +1,4 @@
-"""Shared style and paths for the four compact Evaluation figures."""
+"""Shared style and geometry for the compact Evaluation figures."""
 
 from __future__ import annotations
 
@@ -19,6 +19,9 @@ NEUTRAL_COLOR = "#6B6B6B"
 SEAM_MARKER = "o"
 ISPLITEE_MARKER = "s"
 
+REFERENCE_FIGSIZE = (3.45, 2.55)
+REFERENCE_PLOT_AREA_ASPECT = 1.4527428783032472
+
 COMPARISON_FIGSIZE = (3.55, 1.95)
 COMPARISON_SUBPLOTS = {
     "left": 0.115,
@@ -26,6 +29,13 @@ COMPARISON_SUBPLOTS = {
     "top": 0.82,
     "bottom": 0.25,
 }
+
+
+def match_reference_plot_area(*axes: plt.Axes) -> None:
+    """Match the axes-box ratio of Exp4's 4_2a foreground-response panel."""
+    box_aspect = 1.0 / REFERENCE_PLOT_AREA_ASPECT
+    for ax in axes:
+        ax.set_box_aspect(box_aspect)
 
 
 def apply_compact_ieee_style() -> None:
