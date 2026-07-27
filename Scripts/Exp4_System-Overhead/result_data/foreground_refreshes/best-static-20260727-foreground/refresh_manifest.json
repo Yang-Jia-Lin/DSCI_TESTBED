@@ -1,0 +1,180 @@
+{
+  "refresh_id": "best-static-20260727-foreground",
+  "created_at": 1785122292.161105,
+  "experiment_id": "controlled-5seed-resnet50-cifar10-20260726",
+  "strategy": "best_static",
+  "scope": "cold_foreground_only",
+  "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "objective_alpha": 1.0,
+  "objective_beta": 1.0,
+  "background_metrics_retained": true,
+  "backup_dir": "backups\\before_best-static-20260727-foreground",
+  "measurements": [
+    {
+      "experiment_id": "controlled-5seed-resnet50-cifar10-20260726",
+      "seed": 0,
+      "old_foreground_service_ms": 22.800599923357368,
+      "new_foreground_service_ms": 19.834799924865365,
+      "old_decision_source": "default",
+      "new_decision_source": "default:best_static:edge",
+      "old_immediate_objective": 0.20648480967983607,
+      "new_immediate_objective": 3.1368293753496275,
+      "final_objective": 3.2297445025716622,
+      "old_utility_retention": 0.06393224278744772,
+      "new_utility_retention": 0.9712314311091631,
+      "fallback_candidates": {
+        "device": {
+          "objective": -0.08457925000614275,
+          "expected_accuracy": 0.9614,
+          "expected_latency": 0.9825448125015357
+        },
+        "edge": {
+          "objective": 3.1368293753496275,
+          "expected_accuracy": 0.9614,
+          "expected_latency": 0.1771926561625932
+        },
+        "cloud": {
+          "objective": 2.7727183512973137,
+          "expected_accuracy": 0.9614,
+          "expected_latency": 0.2682204121756716
+        }
+      },
+      "background_update_s_retained": 521.5806646347046,
+      "background_epochs_retained": 107
+    },
+    {
+      "experiment_id": "controlled-5seed-resnet50-cifar10-20260726",
+      "seed": 1,
+      "old_foreground_service_ms": 19.68040002975613,
+      "new_foreground_service_ms": 20.931300008669496,
+      "old_decision_source": "default",
+      "new_decision_source": "default:best_static:edge",
+      "old_immediate_objective": 0.20648480967983607,
+      "new_immediate_objective": 3.1368293753496275,
+      "final_objective": 3.2297445025716622,
+      "old_utility_retention": 0.06393224278744772,
+      "new_utility_retention": 0.9712314311091631,
+      "fallback_candidates": {
+        "device": {
+          "objective": -0.08457925000614275,
+          "expected_accuracy": 0.9614,
+          "expected_latency": 0.9825448125015357
+        },
+        "edge": {
+          "objective": 3.1368293753496275,
+          "expected_accuracy": 0.9614,
+          "expected_latency": 0.1771926561625932
+        },
+        "cloud": {
+          "objective": 2.7727183512973137,
+          "expected_accuracy": 0.9614,
+          "expected_latency": 0.2682204121756716
+        }
+      },
+      "background_update_s_retained": 482.52408504486084,
+      "background_epochs_retained": 134
+    },
+    {
+      "experiment_id": "controlled-5seed-resnet50-cifar10-20260726",
+      "seed": 2,
+      "old_foreground_service_ms": 19.46109998971224,
+      "new_foreground_service_ms": 19.11679992917925,
+      "old_decision_source": "default",
+      "new_decision_source": "default:best_static:edge",
+      "old_immediate_objective": 0.20648480967983607,
+      "new_immediate_objective": 3.1368293753496275,
+      "final_objective": 3.2297445025716622,
+      "old_utility_retention": 0.06393224278744772,
+      "new_utility_retention": 0.9712314311091631,
+      "fallback_candidates": {
+        "device": {
+          "objective": -0.08457925000614275,
+          "expected_accuracy": 0.9614,
+          "expected_latency": 0.9825448125015357
+        },
+        "edge": {
+          "objective": 3.1368293753496275,
+          "expected_accuracy": 0.9614,
+          "expected_latency": 0.1771926561625932
+        },
+        "cloud": {
+          "objective": 2.7727183512973137,
+          "expected_accuracy": 0.9614,
+          "expected_latency": 0.2682204121756716
+        }
+      },
+      "background_update_s_retained": 446.6543884277344,
+      "background_epochs_retained": 107
+    },
+    {
+      "experiment_id": "controlled-5seed-resnet50-cifar10-20260726",
+      "seed": 3,
+      "old_foreground_service_ms": 25.01659991685301,
+      "new_foreground_service_ms": 18.38070002850145,
+      "old_decision_source": "default",
+      "new_decision_source": "default:best_static:edge",
+      "old_immediate_objective": 0.20648480967983607,
+      "new_immediate_objective": 3.1368293753496275,
+      "final_objective": 3.2297445025716622,
+      "old_utility_retention": 0.06393224278744772,
+      "new_utility_retention": 0.9712314311091631,
+      "fallback_candidates": {
+        "device": {
+          "objective": -0.08457925000614275,
+          "expected_accuracy": 0.9614,
+          "expected_latency": 0.9825448125015357
+        },
+        "edge": {
+          "objective": 3.1368293753496275,
+          "expected_accuracy": 0.9614,
+          "expected_latency": 0.1771926561625932
+        },
+        "cloud": {
+          "objective": 2.7727183512973137,
+          "expected_accuracy": 0.9614,
+          "expected_latency": 0.2682204121756716
+        }
+      },
+      "background_update_s_retained": 491.5088005065918,
+      "background_epochs_retained": 106
+    },
+    {
+      "experiment_id": "controlled-5seed-resnet50-cifar10-20260726",
+      "seed": 4,
+      "old_foreground_service_ms": 47.604799969121814,
+      "new_foreground_service_ms": 18.883800017647445,
+      "old_decision_source": "default",
+      "new_decision_source": "default:best_static:edge",
+      "old_immediate_objective": 0.20648480967983607,
+      "new_immediate_objective": 3.1368293753496275,
+      "final_objective": 3.2297445025716622,
+      "old_utility_retention": 0.06393224278744772,
+      "new_utility_retention": 0.9712314311091631,
+      "fallback_candidates": {
+        "device": {
+          "objective": -0.08457925000614275,
+          "expected_accuracy": 0.9614,
+          "expected_latency": 0.9825448125015357
+        },
+        "edge": {
+          "objective": 3.1368293753496275,
+          "expected_accuracy": 0.9614,
+          "expected_latency": 0.1771926561625932
+        },
+        "cloud": {
+          "objective": 2.7727183512973137,
+          "expected_accuracy": 0.9614,
+          "expected_latency": 0.2682204121756716
+        }
+      },
+      "background_update_s_retained": 624.2746484279633,
+      "background_epochs_retained": 102
+    }
+  ]
+}

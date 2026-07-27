@@ -510,6 +510,7 @@ def _service_for_seed(
     config = AlgoServiceConfig(
         objective_alpha=alpha,
         objective_beta=beta,
+        default_fallback_strategy="best_static",
         latest_solution_path=cache_dir / "latest_solution.npz",
         latest_meta_path=cache_dir / "latest_solution_meta.json",
         training_events_path=cache_dir / "training_events.jsonl",
@@ -567,6 +568,7 @@ def _prepare_experiment(
         "n_users": len(canonical_state["users"]),
         "objective_alpha": float(args.objective_alpha),
         "objective_beta": float(args.objective_beta),
+        "default_fallback_strategy": "best_static",
         "resource_mode": canonical_state["resource_mode"],
         "seeds": list(args.seeds),
         "target_distances": {

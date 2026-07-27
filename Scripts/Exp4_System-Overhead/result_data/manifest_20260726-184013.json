@@ -151,5 +151,26 @@
     "cuda_available": false,
     "cuda_version": null,
     "cuda_device": null
-  }
+  },
+  "foreground_refreshes": [
+    {
+      "refresh_id": "best-static-20260727-foreground",
+      "created_at": 1785122292.161105,
+      "experiment_id": "controlled-5seed-resnet50-cifar10-20260726",
+      "strategy": "best_static",
+      "scope": "cold_foreground_only",
+      "seeds": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "objective_alpha": 1.0,
+      "objective_beta": 1.0,
+      "background_metrics_retained": true,
+      "backup_dir": "backups\\before_best-static-20260727-foreground"
+    }
+  ],
+  "default_fallback_strategy": "best_static"
 }

@@ -1,0 +1,155 @@
+{
+  "experiment_id": "controlled-5seed-resnet50-cifar10-20260726",
+  "created_at": 1785062413.9166946,
+  "smoke": false,
+  "state_meta_path": "D:\\Coding\\Python\\DSCI_SEAS\\Data\\Runtime\\SolutionCache\\solution_20260722175910020_meta.json",
+  "bundle_id": "resnet50-cifar10",
+  "manifest_id": "resnet50-cifar10-partition-v1",
+  "model_hash": "42222e588316eba09b272dd13e261ab47f674256446150916379c4945be9aad2",
+  "n_users": 4,
+  "objective_alpha": 1.0,
+  "objective_beta": 1.0,
+  "resource_mode": "fixed_worker_pool",
+  "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "target_distances": {
+    "cold": null,
+    "medium": 0.1,
+    "near": 0.025,
+    "reuse": 0.0025
+  },
+  "ppo_hyperparameters": {
+    "cold": {
+      "gamma": 0.95,
+      "lam": 0.95,
+      "lr": 0.0001,
+      "eps_clip": 0.15,
+      "max_epochs": 200,
+      "target_steps": 1500,
+      "k_epochs": 10,
+      "entropy_coef": 0.01,
+      "entropy_decay": 0.995,
+      "grad_clip": 0.5,
+      "obj_scale": 1000.0,
+      "outer_ema": 1.0,
+      "min_epochs": 100,
+      "patience": 20,
+      "rel_tolerance": 0.0001
+    },
+    "medium": {
+      "gamma": 0.95,
+      "lam": 0.95,
+      "lr": 8e-05,
+      "eps_clip": 0.15,
+      "max_epochs": 80,
+      "target_steps": 800,
+      "k_epochs": 8,
+      "entropy_coef": 0.006,
+      "entropy_decay": 0.995,
+      "grad_clip": 0.5,
+      "obj_scale": 1000.0,
+      "outer_ema": 0.5,
+      "min_epochs": 20,
+      "patience": 20,
+      "rel_tolerance": 0.0001
+    },
+    "near": {
+      "gamma": 0.95,
+      "lam": 0.95,
+      "lr": 5e-05,
+      "eps_clip": 0.15,
+      "max_epochs": 30,
+      "target_steps": 400,
+      "k_epochs": 5,
+      "entropy_coef": 0.003,
+      "entropy_decay": 0.995,
+      "grad_clip": 0.5,
+      "obj_scale": 1000.0,
+      "outer_ema": 1.0,
+      "min_epochs": 8,
+      "patience": 20,
+      "rel_tolerance": 0.0001
+    },
+    "reuse": null
+  },
+  "canonical_state": {
+    "bundle_id": "resnet50-cifar10",
+    "resource_mode": "fixed_worker_pool",
+    "users": [
+      {
+        "bundle_id": "resnet50-cifar10",
+        "manifest_id": "resnet50-cifar10-partition-v1",
+        "model_hash": "42222e588316eba09b272dd13e261ab47f674256446150916379c4945be9aad2",
+        "backend": "pytorch",
+        "execution_profile_id": "resnet50-cifar10-device-pi5",
+        "worker_count": 1,
+        "user_id": 0,
+        "BW_d2e": 32.3173
+      },
+      {
+        "bundle_id": "resnet50-cifar10",
+        "manifest_id": "resnet50-cifar10-partition-v1",
+        "model_hash": "42222e588316eba09b272dd13e261ab47f674256446150916379c4945be9aad2",
+        "backend": "pytorch",
+        "execution_profile_id": "resnet50-cifar10-device-pi4-1",
+        "worker_count": 1,
+        "user_id": 1,
+        "BW_d2e": 21.3055
+      },
+      {
+        "bundle_id": "resnet50-cifar10",
+        "manifest_id": "resnet50-cifar10-partition-v1",
+        "model_hash": "42222e588316eba09b272dd13e261ab47f674256446150916379c4945be9aad2",
+        "backend": "pytorch",
+        "execution_profile_id": "resnet50-cifar10-device-pi4-2",
+        "worker_count": 1,
+        "user_id": 2,
+        "BW_d2e": 20.5854
+      },
+      {
+        "bundle_id": "resnet50-cifar10",
+        "manifest_id": "resnet50-cifar10-partition-v1",
+        "model_hash": "42222e588316eba09b272dd13e261ab47f674256446150916379c4945be9aad2",
+        "backend": "pytorch",
+        "execution_profile_id": "resnet50-cifar10-device-nano",
+        "worker_count": 1,
+        "user_id": 3,
+        "BW_d2e": 82.9808
+      }
+    ],
+    "edge": {
+      "bundle_id": "resnet50-cifar10",
+      "manifest_id": "resnet50-cifar10-partition-v1",
+      "model_hash": "42222e588316eba09b272dd13e261ab47f674256446150916379c4945be9aad2",
+      "backend": "pytorch",
+      "execution_profile_id": "resnet50-cifar10-edge-kaijie-laptop",
+      "worker_count": 1
+    },
+    "cloud": {
+      "bundle_id": "resnet50-cifar10",
+      "manifest_id": "resnet50-cifar10-partition-v1",
+      "model_hash": "42222e588316eba09b272dd13e261ab47f674256446150916379c4945be9aad2",
+      "backend": "pytorch",
+      "execution_profile_id": "resnet50-cifar10-cloud-5880",
+      "worker_count": 1,
+      "BW_e2c": 72.4508
+    },
+    "shared_resource_model": true
+  },
+  "hardware": {
+    "hostname": "JIALIN-DESKTOP",
+    "platform": "Windows-10-10.0.26200-SP0",
+    "processor": "Intel64 Family 6 Model 191 Stepping 2, GenuineIntel",
+    "python": "3.10.19 | packaged by Anaconda, Inc. | (main, Oct 21 2025, 16:41:31) [MSC v.1929 64 bit (AMD64)]",
+    "numpy": "1.26.4",
+    "torch": "2.9.1+cpu",
+    "cuda_available": false,
+    "cuda_version": null,
+    "cuda_device": null
+  }
+}

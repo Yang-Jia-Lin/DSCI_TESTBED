@@ -47,6 +47,7 @@ DIRECT_REUSE_DISTANCE = 0.005
 NEAR_WARM_START_DISTANCE = 0.05
 MEDIUM_WARM_START_DISTANCE = 0.15
 ABLATION_MODES = {"split-only", "ee-only"}
+DEFAULT_FALLBACK_STRATEGIES = {"feasible", "best_static"}
 
 _PRESET_MODE_ALIASES = {
     "dsci": None,
@@ -95,6 +96,7 @@ class AlgoServiceConfig:
     fixed_split: Any = None
     fixed_threshold: Any = None
     ablation_mode: str | None = None
+    default_fallback_strategy: str = "feasible"
 
 
 @dataclass
@@ -115,6 +117,8 @@ class CachedSolution:
     expected_accuracy: float | None = None
     expected_latency: float | None = None
     constraint_satisfied: bool | None = None
+    fallback_strategy: str | None = None
+    fallback_candidates: dict[str, dict[str, float]] | None = None
 
 
 @dataclass
@@ -188,6 +192,13 @@ class AlgoService:
     _constraint_satisfied: bool | None = field(default=None, init=False, repr=False)
 
     def __post_init__(self) -> None:
+        self.config.default_fallback_strategy = str(
+            self.config.default_fallback_strategy
+        ).strip().lower()
+        if self.config.default_fallback_strategy not in DEFAULT_FALLBACK_STRATEGIES:
+            raise ValueError(
+                "default_fallback_strategy must be feasible or best_static"
+            )
         if self.config.ablation_mode is not None:
             self.config.ablation_mode = str(self.config.ablation_mode).strip().lower()
             if self.config.ablation_mode not in ABLATION_MODES:
@@ -782,6 +793,36 @@ class AlgoService:
         )
         return self._annotate_solution(solution, paras)
 
+    def _best_static_default_solution(
+        self, paras: Paras, signature: dict[str, Any]
+    ) -> tuple[CachedSolution, str]:
+        candidates: dict[str, CachedSolution] = {}
+        candidate_metrics: dict[str, dict[str, float]] = {}
+        for placement in ("device", "edge", "cloud"):
+            candidate = self._preset_solution(
+                paras,
+                signature,
+                placement,
+                early_exit=False,
+            )
+            candidate.state_signature = copy.deepcopy(signature)
+            candidate.compat_key = self._compat_key(signature)
+            candidate.state_vector = self._state_vector(signature)
+            candidate = self._annotate_solution(candidate, paras)
+            candidates[placement] = candidate
+            candidate_metrics[placement] = {
+                "objective": float(candidate.objective),
+                "expected_accuracy": float(candidate.expected_accuracy),
+                "expected_latency": float(candidate.expected_latency),
+            }
+        placement, solution = max(
+            candidates.items(),
+            key=lambda item: item[1].objective,
+        )
+        solution.fallback_strategy = "best_static"
+        solution.fallback_candidates = candidate_metrics
+        return solution, f"default:best_static:{placement}"
+
     def _revalue_cached_solution(
         self, solution: CachedSolution, paras: Paras, signature: dict[str, Any]
     ) -> CachedSolution:
@@ -1056,9 +1097,15 @@ class AlgoService:
         signature: dict[str, Any],
         match: CacheMatch | None = None,
     ) -> tuple[CachedSolution, str]:
-        default = self._default_solution(paras, signature)
+        if self.config.default_fallback_strategy == "best_static":
+            default, default_source = self._best_static_default_solution(
+                paras, signature
+            )
+        else:
+            default = self._default_solution(paras, signature)
+            default_source = "default"
         if match is None:
-            return default, "default"
+            return default, default_source
 
         warm = self._revalue_cached_solution(match.solution, paras, signature)
         if match.solution.state_signature == signature:
@@ -1070,7 +1117,7 @@ class AlgoService:
 
         if warm.objective >= default.objective:
             return warm, f"cached_dsci:warm:{match.distance:.6f}"
-        return default, "default"
+        return default, default_source
 
     def _should_start_training(self, match: CacheMatch | None, paras: Paras) -> bool:
         if not self.config.auto_train:
@@ -1198,6 +1245,11 @@ class AlgoService:
         )
         decision["expected_accuracy"] = solution.expected_accuracy
         decision["expected_latency"] = solution.expected_latency
+        if solution.fallback_strategy is not None:
+            decision["fallback_strategy"] = solution.fallback_strategy
+            decision["fallback_candidates"] = copy.deepcopy(
+                solution.fallback_candidates
+            )
         if self.config.ablation_mode is not None:
             decision["ablation_mode"] = self.config.ablation_mode
             decision["cache_used"] = False

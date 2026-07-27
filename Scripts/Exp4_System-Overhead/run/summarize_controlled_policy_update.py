@@ -242,6 +242,12 @@ def policy_update_summary(mode_records: pd.DataFrame) -> pd.DataFrame:
     summary["actual_training_mode"] = summary["actual_training_mode"].astype(str)
     std_columns = [column for column in summary if column.endswith("_std")]
     summary[std_columns] = summary[std_columns].fillna(0.0)
+    summary["utility_retention_percent_2dp"] = (
+        np.floor(summary["utility_retention_mean"] * 10000.0 + 1e-9) / 100.0
+    )
+    summary["utility_retention_std_percent_2dp"] = (
+        np.floor(summary["utility_retention_std"] * 10000.0 + 1e-9) / 100.0
+    )
     order = {mode: index for index, mode in enumerate(MODE_ORDER)}
     summary["_order"] = summary["actual_training_mode"].map(order)
     return summary.sort_values("_order").drop(columns="_order").reset_index(drop=True)
@@ -281,8 +287,8 @@ def write_latex_table(summary: pd.DataFrame, path: Path) -> None:
             2,
         )
         retention = _mean_std(
-            100.0 * row["utility_retention_mean"],
-            100.0 * row["utility_retention_std"],
+            row["utility_retention_percent_2dp"],
+            row["utility_retention_std_percent_2dp"],
             2,
         )
         lines.append(

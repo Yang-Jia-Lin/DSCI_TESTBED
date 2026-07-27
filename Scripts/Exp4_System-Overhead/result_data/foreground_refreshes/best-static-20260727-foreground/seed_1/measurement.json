@@ -1,0 +1,32 @@
+{
+  "experiment_id": "controlled-5seed-resnet50-cifar10-20260726",
+  "seed": 1,
+  "old_foreground_service_ms": 19.68040002975613,
+  "new_foreground_service_ms": 20.931300008669496,
+  "old_decision_source": "default",
+  "new_decision_source": "default:best_static:edge",
+  "old_immediate_objective": 0.20648480967983607,
+  "new_immediate_objective": 3.1368293753496275,
+  "final_objective": 3.2297445025716622,
+  "old_utility_retention": 0.06393224278744772,
+  "new_utility_retention": 0.9712314311091631,
+  "fallback_candidates": {
+    "device": {
+      "objective": -0.08457925000614275,
+      "expected_accuracy": 0.9614,
+      "expected_latency": 0.9825448125015357
+    },
+    "edge": {
+      "objective": 3.1368293753496275,
+      "expected_accuracy": 0.9614,
+      "expected_latency": 0.1771926561625932
+    },
+    "cloud": {
+      "objective": 2.7727183512973137,
+      "expected_accuracy": 0.9614,
+      "expected_latency": 0.2682204121756716
+    }
+  },
+  "background_update_s_retained": 482.52408504486084,
+  "background_epochs_retained": 134
+}

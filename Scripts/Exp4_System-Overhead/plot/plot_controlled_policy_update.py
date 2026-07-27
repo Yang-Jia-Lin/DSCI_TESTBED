@@ -6,15 +6,15 @@ import argparse
 import sys
 from pathlib import Path
 
+REPO_ROOT = Path(__file__).resolve().parents[3]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
 from Src.Shared.Utils.plot_utils import save_fig_for_ieee, set_ieee_style
-
-REPO_ROOT = Path(__file__).resolve().parents[3]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
 
 MODE_ORDER = ["cold", "medium", "near", "reuse"]
 MODE_LABELS = ["Cold", "Medium", "Near", "Reuse"]
@@ -148,17 +148,25 @@ def plot_policy_update(summary_dir: Path, output_dir: Path) -> list[Path]:
         fig, axis = _new_single_axis()
         means = scale * frame[mean_col].to_numpy(dtype=float)
         stds = scale * frame[std_col].fillna(0.0).to_numpy(dtype=float)
-        axis.bar(
+        is_retention = stem == "4_2c_immediate_utility_retention"
+        bars = axis.bar(
             x,
             means,
-            yerr=stds,
-            capsize=3,
+            yerr=None if is_retention else stds,
+            capsize=0 if is_retention else 3,
             color=COLORS[: len(frame)],
             edgecolor="black",
             linewidth=0.6,
         )
         axis.set_xticks(x, labels, rotation=15)
         axis.set_ylabel(ylabel)
+        if is_retention:
+            axis.set_ylim(90.0, 101.0)
+            value_labels = [
+                f"{np.floor(value * 100.0 + 1e-9) / 100.0:.2f}"
+                for value in means
+            ]
+            axis.bar_label(bars, labels=value_labels, padding=2, fontsize=8)
         axis.grid(axis="x", visible=False)
         fig.subplots_adjust(bottom=0.24)
         outputs.append(_save(output_dir, stem, fig))
