@@ -19,7 +19,7 @@ conda run -n DSCI python Scripts\Exp0_Motivation\run\run_exp2_coupling_failure.p
 conda run -n DSCI python Scripts\Exp0_Motivation\plot_all.py
 ```
 
-各脚本直接读写本实验目录下的 `result_data` 和 `result_figure`。
+各实验脚本读取本实验目录下的 `result_data`，论文图片统一写入 `Scripts\Paper_figures`。
 
 ## 目录结构
 
@@ -32,8 +32,8 @@ Scripts\Exp0_Motivation\
     run_exp2_coupling_failure.py
   plot_all.py
   result_data\
-  result_figure\
   Motivation_README.md
+Scripts\Paper_figures\
 ```
 
 ## 各脚本作用
@@ -51,7 +51,7 @@ Scripts\Exp0_Motivation\
 ```text
 Scripts\Exp0_Motivation\
   result_data\
-  result_figure\
+Scripts\Paper_figures\
 ```
 
 关键文件包括：
@@ -59,9 +59,9 @@ Scripts\Exp0_Motivation\
 - `result_data\canonical_exit_curves.csv`：本次实验使用的 canonical early-exit 曲线。
 - `result_data\exp1_selection_effect.csv`：Figure 1 数据。
 - `result_data\exp2_coupling_failure.csv`：Figure 2 数据。
-- `result_figure\fig1a_accuracy_expectation.pdf/png`：Figure 1(a)，条件准确率与期望准确率。
-- `result_figure\fig1b_early_exit_probability.pdf/png`：Figure 1(b)，独立早退概率。
-- `result_figure\fig2_coupling_failure.pdf/png`：Figure 2，split-threshold 耦合下的期望时延。
+- `Scripts\Paper_figures\0-1a_accuracy_expectation.pdf/png`：Figure 0-1(a)，条件准确率与期望准确率。
+- `Scripts\Paper_figures\0-1b_early_exit_probability.pdf/png`：Figure 0-1(b)，独立早退概率。
+- `Scripts\Paper_figures\0-2_coupling_failure.pdf/png`：Figure 0-2，split-threshold耦合下的期望时延。
 - `result_data\paper_numbers.json`：论文中可直接引用的关键数值。
 
 ## 单独运行

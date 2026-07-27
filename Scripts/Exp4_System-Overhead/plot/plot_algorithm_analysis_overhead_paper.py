@@ -12,13 +12,13 @@ if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 from Scripts.EvaluationCommon.paper_figure_style import (  # noqa: E402
+    PAPER_FIGURE_DIR,
     apply_compact_ieee_style,
     pending_panel,
     save_pdf,
 )
 
 EXPERIMENT_ROOT = Path(__file__).resolve().parents[1]
-RESULT_FIGURE_DIR = EXPERIMENT_ROOT / "result_figure"
 
 def plot(output: Path) -> Path:
     apply_compact_ieee_style()
@@ -45,7 +45,7 @@ def main() -> None:
     parser.add_argument(
         "--output",
         type=Path,
-        default=RESULT_FIGURE_DIR / "algorithm_analysis_overhead.pdf",
+        default=PAPER_FIGURE_DIR / "algorithm_analysis_overhead.pdf",
     )
     args = parser.parse_args()
     print(plot(args.output))

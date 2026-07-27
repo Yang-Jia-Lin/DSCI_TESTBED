@@ -38,7 +38,7 @@ DEFAULT_EXPERIMENT_DIR = (
     REPO_ROOT / "Scripts" / "Exp4_System-Overhead" / "result_data"
 )
 DEFAULT_FIGURE_DIR = (
-    REPO_ROOT / "Scripts" / "Exp4_System-Overhead" / "result_figure"
+    REPO_ROOT / "Scripts" / "Paper_figures"
 )
 
 

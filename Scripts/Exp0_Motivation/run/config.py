@@ -11,7 +11,7 @@ from typing import Any
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 EXPERIMENT_ROOT = Path(__file__).resolve().parents[1]
 RESULT_DATA_DIR = EXPERIMENT_ROOT / "result_data"
-RESULT_FIGURE_DIR = EXPERIMENT_ROOT / "result_figure"
+RESULT_FIGURE_DIR = PROJECT_ROOT / "Scripts" / "Paper_figures"
 
 
 @dataclass(frozen=True)

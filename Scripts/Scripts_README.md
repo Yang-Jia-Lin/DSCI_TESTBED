@@ -21,20 +21,20 @@ conda activate DSCI
 
 ## 当前实验目录与绘图入口
 
-当前仓库保留 Exp0、Exp2、Exp3、Exp4 和 Exp5；Baseline 复现实验（Exp1）不在本仓库中。各实验的数据与图片均放在对应实验目录下，不再使用统一的 `Scripts\Results` 目录：
+当前仓库保留 Exp0、Exp2、Exp3、Exp4 和 Exp5；Baseline 复现实验（Exp1）不在本仓库中。各实验的数据保留在对应实验目录下，论文最终图片统一输出到 `Scripts\Paper_figures`：
 
 - `result_data`：原始实验记录、汇总数据，以及可由绘图脚本直接读取的最终统计数据。
-- `result_figure`：最终生成的实验图片。
+- `Paper_figures`：Exp0及Exp2--Exp5最终论文图片，每张图同时输出PDF和PNG。
 - `run`：需要额外运行实验或汇总脚本时使用；Exp2、Exp3 和 Exp5 直接使用设备实验数据，因此不设置 `run`。
 - `plot`：一个实验包含多个独立绘图脚本时使用；只有一个绘图入口的实验将脚本直接放在实验目录下。
 
 | 实验 | 运行/处理入口 | 绘图入口 | 绘图直接读取的数据 | 图片输出 |
 | --- | --- | --- | --- | --- |
-| Exp0 Motivation | `Exp0_Motivation\run` | `Exp0_Motivation\plot_all.py` | `Exp0_Motivation\result_data` 中的 CSV/JSON | `Exp0_Motivation\result_figure` |
-| Exp2 Cross-Arch-Dataset | 无需额外运行脚本 | `Exp2_Cross-Arch-Dataset\plot_generalization.py` | `result_data\cross_arch_dataset_plot_data.csv` | `result_figure\2_a_cross_arch_dataset_latency.pdf`、`2_b_cross_arch_dataset_accuracy.pdf` |
-| Exp3 Multi-Device | 无需额外运行脚本 | `Exp3_Multi-Device\plot_multi_device.py` | `result_data\multi_device_plot_data.csv` | `result_figure\3_multi_device.pdf` |
-| Exp4 System-Overhead | `Exp4_System-Overhead\run` | `Exp4_System-Overhead\plot` | `result_data\summary\policy_update_summary.csv`、`convergence_summary.csv` | `Exp4_System-Overhead\result_figure` |
-| Exp5 Ablation | 无需额外运行脚本 | `Exp5_Ablation\plot_ablation.py` | `result_data\ablation_plot_data.csv` | `result_figure\5_ablation.pdf` |
+| Exp0 Motivation | `Exp0_Motivation\run` | `Exp0_Motivation\plot_all.py` | `Exp0_Motivation\result_data` 中的 CSV/JSON | `Paper_figures\0-1a_accuracy_expectation.pdf/png`、`0-1b_early_exit_probability.pdf/png`、`0-2_coupling_failure.pdf/png` |
+| Exp2 Cross-Arch-Dataset | 无需额外运行脚本 | `Exp2_Cross-Arch-Dataset\plot_generalization.py` | `result_data\cross_arch_dataset_plot_data.csv` | `Paper_figures\2_a_cross_arch_dataset_latency.pdf/png`、`2_b_cross_arch_dataset_accuracy.pdf/png` |
+| Exp3 Multi-Device | 无需额外运行脚本 | `Exp3_Multi-Device\plot_multi_device.py` | `result_data\multi_device_plot_data.csv` | `Paper_figures\3_multi_device.pdf/png` |
+| Exp4 System-Overhead | `Exp4_System-Overhead\run` | `Exp4_System-Overhead\plot` | `result_data\summary\policy_update_summary.csv`、`convergence_summary.csv` | `Paper_figures\4_*.pdf/png` |
+| Exp5 Ablation | 无需额外运行脚本 | `Exp5_Ablation\plot_ablation.py` | `result_data\ablation_plot_data.csv` | `Paper_figures\5_ablation.pdf/png` |
 
 在仓库根目录下可分别执行：
 

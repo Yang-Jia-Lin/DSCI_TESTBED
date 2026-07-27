@@ -13,6 +13,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCRIPTS_ROOT = REPO_ROOT / "Scripts"
+PAPER_FIGURE_DIR = SCRIPTS_ROOT / "Paper_figures"
 MANIFEST_DIR = Path(__file__).resolve().parent / "result_data"
 EXP2_ROOT = SCRIPTS_ROOT / "Exp2_Cross-Arch-Dataset"
 EXP3_ROOT = SCRIPTS_ROOT / "Exp3_Multi-Device"
@@ -24,10 +25,8 @@ FIGURES = [
         "name": "cross_arch_dataset_latency",
         "script": EXP2_ROOT / "plot_generalization.py",
         "data": EXP2_ROOT / "result_data" / "cross_arch_dataset_plot_data.csv",
-        "argument_output": EXP2_ROOT / "result_figure" / "cross_arch_dataset.pdf",
-        "output": EXP2_ROOT
-        / "result_figure"
-        / "2_a_cross_arch_dataset_latency.pdf",
+        "argument_output": PAPER_FIGURE_DIR / "cross_arch_dataset.pdf",
+        "output": PAPER_FIGURE_DIR / "2_a_cross_arch_dataset_latency.pdf",
         "status": "complete_from_draft",
         "source": "Exp2_Cross-Arch-Dataset/result_data/cross_arch_dataset_plot_data.csv",
         "selection": "Pi 5; ResNet-50/ViT-Base; CIFAR-10/ImageNet-100/NEU-CLS-64",
@@ -40,10 +39,8 @@ FIGURES = [
         "name": "cross_arch_dataset_accuracy",
         "script": EXP2_ROOT / "plot_generalization.py",
         "data": EXP2_ROOT / "result_data" / "cross_arch_dataset_plot_data.csv",
-        "argument_output": EXP2_ROOT / "result_figure" / "cross_arch_dataset.pdf",
-        "output": EXP2_ROOT
-        / "result_figure"
-        / "2_b_cross_arch_dataset_accuracy.pdf",
+        "argument_output": PAPER_FIGURE_DIR / "cross_arch_dataset.pdf",
+        "output": PAPER_FIGURE_DIR / "2_b_cross_arch_dataset_accuracy.pdf",
         "status": "complete_from_draft",
         "source": "Exp2_Cross-Arch-Dataset/result_data/cross_arch_dataset_plot_data.csv",
         "selection": "Pi 5; ResNet-50/ViT-Base; CIFAR-10/ImageNet-100/NEU-CLS-64",
@@ -56,8 +53,8 @@ FIGURES = [
         "name": "multi_device",
         "script": EXP3_ROOT / "plot_multi_device.py",
         "data": EXP3_ROOT / "result_data" / "multi_device_plot_data.csv",
-        "argument_output": EXP3_ROOT / "result_figure" / "3_multi_device.pdf",
-        "output": EXP3_ROOT / "result_figure" / "3_multi_device.pdf",
+        "argument_output": PAPER_FIGURE_DIR / "3_multi_device.pdf",
+        "output": PAPER_FIGURE_DIR / "3_multi_device.pdf",
         "status": "complete_from_current_plot_data",
         "source": "Exp3_Multi-Device/result_data/multi_device_plot_data.csv",
         "selection": "ResNet-50/CIFAR-10; N=1..4",
@@ -71,10 +68,8 @@ FIGURES = [
         "script": EXP4_ROOT
         / "plot"
         / "plot_algorithm_analysis_overhead_paper.py",
-        "argument_output": EXP4_ROOT
-        / "result_figure"
-        / "algorithm_analysis_overhead.pdf",
-        "output": EXP4_ROOT / "result_figure" / "algorithm_analysis_overhead.pdf",
+        "argument_output": PAPER_FIGURE_DIR / "algorithm_analysis_overhead.pdf",
+        "output": PAPER_FIGURE_DIR / "algorithm_analysis_overhead.pdf",
         "status": "incomplete",
         "source": "No numeric experiment data in the paper draft",
         "selection": "Planned PPO/Random Search/GA and N=1..4 cold/hot overhead",
@@ -85,8 +80,8 @@ FIGURES = [
         "name": "ablation",
         "script": EXP5_ROOT / "plot_ablation.py",
         "data": EXP5_ROOT / "result_data" / "ablation_plot_data.csv",
-        "argument_output": EXP5_ROOT / "result_figure" / "5_ablation.pdf",
-        "output": EXP5_ROOT / "result_figure" / "5_ablation.pdf",
+        "argument_output": PAPER_FIGURE_DIR / "5_ablation.pdf",
+        "output": PAPER_FIGURE_DIR / "5_ablation.pdf",
         "status": "complete_from_measured_results",
         "source": "Exp5_Ablation/result_data/ablation_plot_data.csv",
         "selection": "ResNet-50/CIFAR-10; single Pi 5",

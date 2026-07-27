@@ -15,19 +15,18 @@ if __package__ in {None, ""}:
 
 from Scripts.EvaluationCommon.paper_figure_style import (  # noqa: E402
     ISPLITEE_COLOR,
-    REFERENCE_FIGSIZE,
+    PAPER_FIGURE_DIR,
     SEAM_COLOR,
-    apply_large_single_panel_style,
+    THREE_PANEL_FIGSIZE,
+    apply_three_panel_style,
     bold_tick_labels,
-    match_reference_plot_area,
     save_pdf,
 )
 
 EXPERIMENT_ROOT = Path(__file__).resolve().parent
 PLOT_DATA_PATH = EXPERIMENT_ROOT / "result_data" / "cross_arch_dataset_plot_data.csv"
-RESULT_FIGURE_DIR = EXPERIMENT_ROOT / "result_figure"
 
-FIGSIZE = REFERENCE_FIGSIZE
+FIGSIZE = THREE_PANEL_FIGSIZE
 
 
 def _load_plot_data(path: Path) -> tuple[list[str], dict[str, dict[str, np.ndarray]]]:
@@ -69,10 +68,9 @@ def _load_plot_data(path: Path) -> tuple[list[str], dict[str, dict[str, np.ndarr
 
 
 def _base_axes(labels: list[str]) -> tuple[plt.Figure, plt.Axes]:
-    apply_large_single_panel_style()
+    apply_three_panel_style()
     fig, ax = plt.subplots(figsize=FIGSIZE)
-    match_reference_plot_area(ax)
-    ax.set_xticks(np.arange(len(labels)), labels, rotation=38, ha="right")
+    ax.set_xticks(np.arange(len(labels)), labels, rotation=34, ha="right")
     ax.set_axisbelow(True)
     ax.grid(axis="x", visible=False)
     bold_tick_labels(ax)
@@ -88,7 +86,8 @@ def _add_bars(ax: plt.Axes, seas: np.ndarray, isplitee: np.ndarray) -> None:
         width,
         color=SEAM_COLOR,
         edgecolor="black",
-        label="SEAS",
+        hatch="///",
+        label="SEAS (Ours)",
     )
     ax.bar(
         x + width / 2,
@@ -96,7 +95,6 @@ def _add_bars(ax: plt.Axes, seas: np.ndarray, isplitee: np.ndarray) -> None:
         width,
         color=ISPLITEE_COLOR,
         edgecolor="black",
-        hatch="///",
         label="I-SplitEE",
     )
 
@@ -131,8 +129,8 @@ def plot(data_path: Path, output: Path) -> tuple[Path, Path]:
         facecolor="white",
         edgecolor="none",
     )
-    fig.subplots_adjust(left=0.15, right=0.98, top=0.79, bottom=0.27)
-    latency_path = save_pdf(fig, latency_output)
+    fig.subplots_adjust(left=0.21, right=0.98, top=0.835, bottom=0.28)
+    latency_path = save_pdf(fig, latency_output, fixed_canvas=True)
 
     fig, ax = _base_axes(labels)
     _add_bars(
@@ -157,8 +155,8 @@ def plot(data_path: Path, output: Path) -> tuple[Path, Path]:
         facecolor="white",
         edgecolor="none",
     )
-    fig.subplots_adjust(left=0.15, right=0.98, top=0.79, bottom=0.27)
-    accuracy_path = save_pdf(fig, accuracy_output)
+    fig.subplots_adjust(left=0.21, right=0.98, top=0.835, bottom=0.28)
+    accuracy_path = save_pdf(fig, accuracy_output, fixed_canvas=True)
     return latency_path, accuracy_path
 
 
@@ -168,7 +166,7 @@ def main() -> None:
     parser.add_argument(
         "--output",
         type=Path,
-        default=RESULT_FIGURE_DIR / "cross_arch_dataset.pdf",
+        default=PAPER_FIGURE_DIR / "cross_arch_dataset.pdf",
     )
     args = parser.parse_args()
     for path in plot(args.data, args.output):

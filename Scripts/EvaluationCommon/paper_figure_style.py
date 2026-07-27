@@ -9,9 +9,10 @@ import matplotlib.pyplot as plt
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+PAPER_FIGURE_DIR = REPO_ROOT / "Scripts" / "Paper_figures"
 
-SEAM_COLOR = "#0072B2"
-ISPLITEE_COLOR = "#D55E00"
+SEAM_COLOR = "#D55E00"
+ISPLITEE_COLOR = "#0072B2"
 RANDOM_COLOR = "#009E73"
 GA_COLOR = "#CC79A7"
 NEUTRAL_COLOR = "#6B6B6B"
@@ -21,6 +22,7 @@ ISPLITEE_MARKER = "s"
 
 REFERENCE_FIGSIZE = (3.45, 2.55)
 REFERENCE_PLOT_AREA_ASPECT = 1.4527428783032472
+THREE_PANEL_FIGSIZE = (2.36, 1.64)
 
 COMPARISON_FIGSIZE = (3.55, 1.95)
 COMPARISON_SUBPLOTS = {
@@ -114,6 +116,32 @@ def apply_large_single_panel_style() -> None:
     )
 
 
+def apply_three_panel_style() -> None:
+    """Apply a legible sans-serif style for three panels in one IEEE row."""
+    apply_compact_ieee_style()
+    mpl.rcParams.update(
+        {
+            "font.family": "sans-serif",
+            "font.sans-serif": [
+                "Arial",
+                "Liberation Sans",
+                "DejaVu Sans",
+            ],
+            "font.size": 7.5,
+            "font.weight": "bold",
+            "axes.labelsize": 8.4,
+            "axes.labelweight": "bold",
+            "axes.titlesize": 8.4,
+            "axes.titleweight": "bold",
+            "legend.fontsize": 7.0,
+            "xtick.labelsize": 7.4,
+            "ytick.labelsize": 7.4,
+            "lines.linewidth": 1.6,
+            "lines.markersize": 4.5,
+        }
+    )
+
+
 def add_comparison_legend(
     fig: plt.Figure,
     handles: list,
@@ -121,6 +149,7 @@ def add_comparison_legend(
     *,
     ncol: int | None = None,
     anchor_y: float = 0.83,
+    font_size: float = 6.8,
 ) -> plt.Legend:
     """Place a compact, consistently styled legend above the plot area."""
     return fig.legend(
@@ -139,7 +168,7 @@ def add_comparison_legend(
         framealpha=0.88,
         facecolor="white",
         edgecolor="none",
-        prop={"size": 6.8, "weight": "bold"},
+        prop={"size": font_size, "weight": "bold"},
     )
 
 
@@ -155,13 +184,21 @@ def save_pdf(
     output_path: Path,
     *,
     fixed_canvas: bool = False,
+    save_png: bool = True,
 ) -> Path:
-    """Save a vector PDF and close its Matplotlib figure."""
+    """Save a vector PDF, optionally pair it with a PNG, and close the figure."""
     output_path.parent.mkdir(parents=True, exist_ok=True)
     save_kwargs = (
         {"bbox_inches": fig.bbox_inches, "pad_inches": 0.0} if fixed_canvas else {}
     )
     fig.savefig(output_path, format="pdf", **save_kwargs)
+    if save_png:
+        fig.savefig(
+            output_path.with_suffix(".png"),
+            format="png",
+            dpi=300,
+            **save_kwargs,
+        )
     plt.close(fig)
     return output_path
 

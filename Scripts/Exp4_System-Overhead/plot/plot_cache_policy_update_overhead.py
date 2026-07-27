@@ -18,12 +18,11 @@ import pandas as pd
 
 from Scripts.EvaluationCommon.config import DEFAULT_TRAINING_EVENTS
 from Scripts.EvaluationCommon.paper_figure_style import (
+    PAPER_FIGURE_DIR,
     apply_large_single_panel_style,
     bold_tick_labels,
 )
-DEFAULT_OUTPUT_DIR = (
-    Path(__file__).resolve().parents[1] / "result_figure"
-)
+DEFAULT_OUTPUT_DIR = PAPER_FIGURE_DIR
 DEFAULT_SEQUENCE_PREFIX = "dsci-fixedp-"
 MODE_ORDER = ("cold", "medium", "near")
 MODE_LABELS = {

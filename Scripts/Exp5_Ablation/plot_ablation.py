@@ -14,20 +14,20 @@ if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from Scripts.EvaluationCommon.paper_figure_style import (  # noqa: E402
-    ISPLITEE_COLOR,
-    REFERENCE_FIGSIZE,
-    SEAM_COLOR,
-    apply_large_single_panel_style,
+    PAPER_FIGURE_DIR,
+    THREE_PANEL_FIGSIZE,
+    apply_three_panel_style,
     bold_tick_labels,
-    match_reference_plot_area,
     save_pdf,
 )
 
 EXPERIMENT_ROOT = Path(__file__).resolve().parent
 PLOT_DATA_PATH = EXPERIMENT_ROOT / "result_data" / "ablation_plot_data.csv"
-RESULT_FIGURE_DIR = EXPERIMENT_ROOT / "result_figure"
 
 ACCURACY_FLOOR = 90.0
+LATENCY_COLOR = "#009E73"
+ACCURACY_COLOR = "#8E63B0"
+ANNOTATION_SIZE = 5.4
 
 
 def _annotate_bars(
@@ -47,7 +47,7 @@ def _annotate_bars(
             f"{value:.2f}{suffix}",
             ha=ha,
             va="bottom",
-            fontsize=8.0,
+            fontsize=ANNOTATION_SIZE,
             fontweight="bold",
             transform=(ax if coordinate_ax is None else coordinate_ax).transData,
             zorder=10,
@@ -75,18 +75,17 @@ def _load_plot_data(path: Path) -> tuple[list[str], np.ndarray, np.ndarray]:
 
 def plot(data_path: Path, output: Path) -> Path:
     variants, latency, accuracy = _load_plot_data(data_path)
-    apply_large_single_panel_style()
-    fig, ax_lat = plt.subplots(figsize=REFERENCE_FIGSIZE)
+    apply_three_panel_style()
+    fig, ax_lat = plt.subplots(figsize=THREE_PANEL_FIGSIZE)
     ax_acc = ax_lat.twinx()
-    match_reference_plot_area(ax_lat, ax_acc)
 
     x = np.arange(len(variants))
-    width = 0.34
+    width = 0.32
     latency_bars = ax_lat.bar(
         x - width / 2,
         latency,
         width=width,
-        color=SEAM_COLOR,
+        color=LATENCY_COLOR,
         edgecolor="black",
         label="E2E latency",
         zorder=3,
@@ -96,7 +95,7 @@ def plot(data_path: Path, output: Path) -> Path:
         accuracy - ACCURACY_FLOOR,
         bottom=ACCURACY_FLOOR,
         width=width,
-        color=ISPLITEE_COLOR,
+        color=ACCURACY_COLOR,
         edgecolor="black",
         hatch="//",
         label="Full-test accuracy",
@@ -105,21 +104,26 @@ def plot(data_path: Path, output: Path) -> Path:
 
     _annotate_bars(
         ax_acc,
-        latency_bars,
-        latency,
+        latency_bars[-1:],
+        latency[-1:],
         offset=10.0,
         x_offset=width * 0.25,
         ha="right",
         coordinate_ax=ax_lat,
     )
-    _annotate_bars(ax_acc, accuracy_bars, accuracy, offset=0.15)
+    _annotate_bars(
+        ax_acc,
+        accuracy_bars[-1:],
+        accuracy[-1:],
+        offset=0.15,
+    )
 
-    ax_lat.set_ylabel("E2E latency (ms)", color=SEAM_COLOR, labelpad=1.5)
-    ax_acc.set_ylabel("Full-test acc. (%)", color=ISPLITEE_COLOR, labelpad=2.0)
-    ax_lat.tick_params(axis="y", colors=SEAM_COLOR)
-    ax_acc.tick_params(axis="y", colors=ISPLITEE_COLOR)
-    ax_lat.spines["left"].set_color(SEAM_COLOR)
-    ax_acc.spines["right"].set_color(ISPLITEE_COLOR)
+    ax_lat.set_ylabel("E2E latency (ms)", color=LATENCY_COLOR, labelpad=1.5)
+    ax_acc.set_ylabel("Top-1 acc. (%)", color=ACCURACY_COLOR, labelpad=1.5)
+    ax_lat.tick_params(axis="y", colors=LATENCY_COLOR)
+    ax_acc.tick_params(axis="y", colors=ACCURACY_COLOR)
+    ax_lat.spines["left"].set_color(LATENCY_COLOR)
+    ax_acc.spines["right"].set_color(ACCURACY_COLOR)
     ax_lat.set_ylim(0, 450)
     ax_acc.set_ylim(ACCURACY_FLOOR, 97)
     ax_lat.set_yticks([0, 100, 200, 300, 400])
@@ -135,8 +139,8 @@ def plot(data_path: Path, output: Path) -> Path:
     ax_lat.legend(
         handles_lat + handles_acc,
         labels_lat + labels_acc,
-        loc="upper center",
-        bbox_to_anchor=(0.5, 0.99),
+        loc="lower center",
+        bbox_to_anchor=(0.5, 1.02),
         ncol=2,
         borderaxespad=0.0,
         borderpad=0.15,
@@ -148,8 +152,8 @@ def plot(data_path: Path, output: Path) -> Path:
         facecolor="white",
         edgecolor="none",
     )
-    fig.subplots_adjust(left=0.16, right=0.84, top=0.95, bottom=0.18)
-    return save_pdf(fig, output)
+    fig.subplots_adjust(left=0.20, right=0.80, top=0.835, bottom=0.28)
+    return save_pdf(fig, output, fixed_canvas=True)
 
 
 def main() -> None:
@@ -158,7 +162,7 @@ def main() -> None:
     parser.add_argument(
         "--output",
         type=Path,
-        default=RESULT_FIGURE_DIR / "5_ablation.pdf",
+        default=PAPER_FIGURE_DIR / "5_ablation.pdf",
     )
     args = parser.parse_args()
     print(plot(args.data, args.output))

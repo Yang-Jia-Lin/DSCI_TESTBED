@@ -14,11 +14,20 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from Src.Shared.Utils.plot_utils import save_fig_for_ieee, set_ieee_style
+from Scripts.EvaluationCommon.paper_figure_style import (
+    PAPER_FIGURE_DIR,
+    THREE_PANEL_FIGSIZE,
+    apply_three_panel_style,
+    bold_tick_labels,
+    save_pdf,
+)
 
 MODE_ORDER = ["cold", "medium", "near", "reuse"]
 MODE_LABELS = ["Cold", "Medium", "Near", "Reuse"]
-COLORS = ["#4C78A8", "#F58518", "#54A24B", "#B8B8B8"]
+COLORS = ["#009E73", "#3FA58F", "#6F8FAD", "#8E63B0"]
+OBJECTIVE_COLOR = "#D55E00"
+LATENCY_COLOR = "#009E73"
+ACCURACY_COLOR = "#8E63B0"
 
 
 def _band(
@@ -36,70 +45,129 @@ def _band(
 
 
 def _new_single_axis() -> tuple[plt.Figure, plt.Axes]:
-    set_ieee_style("single")
-    return plt.subplots(figsize=(3.45, 2.55))
+    apply_three_panel_style()
+    return plt.subplots(figsize=THREE_PANEL_FIGSIZE)
+
+
+def _new_convergence_axis() -> tuple[plt.Figure, plt.Axes]:
+    apply_three_panel_style()
+    return plt.subplots(figsize=THREE_PANEL_FIGSIZE)
+
+
+def _set_right_aligned_xlabel(
+    axis: plt.Axes,
+    label: str,
+    *,
+    x_position: float = 0.82,
+) -> None:
+    axis.set_xlabel(
+        label,
+        ha="left",
+        fontsize=plt.rcParams["xtick.labelsize"],
+    )
+    axis.xaxis.set_label_coords(x_position, -0.065)
 
 
 def _save(output_dir: Path, stem: str, fig: plt.Figure) -> Path:
     output_dir.mkdir(parents=True, exist_ok=True)
     output = output_dir / stem
-    fig.tight_layout()
-    save_fig_for_ieee(output, fig=fig)
-    plt.close(fig)
+    save_pdf(fig, output.with_suffix(".pdf"), fixed_canvas=True)
     return output
+
+
+def _save_convergence(output_dir: Path, stem: str, fig: plt.Figure) -> Path:
+    return _save(output_dir, stem, fig)
 
 
 def plot_convergence(summary_dir: Path, output_dir: Path) -> list[Path]:
     frame = pd.read_csv(summary_dir / "convergence_summary.csv")
     x = frame["epoch"].to_numpy(dtype=float)
 
-    objective_fig, objective_axis = _new_single_axis()
+    objective_fig, objective_axis = _new_convergence_axis()
     _band(
         objective_axis,
         x,
         frame["outer_objective_mean"].to_numpy(dtype=float),
         frame["outer_objective_std"].to_numpy(dtype=float),
-        color="#4C78A8",
+        color=OBJECTIVE_COLOR,
         label="Scheduling objective",
     )
-    objective_axis.set_xlabel("PPO epoch")
+    _set_right_aligned_xlabel(objective_axis, "Epoch")
     objective_axis.set_ylabel("Objective")
+    objective_axis.set_axisbelow(True)
+    objective_axis.grid(axis="x", visible=False)
+    bold_tick_labels(objective_axis)
+    objective_fig.subplots_adjust(
+        left=0.21,
+        right=0.98,
+        top=0.94,
+        bottom=0.16,
+    )
 
-    metrics_fig, accuracy_axis = _new_single_axis()
+    metrics_fig, accuracy_axis = _new_convergence_axis()
     latency_axis = accuracy_axis.twinx()
     _band(
         accuracy_axis,
         x,
-        frame["expected_accuracy_mean_mean"].to_numpy(dtype=float),
-        frame["expected_accuracy_mean_std"].to_numpy(dtype=float),
-        color="#54A24B",
+        100.0 * frame["expected_accuracy_mean_mean"].to_numpy(dtype=float),
+        100.0 * frame["expected_accuracy_mean_std"].to_numpy(dtype=float),
+        color=ACCURACY_COLOR,
         label="Expected accuracy",
     )
     _band(
         latency_axis,
         x,
-        1000.0 * frame["expected_latency_mean_s_mean"].to_numpy(dtype=float),
-        1000.0 * frame["expected_latency_mean_s_std"].to_numpy(dtype=float),
-        color="#E45756",
+        frame["expected_latency_mean_s_mean"].to_numpy(dtype=float),
+        frame["expected_latency_mean_s_std"].to_numpy(dtype=float),
+        color=LATENCY_COLOR,
         label="Expected latency",
         linestyle="--",
     )
-    accuracy_axis.set_xlabel("PPO epoch")
-    accuracy_axis.set_ylabel("Expected accuracy", color="#54A24B")
-    latency_axis.set_ylabel("Expected latency (ms)", color="#E45756")
+    _set_right_aligned_xlabel(accuracy_axis, "Epoch", x_position=0.86)
+    accuracy_axis.set_ylabel("Expected acc. (%)", color=ACCURACY_COLOR)
+    latency_axis.set_ylabel("Expected latency (s)", color=LATENCY_COLOR)
+    accuracy_axis.tick_params(axis="y", colors=ACCURACY_COLOR)
+    latency_axis.tick_params(axis="y", colors=LATENCY_COLOR)
+    accuracy_axis.spines["left"].set_color(ACCURACY_COLOR)
+    latency_axis.spines["right"].set_color(LATENCY_COLOR)
+    accuracy_axis.set_axisbelow(True)
+    accuracy_axis.grid(axis="x", visible=False)
+    latency_axis.grid(False)
     lines = accuracy_axis.lines + latency_axis.lines
     accuracy_axis.legend(
         lines,
         [line.get_label() for line in lines],
-        frameon=False,
+        frameon=True,
+        framealpha=0.78,
+        facecolor="white",
+        edgecolor="none",
         loc="center right",
-        fontsize=8,
-        handlelength=2.2,
+        ncol=1,
+        borderaxespad=0.4,
+        borderpad=0.3,
+        labelspacing=0.3,
+        handlelength=1.5,
+        handletextpad=0.4,
+    )
+    bold_tick_labels(accuracy_axis, latency_axis)
+    metrics_fig.subplots_adjust(
+        left=0.20,
+        right=0.80,
+        top=0.94,
+        bottom=0.16,
     )
 
     return [
-        _save(output_dir, "4_1a_ppo_objective", objective_fig),
-        _save(output_dir, "4_1b_expected_system_metrics", metrics_fig),
+        _save_convergence(
+            output_dir,
+            "4_1a_ppo_objective",
+            objective_fig,
+        ),
+        _save_convergence(
+            output_dir,
+            "4_1b_expected_system_metrics",
+            metrics_fig,
+        ),
     ]
 
 
@@ -152,13 +220,14 @@ def plot_policy_update(summary_dir: Path, output_dir: Path) -> list[Path]:
         bars = axis.bar(
             x,
             means,
+            width=0.62,
             yerr=None if is_retention else stds,
-            capsize=0 if is_retention else 3,
+            capsize=0 if is_retention else 2,
             color=COLORS[: len(frame)],
             edgecolor="black",
-            linewidth=0.6,
+            linewidth=0.7,
         )
-        axis.set_xticks(x, labels, rotation=15)
+        axis.set_xticks(x, labels)
         axis.set_ylabel(ylabel)
         if is_retention:
             axis.set_ylim(90.0, 101.0)
@@ -166,9 +235,17 @@ def plot_policy_update(summary_dir: Path, output_dir: Path) -> list[Path]:
                 f"{np.floor(value * 100.0 + 1e-9) / 100.0:.2f}"
                 for value in means
             ]
-            axis.bar_label(bars, labels=value_labels, padding=2, fontsize=8)
+            axis.bar_label(bars, labels=value_labels, padding=2, fontsize=6.0)
+        axis.margins(x=0.08)
+        axis.set_axisbelow(True)
         axis.grid(axis="x", visible=False)
-        fig.subplots_adjust(bottom=0.24)
+        bold_tick_labels(axis)
+        fig.subplots_adjust(
+            left=0.21,
+            right=0.98,
+            top=0.94,
+            bottom=0.24,
+        )
         outputs.append(_save(output_dir, stem, fig))
     return outputs
 
@@ -197,7 +274,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=Path(__file__).resolve().parents[1] / "result_figure",
+        default=PAPER_FIGURE_DIR,
     )
     return parser
 

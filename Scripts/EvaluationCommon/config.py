@@ -7,9 +7,10 @@ from collections.abc import Iterable
 from itertools import product
 
 SCRIPTS_ROOT = Path(__file__).resolve().parents[1]
+PAPER_FIGURE_DIR = SCRIPTS_ROOT / "Paper_figures"
 EXP4_ROOT = SCRIPTS_ROOT / "Exp4_System-Overhead"
 EXP4_RESULT_DATA_DIR = EXP4_ROOT / "result_data"
-EXP4_RESULT_FIGURE_DIR = EXP4_ROOT / "result_figure"
+EXP4_RESULT_FIGURE_DIR = PAPER_FIGURE_DIR
 
 DEFAULT_SOLUTION_NPZ = Path("Data/Runtime/SolutionCache/latest_solution.npz")
 DEFAULT_SOLUTION_META = Path("Data/Runtime/SolutionCache/latest_solution_meta.json")

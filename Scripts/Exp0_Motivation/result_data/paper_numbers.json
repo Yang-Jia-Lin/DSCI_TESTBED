@@ -36,17 +36,17 @@
   "figures": {
     "figure1": {
       "accuracy_expectation": {
-        "pdf": "D:\\Coding\\Python\\DSCI_SEAS\\Scripts\\Exp0_Motivation\\result_figure\\fig1a_accuracy_expectation.pdf",
-        "png": "D:\\Coding\\Python\\DSCI_SEAS\\Scripts\\Exp0_Motivation\\result_figure\\fig1a_accuracy_expectation.png"
+        "pdf": "D:\\Coding\\Python\\DSCI_SEAS\\Scripts\\Paper_figures\\0-1a_accuracy_expectation.pdf",
+        "png": "D:\\Coding\\Python\\DSCI_SEAS\\Scripts\\Paper_figures\\0-1a_accuracy_expectation.png"
       },
       "early_exit_probability": {
-        "pdf": "D:\\Coding\\Python\\DSCI_SEAS\\Scripts\\Exp0_Motivation\\result_figure\\fig1b_early_exit_probability.pdf",
-        "png": "D:\\Coding\\Python\\DSCI_SEAS\\Scripts\\Exp0_Motivation\\result_figure\\fig1b_early_exit_probability.png"
+        "pdf": "D:\\Coding\\Python\\DSCI_SEAS\\Scripts\\Paper_figures\\0-1b_early_exit_probability.pdf",
+        "png": "D:\\Coding\\Python\\DSCI_SEAS\\Scripts\\Paper_figures\\0-1b_early_exit_probability.png"
       }
     },
     "figure2": {
-      "pdf": "D:\\Coding\\Python\\DSCI_SEAS\\Scripts\\Exp0_Motivation\\result_figure\\fig2_coupling_failure.pdf",
-      "png": "D:\\Coding\\Python\\DSCI_SEAS\\Scripts\\Exp0_Motivation\\result_figure\\fig2_coupling_failure.png"
+      "pdf": "D:\\Coding\\Python\\DSCI_SEAS\\Scripts\\Paper_figures\\0-2_coupling_failure.pdf",
+      "png": "D:\\Coding\\Python\\DSCI_SEAS\\Scripts\\Paper_figures\\0-2_coupling_failure.png"
     }
   }
 }
