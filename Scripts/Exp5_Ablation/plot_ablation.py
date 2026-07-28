@@ -63,7 +63,12 @@ def _load_plot_data(path: Path) -> tuple[list[str], np.ndarray, np.ndarray]:
     if not rows:
         raise ValueError(f"No plot data found in {path}")
     variants = [
-        row["variant"].replace(" only", "\nonly") for row in rows
+        (
+            "SEAS\n(ours)"
+            if row["variant"] == "Ours"
+            else row["variant"].replace(" only", "\nonly")
+        )
+        for row in rows
     ]
     latency = np.asarray([float(row["latency_ms"]) for row in rows], dtype=float)
     accuracy = np.asarray(
